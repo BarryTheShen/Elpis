@@ -10,8 +10,10 @@ import httpx
 
 from condenseit.digest.format import build_digest_markdown
 from condenseit.providers.base import (
+    CHAT_SYSTEM_PROMPT,
     ArticleSummary,
     SummarizerProvider,
+    build_chat_user_prompt,
     parse_summary_response,
 )
 from condenseit.providers.budget import BudgetTracker
@@ -19,40 +21,6 @@ from condenseit.providers.budget import BudgetTracker
 logger = logging.getLogger(__name__)
 
 OPENROUTER_URL = "https://openrouter.ai/api/v1/chat/completions"
-
-_SYSTEM_PROMPT = (
-    "You are a concise news analyst. Respond ONLY with a JSON object — "
-    "no markdown, no code fences, no additional text. "
-    "Write all JSON field values in English regardless of the article's language."
-)
-
-
-def _build_user_prompt(
-    title: str,
-    content: str,
-    max_key_takeaways: int = 5,
-    max_summary_paragraphs: int = 5,
-) -> str:
-    """Build the per-article user prompt with configurable output size."""
-    takeaway_placeholders = ", ".join(
-        f'"<takeaway {i + 1}>"' for i in range(max_key_takeaways)
-    )
-    para_word = "paragraph" if max_summary_paragraphs == 1 else "paragraphs"
-
-    return (
-        "Analyze this article and respond with a JSON object "
-        "in exactly this structure. All values must be written in English:\n"
-        f"{{\n"
-        f'  "tldr": "<one sentence in English: what happened and why it matters>",\n'
-        f'  "key_takeaways": [{takeaway_placeholders}],\n'
-        f'  "summary": "<detailed summary in English, {max_summary_paragraphs} {para_word}>",\n'  # noqa: E501
-        f'  "topics": ["<topic-1>", "<topic-2>", "<topic-3>"],\n'
-        f'  "entities": ["<person-org-product-1>", "<entity-2>"],\n'
-        f'  "novelty": <integer 1-5: how surprising or novel vs mainstream coverage>\n'
-        f"}}\n\n"
-        f"Title: {title}\n"
-        f"Content: {content}"
-    )
 
 
 class OpenRouterSummarizer(SummarizerProvider):
@@ -134,10 +102,10 @@ class OpenRouterSummarizer(SummarizerProvider):
         content = (article.get("content") or "")[:4000]
         title = article.get("title", "Untitled")
         messages = [
-            {"role": "system", "content": _SYSTEM_PROMPT},
+            {"role": "system", "content": CHAT_SYSTEM_PROMPT},
             {
                 "role": "user",
-                "content": _build_user_prompt(
+                "content": build_chat_user_prompt(
                     title,
                     content,
                     self.max_key_takeaways,
