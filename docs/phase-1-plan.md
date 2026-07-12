@@ -45,8 +45,12 @@ Product naming remains intentionally neutral until an approved identity exists.
 
 ## Verification and rollback
 
-Verification is: targeted FastAPI authorization tests, `npm run build`, local
-Docker startup on the existing single `8899` port, `/health`, and desktop/mobile
-browser checks. A coherent Phase 1 commit is recoverable by reverting that
-commit; deployment config remains compatible with the tagged
-`condenseit-upstream-baseline`.
+Verification completed: targeted FastAPI authorization tests, `npm run build`,
+desktop and 390 px browser checks, and Compose configuration validation. The
+Compose healthcheck ran successfully against the published upstream image on
+the existing single `8899` port. Source-checkout image verification remains
+pending: this environment's Docker mirror rejected the Docker Hub base-image
+requests and direct registry access timed out. Re-run `docker compose up -d
+--build` after Docker Hub access is repaired. A coherent Phase 1 commit is
+recoverable by reverting it; deployment config remains compatible with the
+tagged `condenseit-upstream-baseline`.
