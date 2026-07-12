@@ -26,10 +26,12 @@ type RatingsMap = Record<string, number>;
 
 interface DigestPageProps {
   onDigestLoaded?: (id: number | null) => void;
+  /** Public readers can browse sources but cannot change personal signals. */
+  readOnly?: boolean;
 }
 
-/** Digest viewer page. Fetches from /api/digests; ratings POST to /api/ratings. */
-export function DigestPage({ onDigestLoaded }: DigestPageProps) {
+/** Digest viewer page. Fetches the published digest and optional personal state. */
+export function DigestPage({ onDigestLoaded, readOnly = false }: DigestPageProps) {
   const search = useSearch();
   const params = new URLSearchParams(search);
   const requestedId = params.get('id') ? Number(params.get('id')) : null;
@@ -66,11 +68,21 @@ export function DigestPage({ onDigestLoaded }: DigestPageProps) {
         ? api.getDigest(requestedId)
         : api.getLatestDigest();
 
+    const readUrlsRequest = readOnly
+      ? Promise.resolve({ urls: [] as string[] })
+      : api.getReadUrls().catch(() => ({ urls: [] as string[] }));
+    const readLaterUrlsRequest = readOnly
+      ? Promise.resolve({ urls: [] as string[] })
+      : api.getReadLaterUrls().catch(() => ({ urls: [] as string[] }));
+    const starredUrlsRequest = readOnly
+      ? Promise.resolve({ urls: [] as string[] })
+      : api.getStarredUrls().catch(() => ({ urls: [] as string[] }));
+
     Promise.all([
       load,
-      api.getReadUrls().catch((): { urls: string[] } => ({ urls: [] })),
-      api.getReadLaterUrls().catch((): { urls: string[] } => ({ urls: [] })),
-      api.getStarredUrls().catch((): { urls: string[] } => ({ urls: [] })),
+      readUrlsRequest,
+      readLaterUrlsRequest,
+      starredUrlsRequest,
     ])
       .then(([d, { urls: fetchedReadUrls }, { urls: fetchedReadLaterUrls }, { urls: fetchedStarredUrls }]) => {
         setDetail(d);
@@ -96,7 +108,7 @@ export function DigestPage({ onDigestLoaded }: DigestPageProps) {
         setError(e instanceof Error ? e.message : 'Failed to load digest.');
       })
       .finally(() => setLoading(false));
-  }, [requestedId]);
+  }, [requestedId, readOnly, onDigestLoaded]);
 
   /** Update ratings after a card-level save. */
   const handleRate = useCallback((url: string, rating: number) => {
@@ -231,11 +243,17 @@ export function DigestPage({ onDigestLoaded }: DigestPageProps) {
     return (
       <EmptyState
         title="No digest yet"
-        description="Click Run digest in the header to generate one, or configure your sources first."
+        description={
+          readOnly
+            ? 'A daily briefing will appear here once it is published.'
+            : 'Click Run digest in the header to generate one, or configure your sources first.'
+        }
         action={
-          <a href="/admin/sources" class="inline-flex items-center px-4 py-2 text-sm font-semibold bg-teal-600 text-white rounded-lg hover:bg-teal-700 transition-colors">
-            Configure sources
-          </a>
+          readOnly ? undefined : (
+            <a href="/admin/sources" class="inline-flex items-center px-4 py-2 text-sm font-semibold bg-teal-600 text-white rounded-lg hover:bg-teal-700 transition-colors">
+              Configure sources
+            </a>
+          )
         }
         icon={
           <svg class="w-10 h-10" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5">
@@ -251,9 +269,11 @@ export function DigestPage({ onDigestLoaded }: DigestPageProps) {
 
   const readCount = filtered.filter((i) => readUrls.has(i.url)).length;
 
-  const visibleItems = hideRead
-    ? filtered.filter((i) => !readUrls.has(i.url))
-    : filtered;
+  const visibleItems = readOnly
+    ? filtered
+    : hideRead
+      ? filtered.filter((i) => !readUrls.has(i.url))
+      : filtered;
 
   return (
     <div class="space-y-4">
@@ -278,9 +298,11 @@ export function DigestPage({ onDigestLoaded }: DigestPageProps) {
           <FilterPanel
             items={items}
             onFiltered={handleFiltered}
-            readCount={readCount}
+            readCount={readOnly ? 0 : readCount}
             hideRead={hideRead}
-            onToggleHideRead={() => setHideRead((h) => !h)}
+            onToggleHideRead={
+              readOnly ? undefined : () => setHideRead((h) => !h)
+            }
           />
 
           <div class="px-4 py-3 border-b border-slate-100 dark:border-slate-800 flex items-center justify-between gap-4 flex-wrap">
@@ -308,14 +330,15 @@ export function DigestPage({ onDigestLoaded }: DigestPageProps) {
                   <DigestCard
                     key={item.url}
                     item={item}
-                    onRate={handleRate}
-                    onMarkRead={handleMarkRead}
+                    readOnly={readOnly}
+                    onRate={readOnly ? undefined : handleRate}
+                    onMarkRead={readOnly ? undefined : handleMarkRead}
                     isRead={readUrls.has(item.url)}
-                    onSelect={setSelectedItem}
-                    onReadLater={handleReadLater}
+                    onSelect={readOnly ? undefined : setSelectedItem}
+                    onReadLater={readOnly ? undefined : handleReadLater}
                     isReadLater={readLaterUrls.has(item.url)}
-                    onDismiss={handleDismiss}
-                    onToggleStar={handleToggleStar}
+                    onDismiss={readOnly ? undefined : handleDismiss}
+                    onToggleStar={readOnly ? undefined : handleToggleStar}
                     isStarred={starredUrls.has(item.url)}
                   />
                 );
@@ -326,7 +349,7 @@ export function DigestPage({ onDigestLoaded }: DigestPageProps) {
       )}
 
       {/* Item detail panel (slide-over) */}
-      {selectedItem && (
+      {!readOnly && selectedItem && (
         <ItemDetailPanel
           item={normalizeItem({
             ...selectedItem,

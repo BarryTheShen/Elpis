@@ -8,7 +8,7 @@ from fastapi.testclient import TestClient
 from condenseit.store.database import ContentStore
 from condenseit.web.app import _digest_cost_usd, create_app
 
-# All API routes now require auth. Use the built-in default password via Bearer token.
+# Operational APIs remain authenticated; publication reads are intentionally public.
 _AUTH = {"Authorization": "Bearer condenseit"}
 
 
@@ -23,15 +23,18 @@ def test_health_and_api_endpoints(
     health = client.get("/health")
     assert health.json() == {"status": "ok"}
 
+    unauthenticated_status = client.get("/api/digest/status")
+    assert unauthenticated_status.status_code == 401
+
     status = client.get("/api/digest/status", headers=_AUTH)
     assert status.json()["state"] == "idle"
 
-    # Digest list and latest (empty DB)
-    digests = client.get("/api/digests", headers=_AUTH)
+    # Publication reads are public, even before the first digest is generated.
+    digests = client.get("/api/digests")
     assert digests.status_code == 200
     assert digests.json() == []
 
-    latest = client.get("/api/digests/latest", headers=_AUTH)
+    latest = client.get("/api/digests/latest")
     assert latest.status_code == 200
     assert latest.json() is None
 
@@ -40,35 +43,29 @@ def test_spa_shell_served_for_ui_routes(
     monkeypatch: pytest.MonkeyPatch,
     tmp_path,
 ) -> None:
-    """Pages served as SPA shell when frontend/dist is present."""
-    monkeypatch.setenv("CONDENSEIT_DATA_DIR", str(tmp_path / "data"))
-    client = TestClient(create_app())
-    home = client.get("/")
-    assert home.status_code == 200
-    assert "CondenseIt" in home.text
-
-    admin = client.get("/admin/")
-    assert admin.status_code == 200
-    assert "Admin" in admin.text
-
-
-def test_spa_uses_condenseit_frontend_dist_override(
-    monkeypatch: pytest.MonkeyPatch,
-    tmp_path,
-) -> None:
-    """Explicit ``CONDENSEIT_FRONTEND_DIST`` is used (Docker layout)."""
+    """Publication and admin routes use the SPA shell when dist is configured."""
     dist = tmp_path / "dist"
     dist.mkdir()
     (dist / "index.html").write_text(
-        "<!DOCTYPE html><html><title>CondenseIt</title>override-marker</html>",
+        "<!DOCTYPE html><html>spa-shell-marker</html>",
         encoding="utf-8",
     )
     monkeypatch.setenv("CONDENSEIT_DATA_DIR", str(tmp_path / "data"))
     monkeypatch.setenv("CONDENSEIT_FRONTEND_DIST", str(dist))
     client = TestClient(create_app())
+
     home = client.get("/")
     assert home.status_code == 200
-    assert "override-marker" in home.text
+    assert "spa-shell-marker" in home.text
+
+    admin = client.get("/admin/sources")
+    assert admin.status_code == 200
+    assert "spa-shell-marker" in admin.text
+
+    legacy_admin_write = client.post("/admin/sources")
+    assert legacy_admin_write.status_code == 401
+
+
 
 
 def test_sources_api_updates_source_configuration(
@@ -148,19 +145,33 @@ def test_digest_api_returns_items(
             },
         ],
     }
-    store.save_digest("# Hello", "<p>Hello</p>", json.dumps(payload))
+    digest_id = store.save_digest(
+        "<script>window.pwned = true</script>\n# Hello",
+        "<p>Hello</p>",
+        json.dumps(payload),
+    )
+    store.rate_article("https://example.com/a", 5)
     client = TestClient(create_app())
 
-    latest = client.get("/api/digests/latest", headers=_AUTH)
+    latest = client.get("/api/digests/latest")
     assert latest.status_code == 200
     data = latest.json()
     assert data is not None
+    assert "html" not in data
+    assert "<script>" not in json.dumps(data)
     assert len(data["items"]) == 1
     item = data["items"][0]
     assert item["title"] == "Hello"
     # Summary should have LLM prefix stripped
     assert not item["summary"].startswith("Here is")
     assert "Summary text" in item["summary"]
+    assert "rating" not in item
+
+    detail = client.get(f"/api/digests/{digest_id}")
+    assert detail.status_code == 200
+    assert detail.json()["meta"]["id"] == digest_id
+    assert "html" not in detail.json()
+    assert "rating" not in detail.json()["items"][0]
 
 
 def test_digest_cost_uses_explicit_spending_link(tmp_path) -> None:

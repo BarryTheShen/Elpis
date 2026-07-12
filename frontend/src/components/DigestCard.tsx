@@ -102,6 +102,8 @@ function ScoreBreakdownPanel({ breakdown }: { breakdown: ScoreBreakdown }) {
 
 interface DigestCardProps {
   item: DigestItem;
+  /** Omit every personal action when rendering the public publication. */
+  readOnly?: boolean;
   /** Called with (url, newRating) after a successful save so the parent can
    *  update its own state map. */
   onRate?: (url: string, rating: number) => void;
@@ -133,6 +135,7 @@ interface DigestCardProps {
  */
 export function DigestCard({
   item,
+  readOnly = false,
   onRate,
   onMarkRead,
   isRead = false,
@@ -167,7 +170,7 @@ export function DigestCard({
   }, [item.rating]);
 
   async function handleRate(rating: number) {
-    if (saving) return;
+    if (readOnly || saving) return;
     setLocalRating(rating);
     setSaving(true);
     try {
@@ -457,18 +460,20 @@ export function DigestCard({
               )}
             </div>
 
-            <div class="ml-auto flex items-center gap-2 shrink-0">
-              <RatingStars
-                value={localRating}
-                onChange={handleRate}
-                disabled={saving}
-              />
-              {savedFlash && (
-                <span class="text-xs text-teal-600 dark:text-teal-400 font-medium">
-                  Saved
-                </span>
-              )}
-            </div>
+            {!readOnly && (
+              <div class="ml-auto flex items-center gap-2 shrink-0">
+                <RatingStars
+                  value={localRating}
+                  onChange={handleRate}
+                  disabled={saving}
+                />
+                {savedFlash && (
+                  <span class="text-xs text-teal-600 dark:text-teal-400 font-medium">
+                    Saved
+                  </span>
+                )}
+              </div>
+            )}
           </div>
         </div>
       )}

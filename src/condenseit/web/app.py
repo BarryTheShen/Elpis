@@ -52,6 +52,24 @@ from condenseit.web.templating import page_context, templates
 _STATIC = Path(__file__).resolve().parent / "static"
 _TIME_RE = re.compile(r"^([01]\d|2[0-3]):([0-5]\d)$")
 
+_PUBLICATION_API_PATHS = frozenset(
+    {
+        "/api/digests",
+        "/api/digests/latest",
+    }
+)
+_DIGEST_DETAIL_PATH = re.compile(r"^/api/digests/\d+$")
+
+
+def _is_publication_read_request(request: Request) -> bool:
+    """Return whether a request is a deliberately public read-only endpoint."""
+    if request.method != "GET":
+        return False
+    path = request.url.path
+    return path in _PUBLICATION_API_PATHS or bool(
+        _DIGEST_DETAIL_PATH.fullmatch(path)
+    )
+
 
 def _frontend_dist_dir() -> Path:
     override = (os.environ.get("CONDENSEIT_FRONTEND_DIST") or "").strip()
@@ -204,6 +222,17 @@ def create_app(config_path: str | None = None) -> FastAPI:
             return db_pw
         return _env_auth_password if _env_auth_password else default_auth_password
 
+    def _has_admin_access(request: Request) -> bool:
+        """Return whether a request supplied a valid admin credential."""
+        session: dict[str, Any] = getattr(request, "session", {})
+        if session.get("authenticated"):
+            return True
+        auth_header = request.headers.get("Authorization", "")
+        return auth_header.startswith("Bearer ") and secrets.compare_digest(
+            auth_header[len("Bearer ") :].strip(),
+            _get_auth_password(),
+        )
+
     @app.get("/api/auth/check", response_model=None)
     async def api_auth_check(request: Request) -> JSONResponse:
         session: dict[str, Any] = getattr(request, "session", {})
@@ -234,22 +263,26 @@ def create_app(config_path: str | None = None) -> FastAPI:
         call_next: Callable,
     ) -> Response:
         path = request.url.path
-        if path.startswith("/api/") and not path.startswith("/api/auth/"):
-            effective_pw = _get_auth_password()
-            auth_header = request.headers.get("Authorization", "")
-            bearer_ok = auth_header.startswith("Bearer ") and secrets.compare_digest(
-                auth_header[len("Bearer ") :].strip(),
-                effective_pw,
+        is_protected_api = (
+            path.startswith("/api/")
+            and not path.startswith("/api/auth/")
+            and not _is_publication_read_request(request)
+        )
+        is_admin_route = path == "/admin" or path.startswith("/admin/")
+        if is_protected_api or is_admin_route:
+            admin_access = _has_admin_access(request)
+            # Feed readers use a dedicated token only for the Atom feed, never
+            # to reach administration or operational endpoints.
+            token_param = (
+                request.query_params.get("token", "")
+                if path == "/api/feed/atom"
+                else ""
             )
-            # Feed readers pass the token as a query param; validate it
-            # against the dedicated feed token (independent of admin password).
-            token_param = request.query_params.get("token", "")
             feed_token = store.get_setting("feed_token", "") if token_param else ""
             token_ok = bool(feed_token) and secrets.compare_digest(
                 token_param, feed_token
             )
-            session: dict[str, Any] = getattr(request, "session", {})
-            if not bearer_ok and not token_ok and not session.get("authenticated"):
+            if not admin_access and not token_ok:
                 return JSONResponse(
                     {"detail": "Not authenticated"},
                     status_code=401,
@@ -266,6 +299,18 @@ def create_app(config_path: str | None = None) -> FastAPI:
         same_site="lax",
     )
 
+    @app.middleware("http")
+    async def _serve_spa_admin_shell(request: Request, call_next: Callable) -> Response:
+        """Serve the client-side admin boundary before legacy page routes."""
+        path = request.url.path
+        if (
+            spa_dist.is_dir()
+            and request.method == "GET"
+            and (path == "/admin" or path.startswith("/admin/"))
+        ):
+            return FileResponse(spa_dist / "index.html")
+        return await call_next(request)
+
     if _STATIC.is_dir():
         app.mount("/static", StaticFiles(directory=str(_STATIC)), name="static")
 
@@ -280,18 +325,32 @@ def create_app(config_path: str | None = None) -> FastAPI:
         )
 
     @app.get("/api/digests/latest", response_model=None)
-    async def api_latest_digest() -> JSONResponse:
+    async def api_latest_digest(request: Request) -> JSONResponse:
         row = store.latest_digest()
         if not row:
             return JSONResponse(None)
-        return JSONResponse(_build_digest_detail(row, store))
+        return JSONResponse(
+            _build_digest_detail(
+                row,
+                store,
+                include_personal_state=_has_admin_access(request),
+            )
+        )
 
     @app.get("/api/digests/{digest_id}", response_model=None)
-    async def api_get_digest(digest_id: int) -> JSONResponse:
+    async def api_get_digest(
+        request: Request, digest_id: int
+    ) -> JSONResponse:
         rows = list(store.db.query("SELECT * FROM digests WHERE id = ?", [digest_id]))
         if not rows:
             return JSONResponse(None, status_code=404)
-        return JSONResponse(_build_digest_detail(dict(rows[0]), store))
+        return JSONResponse(
+            _build_digest_detail(
+                dict(rows[0]),
+                store,
+                include_personal_state=_has_admin_access(request),
+            )
+        )
 
     @app.get("/api/digest/status")
     async def api_digest_status() -> dict[str, Any]:
@@ -1158,21 +1217,24 @@ def _spending_has_column(store: ContentStore, column: str) -> bool:
 
 def _build_digest_detail(
     row: dict[str, Any],
-    store: ContentStore | None = None,
+    store: ContentStore,
+    *,
+    include_personal_state: bool,
 ) -> dict[str, Any]:
-    md = row.get("markdown") or ""
-    html = markdown.markdown(md, extensions=["tables", "fenced_code"])
+    """Build a digest response without leaking personal state to public reads."""
     meta = _parse_stats(row.get("stats_json", ""))
     raw_items = meta.pop("digest_items", None)
     items: list[dict[str, Any]] = raw_items if isinstance(raw_items, list) else []
     meta["created_at"] = row.get("created_at", "")
     meta["id"] = row.get("id")
     cleaned = _clean_items(items)
-    if store is not None:
+    if include_personal_state:
         cleaned = _attach_ratings(store, cleaned)
+    else:
+        for item in cleaned:
+            item.pop("rating", None)
     return {
         "meta": meta,
-        "html": html,
         "items": cleaned,
     }
 

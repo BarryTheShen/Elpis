@@ -4,6 +4,7 @@ import type { JSX } from 'preact';
 
 import { ThemeToggle } from '../components/ThemeToggle';
 import { login } from '../lib/auth';
+import { product } from '../lib/product';
 
 interface LoginPageProps {
   /** Called when the user successfully authenticates. */
@@ -57,16 +58,16 @@ export function LoginPage({ onLogin }: LoginPageProps) {
         <div class='flex flex-col items-center gap-3 mb-8'>
           <span
             class='w-12 h-12 rounded-xl flex items-center justify-center text-white font-black text-lg select-none'
-            style='background: linear-gradient(135deg, #0d9488, #6366f1)'
+            style={{ background: '#2783de' }}
           >
-            C
+            {product.mark}
           </span>
           <div class='text-center'>
             <h1 class='text-lg font-bold text-slate-900 dark:text-slate-100 leading-tight'>
-              CondenseIt
+              {product.name}
             </h1>
             <p class='text-sm text-slate-500 dark:text-slate-400'>
-              Sign in to your digest
+              Admin sign-in
             </p>
           </div>
         </div>
@@ -98,7 +99,7 @@ export function LoginPage({ onLogin }: LoginPageProps) {
                 'transition-colors',
                 error
                   ? 'border-red-400 dark:border-red-500 focus:border-red-500 dark:focus:border-red-400'
-                  : 'border-slate-300 dark:border-slate-600 focus:border-teal-500 dark:focus:border-teal-400',
+                  : 'border-slate-300 dark:border-slate-600 focus:border-[#2783de] dark:focus:border-[#2783de]',
               ].join(' ')}
             />
           </div>
@@ -118,7 +119,7 @@ export function LoginPage({ onLogin }: LoginPageProps) {
             disabled={loading || !password.trim()}
             class={[
               'w-full py-2.5 rounded-lg text-sm font-semibold text-white',
-              'bg-teal-600 hover:bg-teal-700 dark:bg-teal-500 dark:hover:bg-teal-600',
+              'bg-[#2783de] hover:bg-[#1e6fbf] dark:bg-[#2783de] dark:hover:bg-[#1e6fbf]',
               'transition-colors',
               'disabled:opacity-50 disabled:cursor-not-allowed',
               'flex items-center justify-center gap-2',

@@ -2,6 +2,7 @@ import { Link, useLocation } from 'wouter';
 
 import { JobBanner } from './JobBanner';
 import { ThemeToggle } from './ThemeToggle';
+import { product } from '../lib/product';
 
 interface NavLink {
   href: string;
@@ -47,10 +48,10 @@ export function Header({
 
           <Link
             href="/"
-            class="flex items-center gap-2 font-bold text-slate-900 dark:text-slate-100 hover:text-teal-600 dark:hover:text-teal-400 transition-colors no-underline"
+            class="flex items-center gap-2 font-bold text-slate-900 dark:text-slate-100 hover:text-[#2783de] dark:hover:text-[#2783de] transition-colors no-underline"
           >
             <BrandMark />
-            <span class="hidden sm:inline">CondenseIt</span>
+            <span class="hidden sm:inline">{product.name}</span>
           </Link>
         </div>
 
@@ -69,7 +70,7 @@ export function Header({
                   class={[
                     'px-3 py-1.5 rounded-lg text-sm font-medium transition-colors no-underline',
                     active
-                      ? 'text-teal-600 dark:text-teal-400 bg-teal-50 dark:bg-teal-900/20'
+                      ? 'text-[#2783de] bg-[#e5f2fc] dark:bg-slate-800'
                       : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-100 hover:bg-slate-100 dark:hover:bg-slate-800',
                   ].join(' ')}
                 >
@@ -119,9 +120,9 @@ function BrandMark() {
   return (
     <span
       class="w-7 h-7 rounded-lg flex-shrink-0 flex items-center justify-center text-white font-black text-xs"
-      style="background: linear-gradient(135deg, #0d9488, #6366f1)"
+      style={{ background: '#2783de' }}
     >
-      C
+      {product.mark}
     </span>
   );
 }
