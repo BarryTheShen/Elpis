@@ -1,6 +1,6 @@
 # Deploy to a VPS (Ubuntu 24.04 / Hetzner)
 
-CondenseIt runs well on a small Ubuntu 24.04 VPS. This guide uses Hetzner
+Elpis runs well on a small Ubuntu 24.04 VPS. This guide uses Hetzner
 Cloud as the provider example but the steps apply to any Ubuntu 24.04 server
 (DigitalOcean, Linode, AWS EC2, etc.).
 
@@ -9,13 +9,13 @@ Cloud as the provider example but the steps apply to any Ubuntu 24.04 server
 ```
 Browser → nginx (80/443, TLS via Certbot)
               │
-              ├── /api/**  → uvicorn at 127.0.0.1:8765 (condenseit-web.service)
-              └── /**      → /var/www/your.domain  (frontend/dist, static files)
+              └── /**      → Elpis at 127.0.0.1:8765 (elpis-web.service)
 ```
 
-- **nginx** terminates TLS and serves the static SPA directly from disk.
-- **condenseit-web.service** (systemd) runs uvicorn on a local port.
-- SQLite lives at `~/condenseit/data/condenseit.db` on the VPS.
+- **nginx** terminates TLS and proxies every route through Elpis so server-side
+  authorization applies to `/admin/*`.
+- **elpis-web.service** (systemd) runs uvicorn on a local port.
+- SQLite lives at `~/elpis/data/condenseit.db` on the VPS.
 - The built-in scheduler handles digest runs if you enable it.
 
 ## Prerequisites
@@ -45,7 +45,7 @@ brew install hcloud   # macOS
 
 # Create server
 hcloud server create \
-  --name condenseit \
+  --name elpis \
   --type cx22 \
   --image ubuntu-24.04 \
   --ssh-key ~/.ssh/id_ed25519.pub \
@@ -57,7 +57,7 @@ hcloud server create \
 Add to `~/.ssh/config` on your local machine:
 
 ```
-Host digest-vps
+Host elpis-vps
     HostName 203.0.113.10      # replace with your actual IP
     User root
     IdentityFile ~/.ssh/id_ed25519
@@ -66,7 +66,7 @@ Host digest-vps
 Test the connection:
 
 ```bash
-ssh digest-vps 'echo ok'
+ssh elpis-vps 'echo ok'
 ```
 
 ## Step 2: provision the server (run once)
@@ -75,14 +75,14 @@ The provisioning script installs system dependencies on the fresh Ubuntu 24.04
 server. Run it from your local machine:
 
 ```bash
-ssh digest-vps 'bash -s' < scripts/provision-ubuntu.sh
+ssh elpis-vps 'bash -s' < scripts/provision-ubuntu.sh
 ```
 
 Or copy it and run it directly on the server:
 
 ```bash
-scp scripts/provision-ubuntu.sh digest-vps:/tmp/
-ssh digest-vps 'sudo bash /tmp/provision-ubuntu.sh'
+scp scripts/provision-ubuntu.sh elpis-vps:/tmp/
+ssh elpis-vps 'sudo bash /tmp/provision-ubuntu.sh'
 ```
 
 This installs: nginx, python3, certbot, ufw, fail2ban, rsync, curl. It also
@@ -93,8 +93,8 @@ creates a 2 GB swap file and enables unattended security upgrades.
 Add to `.env` in the repo root:
 
 ```
-DIGEST_PWA_SSH_HOST=digest-vps       # matches your ~/.ssh/config alias
-DIGEST_PWA_DOMAIN=your.domain        # e.g. digest.example.com
+DIGEST_PWA_SSH_HOST=elpis-vps        # matches your ~/.ssh/config alias
+DIGEST_PWA_DOMAIN=your.domain         # e.g. elpis.example.com
 CONDENSEIT_AUTH_PASSWORD=strong-password
 ```
 
@@ -112,10 +112,10 @@ CONDENSEIT_SCHEDULER_ENABLED=1      # run digests automatically
 ## Step 4: copy the nginx template
 
 ```bash
-cp scripts/nginx/digest.example.com.conf scripts/nginx/your.domain.conf
+cp scripts/nginx/elpis.example.com.conf scripts/nginx/your.domain.conf
 ```
 
-Edit the new file and replace every occurrence of `digest.example.com` with
+Edit the new file and replace every occurrence of `elpis.example.com` with
 your actual domain. Also update the log paths if you like.
 
 ## Step 5: bootstrap the VPS (run once)
@@ -130,9 +130,9 @@ This will:
 
 1. Build a Python wheel and upload it to the VPS.
 2. Prompt for your OpenRouter API key, app password, and scheduler preference.
-3. Write `~/condenseit/.env` on the VPS (secrets stay on the server, never
+3. Write `~/elpis/.env` on the VPS (secrets stay on the server, never
    in git).
-4. Install the `condenseit-web` systemd service and start it.
+4. Install the `elpis-web` systemd service and start it.
 5. Install and enable the nginx vhost.
 
 ## Step 6: deploy
@@ -149,7 +149,7 @@ and restarts the service.
 Once the DNS A record for your domain is pointing at the VPS IP:
 
 ```bash
-ssh digest-vps 'sudo certbot --nginx -d your.domain'
+ssh elpis-vps 'sudo certbot --nginx -d your.domain'
 ```
 
 Certbot will edit the nginx config and enable HTTPS with auto-renewal.
@@ -157,7 +157,7 @@ Certbot will edit the nginx config and enable HTTPS with auto-renewal.
 Verify renewal works:
 
 ```bash
-ssh digest-vps 'sudo certbot renew --dry-run'
+ssh elpis-vps 'sudo certbot renew --dry-run'
 ```
 
 ## Deploying updates
@@ -168,8 +168,8 @@ After changing code, config, or feeds:
 ./scripts/deploy.sh
 ```
 
-`deploy.sh` stops `condenseit-web`, optionally syncs the database (`--sync-db`),
-runs `condenseit migrate` on the VPS (applies schema changes from the newly
+`deploy.sh` stops `elpis-web`, optionally syncs the database (`--sync-db`),
+runs `elpis migrate` on the VPS (applies schema changes from the newly
 installed wheel), rsyncs the frontend, then starts the service again.
 
 Skip the frontend build if only the Python code changed:
@@ -182,45 +182,45 @@ Skip the frontend build if only the Python code changed:
 
 ```bash
 # View live logs
-ssh digest-vps 'journalctl -u condenseit-web -f'
+ssh elpis-vps 'journalctl -u elpis-web -f'
 
 # Last 50 lines
-ssh digest-vps 'journalctl -u condenseit-web -n 50'
+ssh elpis-vps 'journalctl -u elpis-web -n 50'
 
 # Status
-ssh digest-vps 'sudo systemctl status condenseit-web'
+ssh elpis-vps 'sudo systemctl status elpis-web'
 
 # Restart
-ssh digest-vps 'sudo systemctl restart condenseit-web'
+ssh elpis-vps 'sudo systemctl restart elpis-web'
 
 # Stop
-ssh digest-vps 'sudo systemctl stop condenseit-web'
+ssh elpis-vps 'sudo systemctl stop elpis-web'
 ```
 
 ## Updating configuration
 
-The VPS reads `~/condenseit/.env` and `~/condenseit/config.yaml`. After
+The VPS reads `~/elpis/.env` and `~/elpis/config.yaml`. After
 `deploy.sh` syncs a new wheel you can also push a fresh config:
 
 ```bash
 # Push config only (no code rebuild)
-ssh digest-vps 'cat > ~/condenseit/config.yaml' < config.yaml
-ssh digest-vps 'sudo systemctl restart condenseit-web'
+ssh elpis-vps 'cat > ~/elpis/config.yaml' < config.yaml
+ssh elpis-vps 'sudo systemctl restart elpis-web'
 ```
 
 ## Backups
 
-The SQLite database lives at `~/condenseit/data/condenseit.db` on the VPS.
+The SQLite database lives at `~/elpis/data/condenseit.db` on the VPS.
 Back it up before major updates:
 
 ```bash
-ssh digest-vps 'cp ~/condenseit/data/condenseit.db ~/condenseit/data/condenseit.db.bak'
+ssh elpis-vps 'cp ~/elpis/data/condenseit.db ~/elpis/data/condenseit.db.bak'
 ```
 
 Or pull it locally:
 
 ```bash
-rsync -avz digest-vps:~/condenseit/data/condenseit.db ./data/condenseit.db.remote
+rsync -avz elpis-vps:~/elpis/data/condenseit.db ./data/condenseit.db.remote
 ```
 
 ## Troubleshooting

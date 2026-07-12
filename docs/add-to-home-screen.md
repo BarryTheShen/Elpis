@@ -7,7 +7,7 @@ uses the same digest reader and admin panel as the desktop site.
 ## Before you start
 
 1. **Open your live Elpis URL** in the mobile browser (for example
-   `https://digest.example.com` after you deploy, or your LAN URL during local
+   `https://elpis.example.com` after you deploy, or your LAN URL during local
    testing).
 2. **Sign in** if your instance uses a password. The home-screen shortcut opens
    that same origin; you stay signed in until the session expires or you clear

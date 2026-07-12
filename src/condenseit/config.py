@@ -197,7 +197,7 @@ class VpsConfig(BaseModel):
 
     enabled: bool = True
     host: str = ""
-    path: str = "/var/www/condenseit/"
+    path: str = "/var/www/elpis/"
     ssh_key: str = "~/.ssh/id_ed25519"
     ssh_port: int = 22
     digest_url: str = ""

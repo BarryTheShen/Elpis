@@ -1,6 +1,6 @@
-# Agent guide: deploy CondenseIt locally
+# Agent guide: deploy Elpis locally
 
-This document is for an AI coding agent setting up CondenseIt on a developer's
+This document is for an AI coding agent setting up Elpis on a developer's
 local machine. Follow phases in order. Verify each step's output before
 continuing.
 
@@ -8,7 +8,7 @@ continuing.
 
 ## Context
 
-CondenseIt is a Python/FastAPI app with a Preact SPA frontend and an SQLite
+Elpis is a Python/FastAPI app with a Preact SPA frontend and an SQLite
 database. For local deployment it runs natively with `uv` or inside Docker
 (web UI only; digests run on the host). The recommended path is native.
 
@@ -47,8 +47,8 @@ ollama --version
 ## Phase 1: clone the repository
 
 ```bash
-git clone https://github.com/wildlifechorus/condenseit
-cd condenseit
+git clone https://github.com/BarryTheShen/Elpis.git
+cd Elpis
 ```
 
 Verify:
@@ -69,7 +69,7 @@ uv sync
 Verify:
 
 ```bash
-uv run condenseit --help
+uv run elpis --help
 # Expected: usage text with commands: run, serve, status
 ```
 
@@ -166,7 +166,7 @@ ls frontend/dist/index.html
 ## Phase 6: start the web UI
 
 ```bash
-uv run condenseit serve
+uv run elpis serve
 ```
 
 Expected output:
@@ -185,16 +185,16 @@ SPA should load.
 In a second terminal (or from the web UI header):
 
 ```bash
-cd /path/to/condenseit
-uv run condenseit run
+cd /path/to/Elpis
+uv run elpis run
 ```
 
 Expected output shows feed collection, LLM summarization, and finishes with a
-CondenseIt panel containing "Digest complete." and article/video/time/model
+Elpis panel containing "Digest complete." and article/video/time/model
 counts, for example:
 
 ```
-╭─────────── CondenseIt ────────────╮
+╭───────────── Elpis ─────────────╮
 │ Digest complete.                  │
 │ Articles: 42                      │
 │ Videos: 3                         │
@@ -267,7 +267,7 @@ If the user prefers Docker instead of native:
 ./scripts/docker-up.sh
 
 # Run a digest on the host (keeps Metal GPU acceleration)
-uv run condenseit run
+uv run elpis run
 
 # Stop
 ./scripts/docker-down.sh
@@ -283,10 +283,10 @@ database.
 | Symptom | Action |
 |---------|--------|
 | `uv: command not found` | `pip install uv` or `brew install uv` |
-| `condenseit: command not found` | Use `uv run condenseit` instead |
+| `elpis: command not found` | Use `uv run elpis` instead |
 | Frontend shows blank page | Verify `frontend/dist/index.html` exists; rebuild with `cd frontend && npm run build` |
 | Ollama timeout during digest | Ensure `ollama serve` is running; check `OLLAMA_HOST` in `.env` |
 | OpenRouter 401 error | Check `OPENROUTER_API_KEY` in `.env` is valid |
-| Port 8899 already in use | Use `condenseit serve --port 9000` |
-| Digests not appearing in UI | Check the terminal running `condenseit serve` for Python errors |
+| Port 8899 already in use | Use `elpis serve --port 9000` |
+| Digests not appearing in UI | Check the terminal running `elpis serve` for Python errors |
 | `uv sync` fails on Python version | Install Python 3.11 or 3.12: `brew install python@3.12` |

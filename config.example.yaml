@@ -211,8 +211,8 @@ llm:
 vps:
   enabled: true
   host: ""
-  path: "/var/www/digest.example.com"
+  path: "/var/www/elpis.example.com"
   ssh_key: "~/.ssh/id_ed25519"
   ssh_port: 22
-  digest_url: "https://digest.example.com"
+  digest_url: "https://elpis.example.com"
 

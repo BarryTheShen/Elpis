@@ -1,9 +1,9 @@
 #!/usr/bin/env bash
 # =============================================================
-# bootstrap-server.sh - One-time VPS setup for a CondenseIt instance
+# bootstrap-server.sh - One-time VPS setup for an Elpis instance
 #
 # Runs from your LOCAL machine over SSH and:
-#   1. Creates <app_dir>/.venv and installs condenseit
+#   1. Creates <app_dir>/.venv and installs Elpis
 #   2. Creates <app_dir>/.env with your secrets (prompted)
 #   3. Installs a systemd unit that reads EnvironmentFile=<app_dir>/.env
 #   4. Installs the nginx vhost config
@@ -22,7 +22,7 @@
 #   - SSH access configured (key-based, alias in ~/.ssh/config recommended)
 #   - nginx + python3 available on the VPS (Debian/Ubuntu recommended)
 #   - nginx vhost config at scripts/nginx/<domain>.conf
-#     (copy scripts/nginx/digest.example.com.conf and replace the domain)
+#     (copy scripts/nginx/elpis.example.com.conf and replace the domain)
 # =============================================================
 
 set -euo pipefail
@@ -121,13 +121,13 @@ fi
 # unrelated instances.
 if [[ "$INSTANCE_NAME" == "default" ]]; then
   SSH_HOST="${DIGEST_PWA_SSH_HOST:-${CONFIG_HOST:-}}"
-  [[ -n "$SSH_HOST" ]] || SSH_HOST="digest-vps"
+  [[ -n "$SSH_HOST" ]] || SSH_HOST="elpis-vps"
   DOMAIN="${DIGEST_PWA_DOMAIN:-${CONFIG_DOMAIN:-}}"
   REMOTE_DIR="${DIGEST_PWA_REMOTE_DIR:-${CONFIG_PATH:-/var/www/${DOMAIN:-elpis}}}"
   LIVE_URL="${DIGEST_PWA_LIVE_URL:-${CONFIG_DIGEST_URL:-https://${DOMAIN:-localhost}}}"
 else
   SSH_HOST="${CONFIG_HOST:-}"
-  [[ -n "$SSH_HOST" ]] || SSH_HOST="digest-vps"
+  [[ -n "$SSH_HOST" ]] || SSH_HOST="elpis-vps"
   DOMAIN="${CONFIG_DOMAIN:-}"
   REMOTE_DIR="${CONFIG_PATH:-/var/www/${DOMAIN:-elpis}}"
   LIVE_URL="${CONFIG_DIGEST_URL:-https://${DOMAIN:-localhost}}"
@@ -293,8 +293,8 @@ fi
 NGINX_CONF_LOCAL="$ROOT/scripts/nginx/${DOMAIN}.conf"
 if [[ ! -f "$NGINX_CONF_LOCAL" ]]; then
   warn "No nginx config found at $NGINX_CONF_LOCAL."
-  warn "Copy scripts/nginx/digest.example.com.conf to scripts/nginx/${DOMAIN}.conf,"
-  warn "replace 'digest.example.com' with '$DOMAIN' and the proxy port with '$VPS_PORT',"
+  warn "Copy scripts/nginx/elpis.example.com.conf to scripts/nginx/${DOMAIN}.conf,"
+  warn "replace 'elpis.example.com' with '$DOMAIN' and the proxy port with '$VPS_PORT',"
   warn "then re-run this script."
 else
   info "Installing nginx config for $DOMAIN..."

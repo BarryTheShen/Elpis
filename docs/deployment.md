@@ -1,6 +1,6 @@
 # Deployment
 
-CondenseIt runs in two modes: local (on your machine) or remote (on a VPS).
+Elpis runs in two modes: local (on your machine) or remote (on a VPS).
 Both use the same web UI, API, and admin panel.
 
 ## Local deployment
@@ -8,10 +8,10 @@ Both use the same web UI, API, and admin panel.
 Start the web UI and admin panel on your machine:
 
 ```bash
-condenseit serve --port 8899
+elpis serve --port 8899
 ```
 
-Open `http://localhost:8899`. Run digests from the UI or with `condenseit run`.
+Open `http://localhost:8899`. Run digests from the UI or with `elpis run`.
 
 Enable the built-in scheduler so digests run automatically:
 
@@ -28,8 +28,8 @@ The scheduler reads `config.schedule.times` (default `["07:00", "18:00"]`).
 1. Copy the nginx template and edit for your domain:
 
    ```bash
-   cp scripts/nginx/digest.example.com.conf scripts/nginx/your.domain.conf
-   # Replace digest.example.com with your domain in the file
+   cp scripts/nginx/elpis.example.com.conf scripts/nginx/your.domain.conf
+   # Replace elpis.example.com with your domain in the file
    ```
 
 2. Set SSH connection in `.env`:
@@ -45,8 +45,8 @@ The scheduler reads `config.schedule.times` (default `["07:00", "18:00"]`).
    ./scripts/bootstrap-server.sh
    ```
 
-   This installs condenseit, the systemd service, nginx vhost, and writes
-   `~/condenseit/.env` on the VPS with your OpenRouter key and app password.
+   This installs Elpis, the systemd service, nginx vhost, and writes
+   `~/elpis/.env` on the VPS with your OpenRouter key and app password.
 
 4. Get a TLS certificate (after DNS is pointed at your VPS):
 
@@ -61,19 +61,19 @@ The scheduler reads `config.schedule.times` (default `["07:00", "18:00"]`).
 ```
 
 This builds the frontend, packages a wheel, rsyncs everything to the VPS,
-and restarts the `condenseit-web` service.
+and restarts the `elpis-web` service.
 
 ### Service management
 
 ```bash
 # Logs
-ssh your-vps 'journalctl -u condenseit-web -f'
+ssh your-vps 'journalctl -u elpis-web -f'
 
 # Status
-ssh your-vps 'sudo systemctl status condenseit-web'
+ssh your-vps 'sudo systemctl status elpis-web'
 
 # Restart
-ssh your-vps 'sudo systemctl restart condenseit-web'
+ssh your-vps 'sudo systemctl restart elpis-web'
 ```
 
 ## Environment variables

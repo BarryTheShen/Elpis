@@ -1,4 +1,4 @@
-# Agent guide: deploy CondenseIt to a VPS (Ubuntu 24.04 / Hetzner)
+# Agent guide: deploy Elpis to a VPS (Ubuntu 24.04 / Hetzner)
 
 This document is written for an AI coding agent. Follow every phase in order.
 Verify each step's output before continuing. Commands labeled **[LOCAL]** run
@@ -11,13 +11,13 @@ on the developer's machine; **[SERVER]** run on the VPS.
 ```
 Browser
   └─→ nginx (port 80/443, TLS via Certbot)
-         ├── /api/** → uvicorn at 127.0.0.1:8765 (condenseit-web.service)
-         └── /**     → /var/www/<domain>  (frontend/dist, static files)
+         └── /**     → Elpis at 127.0.0.1:8765 (elpis-web.service)
 ```
 
-- nginx terminates TLS and serves the static SPA from disk.
-- `condenseit-web` (systemd) runs the Python FastAPI backend.
-- SQLite lives at `~/condenseit/data/condenseit.db` on the VPS.
+- nginx terminates TLS and proxies every route through Elpis so server-side
+  authorization applies to `/admin/*`.
+- `elpis-web` (systemd) runs the Python FastAPI backend.
+- SQLite lives at `~/elpis/data/condenseit.db` on the VPS.
 
 ---
 
@@ -54,19 +54,19 @@ node --version   # Node.js 18+ required
 brew install hcloud
 
 # Authenticate
-hcloud context create condenseit
+hcloud context create elpis
 # Paste your Hetzner API token when prompted
 
 # Create server
 hcloud server create \
-  --name condenseit \
+  --name elpis \
   --type cx22 \
   --image ubuntu-24.04 \
   --ssh-key ~/.ssh/id_ed25519.pub \
   --location nbg1
 
 # Get IP
-hcloud server ip condenseit
+hcloud server ip elpis
 ```
 
 ---
@@ -76,7 +76,7 @@ hcloud server ip condenseit
 Add an alias to `~/.ssh/config`. Replace `203.0.113.10` with the actual IP:
 
 ```
-Host digest-vps
+Host elpis-vps
     HostName 203.0.113.10
     User root
     IdentityFile ~/.ssh/id_ed25519
@@ -85,7 +85,7 @@ Host digest-vps
 Test the connection:
 
 ```bash
-ssh digest-vps 'echo "SSH OK"'
+ssh elpis-vps 'echo "SSH OK"'
 # Expected: SSH OK
 ```
 
@@ -101,7 +101,7 @@ If this fails, check:
 Run the provisioning script from the repo root on your local machine:
 
 ```bash
-ssh digest-vps 'bash -s' < scripts/provision-ubuntu.sh
+ssh elpis-vps 'bash -s' < scripts/provision-ubuntu.sh
 ```
 
 Expected output ends with:
@@ -120,7 +120,7 @@ Expected output ends with:
 Verify on the server:
 
 ```bash
-ssh digest-vps 'nginx -v && python3 --version && ufw status'
+ssh elpis-vps 'nginx -v && python3 --version && ufw status'
 # Expected: nginx version, Python 3.12.x, Status: active
 ```
 
@@ -151,7 +151,7 @@ Do not proceed to TLS until this resolves correctly.
 Open `.env` in the repo root. Set or add:
 
 ```
-DIGEST_PWA_SSH_HOST=digest-vps
+DIGEST_PWA_SSH_HOST=elpis-vps
 DIGEST_PWA_DOMAIN=your.domain
 CONDENSEIT_AUTH_PASSWORD=choose-a-strong-password
 OPENROUTER_API_KEY=sk-or-...
@@ -169,17 +169,16 @@ DIGEST_PWA_SESSION_SECRET=<output of: openssl rand -hex 32>
 ## Phase 6: copy and edit the nginx template [LOCAL]
 
 ```bash
-cp scripts/nginx/digest.example.com.conf scripts/nginx/your.domain.conf
+cp scripts/nginx/elpis.example.com.conf scripts/nginx/your.domain.conf
 ```
 
 Edit `scripts/nginx/your.domain.conf`:
-- Replace every occurrence of `digest.example.com` with `your.domain`.
-- Replace `/var/www/digest.example.com` with `/var/www/your.domain`.
+- Replace every occurrence of `elpis.example.com` with `your.domain`.
 
 Verify no old domain strings remain:
 
 ```bash
-grep -c 'digest.example.com' scripts/nginx/your.domain.conf
+grep -c 'elpis.example.com' scripts/nginx/your.domain.conf
 # Expected: 0
 ```
 
@@ -192,10 +191,10 @@ grep -c 'digest.example.com' scripts/nginx/your.domain.conf
 ```
 
 The script will:
-1. Build and upload the condenseit Python wheel.
+1. Build and upload the Elpis Python wheel.
 2. Prompt for: OpenRouter API key, app password, enable scheduler (Y/n).
-3. Write `~/condenseit/.env` on the server.
-4. Install and start `condenseit-web.service`.
+3. Write `~/elpis/.env` on the server.
+4. Install and start `elpis-web.service`.
 5. Install nginx vhost.
 
 When prompted:
@@ -216,7 +215,7 @@ Expected final output:
 Verify the service is running:
 
 ```bash
-ssh digest-vps 'sudo systemctl status condenseit-web'
+ssh elpis-vps 'sudo systemctl status elpis-web'
 # Expected: Active: active (running)
 ```
 
@@ -251,7 +250,7 @@ curl -sf http://your.domain/health
 DNS must resolve correctly before this step (verified in Phase 4).
 
 ```bash
-ssh digest-vps 'sudo certbot --nginx -d your.domain --non-interactive --agree-tos -m admin@your.domain'
+ssh elpis-vps 'sudo certbot --nginx -d your.domain --non-interactive --agree-tos -m admin@your.domain'
 ```
 
 Wait for Certbot to succeed. Verify HTTPS:
@@ -264,7 +263,7 @@ curl -sf https://your.domain/health
 Verify auto-renewal:
 
 ```bash
-ssh digest-vps 'sudo certbot renew --dry-run'
+ssh elpis-vps 'sudo certbot renew --dry-run'
 # Expected: Congratulations, all simulated renewals succeeded
 ```
 
@@ -299,7 +298,7 @@ curl -sf -X POST https://your.domain/api/digest/run \
 Monitor logs:
 
 ```bash
-ssh digest-vps 'journalctl -u condenseit-web -f'
+ssh elpis-vps 'journalctl -u elpis-web -f'
 ```
 
 ---
@@ -308,10 +307,10 @@ ssh digest-vps 'journalctl -u condenseit-web -f'
 
 ```bash
 # View logs
-ssh digest-vps 'journalctl -u condenseit-web -n 100'
+ssh elpis-vps 'journalctl -u elpis-web -n 100'
 
 # Restart service
-ssh digest-vps 'sudo systemctl restart condenseit-web'
+ssh elpis-vps 'sudo systemctl restart elpis-web'
 
 # Deploy code update
 ./scripts/deploy.sh
@@ -320,7 +319,7 @@ ssh digest-vps 'sudo systemctl restart condenseit-web'
 ./scripts/deploy.sh --skip-build
 
 # Backup database
-rsync -avz digest-vps:~/condenseit/data/condenseit.db ./data/condenseit.db.bak
+rsync -avz elpis-vps:~/elpis/data/condenseit.db ./data/condenseit.db.bak
 ```
 
 ---
@@ -331,8 +330,8 @@ rsync -avz digest-vps:~/condenseit/data/condenseit.db ./data/condenseit.db.bak
 |---------|--------|
 | SSH connection refused | Check IP in `~/.ssh/config`; verify Hetzner firewall allows port 22 |
 | `bootstrap-server.sh` fails: "No nginx config" | Complete Phase 6 first |
-| Service not running after bootstrap | `ssh digest-vps 'journalctl -u condenseit-web -n 50'` |
+| Service not running after bootstrap | `ssh elpis-vps 'journalctl -u elpis-web -n 50'` |
 | nginx 502 Bad Gateway | Check `CONDENSEIT_VPS_PORT` matches nginx conf `proxy_pass` port |
 | Certbot fails: connection timeout | DNS not propagated; re-run Phase 4 verification |
 | Session resets on every deploy | Set `DIGEST_PWA_SESSION_SECRET` in `.env` and redeploy |
-| Out of disk space | `ssh digest-vps 'df -h'`; prune old digests in `~/condenseit/data/digests/` |
+| Out of disk space | `ssh elpis-vps 'df -h'`; prune old digests in `~/elpis/data/digests/` |

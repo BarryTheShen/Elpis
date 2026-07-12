@@ -1,6 +1,6 @@
 # Deploy locally (your own machine)
 
-CondenseIt runs entirely on your local machine. This is the default mode and
+Elpis runs entirely on your local machine. This is the default mode and
 requires no cloud account or paid service.
 
 ## Two local setups
@@ -8,8 +8,8 @@ requires no cloud account or paid service.
 | | Native (recommended) | Docker web UI |
 |-|----------------------|---------------|
 | **LLM** | Ollama (Metal on Mac) or OpenRouter | Ollama on host (via `host.docker.internal`) |
-| **Digest runs** | `condenseit run` or built-in scheduler | `condenseit run` on host |
-| **Web UI** | `condenseit serve` | Docker container |
+| **Digest runs** | `elpis run` or built-in scheduler | `elpis run` on host |
+| **Web UI** | `elpis serve` | Docker container |
 | **Data** | `./data/` in repo | `./data/` shared volume |
 | **Requirement** | Python 3.11+, uv, Node.js | Docker Desktop |
 
@@ -32,8 +32,8 @@ switch between them at any time.
 ### 1. Clone and install
 
 ```bash
-git clone https://github.com/wildlifechorus/condenseit
-cd condenseit
+git clone https://github.com/BarryTheShen/Elpis.git
+cd Elpis
 uv sync
 ```
 
@@ -78,13 +78,13 @@ cd frontend && npm ci && npm run build && cd ..
 ### 5. Start the web UI
 
 ```bash
-condenseit serve
+elpis serve
 ```
 
 Or with uv:
 
 ```bash
-uv run condenseit serve
+uv run elpis serve
 ```
 
 Open [http://localhost:8899](http://localhost:8899).
@@ -99,7 +99,7 @@ This screenshot uses generated demo data.
 From the web UI header, click **Run digest**. Or from a second terminal:
 
 ```bash
-condenseit run
+elpis run
 ```
 
 ### 7. Enable the built-in scheduler (optional)
@@ -117,7 +117,7 @@ entry needed.
 ### Changing ports
 
 ```bash
-condenseit serve --port 9000
+elpis serve --port 9000
 ```
 
 Update your browser bookmark and the `proxy` target in
@@ -144,24 +144,13 @@ cp .env.example .env
 
 ### 2. Start the container
 
-**Pre-built image (recommended for trying CondenseIt):**
+**Build and run Elpis:**
 
 ```bash
-docker compose pull
-docker compose up -d
+docker compose up -d --build
 ```
 
-No local Node.js or Python build is required. Images are published on each
-release to [GHCR and Docker Hub](docker-image.md). To pin a version or use
-Docker Hub, see [docker-image.md](docker-image.md#compose-environment-variables).
-
-**Build from source (contributors):**
-
-```bash
-CONDENSEIT_DOCKER_BUILD=1 ./scripts/docker-up.sh
-# or: CONDENSEIT_DOCKER_BUILD=1 make docker-up
-# or: docker compose up -d --build
-```
+No local Node.js or Python build is required.
 
 Open [http://localhost:8899](http://localhost:8899).
 
@@ -174,7 +163,7 @@ While the container is running, run the digest on the host (uses Metal GPU):
 
 ```bash
 ./scripts/run-with-ollama.sh
-# or: condenseit run
+# or: elpis run
 ```
 
 ### Stop the container
@@ -241,7 +230,7 @@ data/
 Back this up before uninstalling or wiping the repo:
 
 ```bash
-cp -r data/ ~/condenseit-backup-$(date +%Y%m%d)
+cp -r data/ ~/elpis-backup-$(date +%Y%m%d)
 ```
 
 ---
@@ -252,7 +241,7 @@ cp -r data/ ~/condenseit-backup-$(date +%Y%m%d)
 git pull
 uv sync
 cd frontend && npm ci && npm run build && cd ..
-# Restart condenseit serve
+# Restart elpis serve
 ```
 
 ---

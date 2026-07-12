@@ -4,9 +4,9 @@
 
 ### `scripts/deploy.sh`
 
-Builds the frontend SPA, packages a condenseit wheel, rsyncs everything to
-the VPS, runs `condenseit migrate` against the production SQLite database
-(while the service is stopped), and restarts the `condenseit-web` systemd
+Builds the frontend SPA, packages an Elpis wheel, rsyncs everything to
+the VPS, runs `elpis migrate` against the production SQLite database
+(while the service is stopped), and restarts the `elpis-web` systemd
 service.
 
 ```bash
@@ -20,7 +20,7 @@ Requires `DIGEST_PWA_SSH_HOST` and `DIGEST_PWA_DOMAIN` in `.env` (or the
 ### `scripts/bootstrap-server.sh`
 
 One-time VPS setup. Prompts for your OpenRouter API key and app password,
-creates the Python venv, installs condenseit, writes `~/condenseit/.env`
+creates the Python venv, installs Elpis, writes `~/elpis/.env`
 on the VPS, installs a systemd unit with `EnvironmentFile`, and configures
 nginx.
 
@@ -35,7 +35,7 @@ python3, certbot, ufw, fail2ban, rsync, creates a swap file, and enables
 unattended security upgrades.
 
 ```bash
-ssh digest-vps 'bash -s' < scripts/provision-ubuntu.sh
+ssh elpis-vps 'bash -s' < scripts/provision-ubuntu.sh
 ```
 
 Run this once before `bootstrap-server.sh`. See [deploy-vps.md](deploy-vps.md)

@@ -1,12 +1,12 @@
 # Scheduling
 
-CondenseIt includes a built-in scheduler that runs digests automatically at
+Elpis includes a built-in scheduler that runs digests automatically at
 the times you configure. No cron, launchd, or systemd timer needed.
 
 ## Enable the scheduler
 
 Set `CONDENSEIT_SCHEDULER_ENABLED=1` in your `.env` file, then start
-`condenseit serve`. The scheduler runs as a background task inside the
+`elpis serve`. The scheduler runs as a background task inside the
 web service process.
 
 ## Configure run times
@@ -50,5 +50,5 @@ You can always trigger a digest manually from the web UI (the "Run digest"
 button in the header) or from the CLI:
 
 ```bash
-condenseit run
+elpis run
 ```

@@ -213,7 +213,7 @@ Episode or channel artwork is used when the feed provides it.
 
 ### OpenAI-compatible endpoint (`provider: "openai"`)
 
-Point CondenseIt at any server that implements the `/v1/chat/completions` endpoint.
+Point Elpis at any server that implements the `/v1/chat/completions` endpoint.
 This includes Ollama's built-in OpenAI compatibility layer, LM Studio, vLLM,
 llama.cpp server, text-generation-inference, real OpenAI, Azure OpenAI, and many
 others.
@@ -265,7 +265,7 @@ set in `config.yaml`:
 
 ## Preferences and ranking
 
-CondenseIt uses a multi-layer ranking engine that blends classical signals with
+Elpis uses a multi-layer ranking engine that blends classical signals with
 optional AI layers. All weights are adjustable live in **Admin > Digest** without
 restarting the server.
 
@@ -551,7 +551,7 @@ article card.
 
 ## Scheduling
 
-Set `CONDENSEIT_SCHEDULER_ENABLED=1` in `.env` and start `condenseit serve`.
+Set `CONDENSEIT_SCHEDULER_ENABLED=1` in `.env` and start `elpis serve`.
 The built-in scheduler runs digests at the times configured in **Admin > Schedule**
 (stored in the DB, overriding `config.schedule.times`). No cron, systemd timer,
 or launchd entry is needed. See [scheduling.md](scheduling.md) for details.

@@ -20,7 +20,7 @@
 #
 # Required env (set in .env or environment) for the main instance:
 #   DIGEST_PWA_SSH_HOST  - SSH target (e.g. "user@1.2.3.4" or ~/.ssh/config alias)
-#   DIGEST_PWA_DOMAIN    - Domain name for nginx (e.g. "digest.example.com")
+#   DIGEST_PWA_DOMAIN    - Domain name for nginx (e.g. "elpis.example.com")
 # =============================================================
 
 set -euo pipefail
@@ -131,13 +131,13 @@ fi
 # unrelated instances.
 if [[ "$INSTANCE_NAME" == "default" ]]; then
   SSH_HOST="${DIGEST_PWA_SSH_HOST:-${CONFIG_HOST:-}}"
-  [[ -n "$SSH_HOST" ]] || SSH_HOST="digest-vps"
+  [[ -n "$SSH_HOST" ]] || SSH_HOST="elpis-vps"
   DOMAIN="${DIGEST_PWA_DOMAIN:-${CONFIG_DOMAIN:-}}"
   REMOTE_DIR="${DIGEST_PWA_REMOTE_DIR:-${CONFIG_PATH:-/var/www/${DOMAIN:-elpis}}}"
   LIVE_URL="${DIGEST_PWA_LIVE_URL:-${CONFIG_DIGEST_URL:-https://${DOMAIN:-localhost}}}"
 else
   SSH_HOST="${CONFIG_HOST:-}"
-  [[ -n "$SSH_HOST" ]] || SSH_HOST="digest-vps"
+  [[ -n "$SSH_HOST" ]] || SSH_HOST="elpis-vps"
   DOMAIN="${CONFIG_DOMAIN:-}"
   REMOTE_DIR="${CONFIG_PATH:-/var/www/${DOMAIN:-elpis}}"
   LIVE_URL="${CONFIG_DIGEST_URL:-https://${DOMAIN:-localhost}}"
