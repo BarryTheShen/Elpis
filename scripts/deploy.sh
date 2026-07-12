@@ -133,22 +133,22 @@ if [[ "$INSTANCE_NAME" == "default" ]]; then
   SSH_HOST="${DIGEST_PWA_SSH_HOST:-${CONFIG_HOST:-}}"
   [[ -n "$SSH_HOST" ]] || SSH_HOST="digest-vps"
   DOMAIN="${DIGEST_PWA_DOMAIN:-${CONFIG_DOMAIN:-}}"
-  REMOTE_DIR="${DIGEST_PWA_REMOTE_DIR:-${CONFIG_PATH:-/var/www/${DOMAIN:-condenseit}}}"
+  REMOTE_DIR="${DIGEST_PWA_REMOTE_DIR:-${CONFIG_PATH:-/var/www/${DOMAIN:-elpis}}}"
   LIVE_URL="${DIGEST_PWA_LIVE_URL:-${CONFIG_DIGEST_URL:-https://${DOMAIN:-localhost}}}"
 else
   SSH_HOST="${CONFIG_HOST:-}"
   [[ -n "$SSH_HOST" ]] || SSH_HOST="digest-vps"
   DOMAIN="${CONFIG_DOMAIN:-}"
-  REMOTE_DIR="${CONFIG_PATH:-/var/www/${DOMAIN:-condenseit}}"
+  REMOTE_DIR="${CONFIG_PATH:-/var/www/${DOMAIN:-elpis}}"
   LIVE_URL="${CONFIG_DIGEST_URL:-https://${DOMAIN:-localhost}}"
 fi
 
 REMOTE_DIR="${REMOTE_DIR%/}"
 LIVE_URL="${LIVE_URL%/}"
 
-VPS_SERVICE="${CONFIG_SERVICE:-condenseit-web}"
+VPS_SERVICE="${CONFIG_SERVICE:-elpis-web}"
 VPS_SERVICE_PORT="${CONFIG_PORT:-${CONDENSEIT_VPS_PORT:-8765}}"
-VPS_APP_DIR="${CONFIG_APP_DIR:-~/condenseit}"
+VPS_APP_DIR="${CONFIG_APP_DIR:-~/elpis}"
 VPS_DATA_DIR="${CONDENSEIT_VPS_DATA_DIR:-${VPS_APP_DIR}/data}"
 
 info "Instance:    ${CONFIG_LABEL:-$INSTANCE_NAME}"
@@ -185,18 +185,18 @@ FRONTEND_DIST="$ROOT/frontend/dist"
 [[ -d "$FRONTEND_DIST" ]] || die "Missing $FRONTEND_DIST (run: cd frontend && npm run build)"
 
 # ---------------------------------------------------------------------------
-# Build and upload condenseit wheel
+# Build and upload Elpis wheel
 # ---------------------------------------------------------------------------
 command -v uv &>/dev/null || die "uv not found. Install with: pip install uv"
 
 WHEEL_DIR="$(mktemp -d)"
 trap 'rm -rf "$WHEEL_DIR"' EXIT
 
-info "Building condenseit wheel..."
+info "Building Elpis wheel..."
 (cd "$ROOT" && uv build --wheel --out-dir "$WHEEL_DIR" --quiet) \
   || die "uv build failed."
 
-WHEEL_FILE="$(ls "$WHEEL_DIR"/condenseit-*.whl 2>/dev/null | head -1)"
+WHEEL_FILE="$(ls "$WHEEL_DIR"/elpis-*.whl 2>/dev/null | head -1)"
 [[ -n "$WHEEL_FILE" ]] || die "No wheel found after uv build."
 WHEEL_BASENAME="$(basename "$WHEEL_FILE")"
 
@@ -254,8 +254,8 @@ info "Running database migrations on VPS..."
 ssh "$SSH_HOST" VPS_APP_DIR="$VPS_APP_DIR" bash <<'REMOTE_MIGRATE'
 set -euo pipefail
 APP_DIR="${VPS_APP_DIR/#\~/$HOME}"
-if [[ ! -x "$APP_DIR/.venv/bin/condenseit" ]]; then
-  echo "Missing $APP_DIR/.venv/bin/condenseit; run scripts/bootstrap-server.sh first." >&2
+if [[ ! -x "$APP_DIR/.venv/bin/elpis" ]]; then
+  echo "Missing $APP_DIR/.venv/bin/elpis; run scripts/bootstrap-server.sh first." >&2
   exit 1
 fi
 if [[ ! -f "$APP_DIR/.env" ]]; then
@@ -266,7 +266,7 @@ set -a
 # shellcheck disable=SC1091
 source "$APP_DIR/.env"
 set +a
-"$APP_DIR/.venv/bin/condenseit" migrate
+"$APP_DIR/.venv/bin/elpis" migrate
 REMOTE_MIGRATE
 
 # ---------------------------------------------------------------------------

@@ -123,13 +123,13 @@ if [[ "$INSTANCE_NAME" == "default" ]]; then
   SSH_HOST="${DIGEST_PWA_SSH_HOST:-${CONFIG_HOST:-}}"
   [[ -n "$SSH_HOST" ]] || SSH_HOST="digest-vps"
   DOMAIN="${DIGEST_PWA_DOMAIN:-${CONFIG_DOMAIN:-}}"
-  REMOTE_DIR="${DIGEST_PWA_REMOTE_DIR:-${CONFIG_PATH:-/var/www/${DOMAIN:-condenseit}}}"
+  REMOTE_DIR="${DIGEST_PWA_REMOTE_DIR:-${CONFIG_PATH:-/var/www/${DOMAIN:-elpis}}}"
   LIVE_URL="${DIGEST_PWA_LIVE_URL:-${CONFIG_DIGEST_URL:-https://${DOMAIN:-localhost}}}"
 else
   SSH_HOST="${CONFIG_HOST:-}"
   [[ -n "$SSH_HOST" ]] || SSH_HOST="digest-vps"
   DOMAIN="${CONFIG_DOMAIN:-}"
-  REMOTE_DIR="${CONFIG_PATH:-/var/www/${DOMAIN:-condenseit}}"
+  REMOTE_DIR="${CONFIG_PATH:-/var/www/${DOMAIN:-elpis}}"
   LIVE_URL="${CONFIG_DIGEST_URL:-https://${DOMAIN:-localhost}}"
 fi
 
@@ -139,8 +139,8 @@ LIVE_URL="${LIVE_URL%/}"
 [[ -n "$DOMAIN" ]] || die "Cannot determine domain. Configure instances: in config.yaml."
 
 VPS_PORT="${CONFIG_PORT:-${CONDENSEIT_VPS_PORT:-8765}}"
-VPS_SERVICE="${CONFIG_SERVICE:-condenseit-web}"
-VPS_APP_DIR_TEMPLATE="${CONFIG_APP_DIR:-~/condenseit}"
+VPS_SERVICE="${CONFIG_SERVICE:-elpis-web}"
+VPS_APP_DIR_TEMPLATE="${CONFIG_APP_DIR:-~/elpis}"
 VPS_DATA_DIR="${CONDENSEIT_VPS_DATA_DIR:-${VPS_APP_DIR_TEMPLATE}/data}"
 
 info "Instance:    ${CONFIG_LABEL:-$INSTANCE_NAME}"
@@ -161,11 +161,11 @@ command -v uv &>/dev/null || die "uv not found. Install with: pip install uv"
 WHEEL_DIR="$(mktemp -d)"
 trap 'rm -rf "$WHEEL_DIR"' EXIT
 
-info "Building condenseit wheel..."
+info "Building Elpis wheel..."
 (cd "$ROOT" && uv build --wheel --out-dir "$WHEEL_DIR" --quiet) \
   || die "uv build failed."
 
-WHEEL_FILE="$(ls "$WHEEL_DIR"/condenseit-*.whl 2>/dev/null | head -1)"
+WHEEL_FILE="$(ls "$WHEEL_DIR"/elpis-*.whl 2>/dev/null | head -1)"
 [[ -n "$WHEEL_FILE" ]] || die "No wheel found after uv build."
 WHEEL_BASENAME="$(basename "$WHEEL_FILE")"
 
@@ -184,7 +184,7 @@ fi
 "$APP_DIR/.venv/bin/pip" install --quiet --upgrade pip
 "$APP_DIR/.venv/bin/pip" install --quiet --force-reinstall "/tmp/$WHEEL_BASENAME"
 rm -f "/tmp/$WHEEL_BASENAME"
-echo "condenseit $("$APP_DIR/.venv/bin/condenseit" --version 2>/dev/null || echo ok) installed."
+echo "elpis $("$APP_DIR/.venv/bin/elpis" --version 2>/dev/null || echo ok) installed."
 REMOTE_INSTALL
 
 # ---------------------------------------------------------------------------
@@ -255,8 +255,8 @@ info ".env written."
 VPS_REMOTE_USER="$(ssh "$SSH_HOST" 'echo $USER')"
 
 UNIT="[Unit]
-Description=CondenseIt web service ($INSTANCE_NAME)
-Documentation=https://github.com/wildlifechorus/condenseit
+Description=Elpis web service ($INSTANCE_NAME)
+Documentation=https://github.com/BarryTheShen/Elpis
 After=network.target
 
 [Service]

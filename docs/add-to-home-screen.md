@@ -1,12 +1,12 @@
-# Add CondenseIt to your home screen
+# Add Elpis to your home screen
 
-CondenseIt ships as a **Progressive Web App (PWA)**. After you install it on
+Elpis ships as a **Progressive Web App (PWA)**. After you install it on
 your phone or tablet, it opens in its own window (no browser address bar) and
 uses the same digest reader and admin panel as the desktop site.
 
 ## Before you start
 
-1. **Open your live CondenseIt URL** in the mobile browser (for example
+1. **Open your live Elpis URL** in the mobile browser (for example
    `https://digest.example.com` after you deploy, or your LAN URL during local
    testing).
 2. **Sign in** if your instance uses a password. The home-screen shortcut opens
@@ -24,12 +24,12 @@ frontend (`/manifest.webmanifest`, PNG icons, and `apple-touch-icon`).
 Use **Safari**. Other browsers on iOS can bookmark the site, but Safari is the
 reliable path for a true home-screen app.
 
-1. Open your CondenseIt URL in Safari.
+1. Open your Elpis URL in Safari.
 2. Tap the **Share** button (square with an upward arrow).
 3. Scroll the share sheet and tap **Add to Home Screen**.
-4. Edit the name if you want (default: **CondenseIt**), then tap **Add**.
+4. Confirm the name **Elpis**, then tap **Add**.
 
-The icon appears on your home screen. Launching it opens CondenseIt without
+The Elpis icon appears on your home screen. Launching it opens Elpis without
 Safari’s tab bar. On smaller screens, the header includes a **Refresh** control
 because installed PWAs do not get the browser’s reload button.
 
@@ -41,26 +41,26 @@ Use **Chrome** (or another Chromium-based browser that offers “Install app”)
 
 ### Install via the menu
 
-1. Open your CondenseIt URL in Chrome.
+1. Open your Elpis URL in Chrome.
 2. Tap the **three-dot menu** (⋮).
 3. Tap **Install app** or **Add to Home screen** (wording varies by Chrome
    version and device).
 4. Confirm when prompted.
 
 Chrome may also show an **Install** banner or an install icon in the address
-bar when the site meets PWA criteria. CondenseIt does not show a custom in-app
+bar when the site meets PWA criteria. Elpis does not show a custom in-app
 install button; use the browser UI above.
 
 The app opens in standalone mode from your launcher or home screen. Like on
 iOS, mobile layouts show a header **Refresh** button for installed use.
 
 To remove it: long-press the icon and uninstall, or open **Settings → Apps**,
-find CondenseIt (or the name you chose), and uninstall.
+find Elpis, and uninstall.
 
 ## Desktop (optional)
 
 In Chrome or Edge on desktop, use the install control in the address bar
-(install icon or **Install CondenseIt** in the menu) if it appears. This is
+(install icon or **Install Elpis** in the menu) if it appears. This is
 optional; many people use a normal browser tab on desktop.
 
 ## Troubleshooting

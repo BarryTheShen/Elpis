@@ -5,4 +5,4 @@ source "$(dirname "$0")/lib/common.sh"
 ensure_config
 ensure_venv
 log "Running digest with native Ollama"
-condenseit run "$@"
+elpis run "$@"

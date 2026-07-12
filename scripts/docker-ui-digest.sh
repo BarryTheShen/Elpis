@@ -2,8 +2,8 @@
 # Docker web UI (:8899) plus native digest on the host (Ollama, not in Docker).
 #
 # Usage:
-#   ./scripts/docker-ui-digest.sh              # compose up --build, condenseit run
-#   ./scripts/docker-ui-digest.sh --dry-run    # flags pass through to condenseit run
+#   ./scripts/docker-ui-digest.sh              # compose up --build, elpis run
+#   ./scripts/docker-ui-digest.sh --dry-run    # flags pass through to elpis run
 #   ./scripts/docker-ui-digest.sh run --dry-run
 #   ./scripts/docker-ui-digest.sh ui           # (re)start UI only, no digest
 #   ./scripts/docker-ui-digest.sh restart      # compose down + up --build, no digest

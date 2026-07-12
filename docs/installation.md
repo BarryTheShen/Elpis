@@ -4,23 +4,23 @@ This guide covers a **native** install with [uv](https://docs.astral.sh/uv/)
 (recommended) so you match `requires-python` and dependencies from
 [`pyproject.toml`](../pyproject.toml) (`>=3.11`).
 
-Docker runs the web UI only; digests with a local LLM still use the host. For a
-pre-built image (no local build), see [docker-image.md](docker-image.md). For a
-full map of `scripts/*.sh` and Make targets, see [scripts.md](scripts.md).
+Docker runs the complete Elpis application through its single published port.
+For the image contract, see [docker-image.md](docker-image.md). For a full map
+of `scripts/*.sh` and Make targets, see [scripts.md](scripts.md).
 
 ## Prerequisites
 
 - **Python 3.11+** (3.12 is fine).
 - **uv** (install: see [uv installation](https://docs.astral.sh/uv/getting-started/installation/)).
 - **Git** (to clone the repo).
-- **Ollama** on the machine that runs `condenseit run`, if you use the default
-  `ollama` provider (not required for a dry run or OpenRouter-only setups).
+- **OpenRouter API key** for the tracked default configuration, or **Ollama**
+  only after selecting `llm.provider: "ollama"` in `config.yaml`.
 
 ## Clone and sync
 
 ```bash
-git clone https://github.com/wildlifechorus/condenseit
-cd condenseit
+git clone git@github.com:BarryTheShen/Elpis.git
+cd Elpis
 uv sync
 ```
 
@@ -52,17 +52,17 @@ API keys in `.env` as needed. See [configuration.md](configuration.md).
 From the repository root, with dependencies installed:
 
 ```bash
-uv run condenseit run
+uv run elpis run
 ```
 
 Serve the web UI:
 
 ```bash
-uv run condenseit serve
+uv run elpis serve
 ```
 
-The CLI entrypoint is declared in `pyproject.toml` as `condenseit =
-"condenseit.cli:cli"`.
+The public CLI entrypoint is declared in `pyproject.toml` as `elpis =
+"condenseit.cli:cli"`; the Python namespace remains an inherited internal seam.
 
 ## Interactive installer (configs + schedule snippets)
 

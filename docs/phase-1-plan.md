@@ -2,9 +2,9 @@
 
 ## Scope
 
-Deliver the one-port, responsive publication shell without changing CondenseIt's
-collection, ranking, generation, storage, scheduling, or provider behavior.
-Product naming remains intentionally neutral until an approved identity exists.
+Deliver Elpis’s one-port, responsive publication shell without changing the
+inherited CondenseIt collection, ranking, generation, storage, scheduling, or
+provider behavior.
 
 ## Reuse map
 
@@ -20,8 +20,8 @@ Product naming remains intentionally neutral until an approved identity exists.
 
 ## Changes
 
-1. Centralize neutral visitor-facing UI metadata so a later approved name can
-   replace it in one place; keep static package and URL metadata unchanged.
+1. Centralize Elpis visitor-facing UI metadata, package metadata, title, PWA
+   manifest, and generated icon assets.
 2. Make only read-only digest publication endpoints public. Keep source,
    scheduler, configuration, run, ratings, and other state-changing endpoints
    authenticated on the server.
@@ -30,8 +30,8 @@ Product naming remains intentionally neutral until an approved identity exists.
 4. Introduce a responsive publication layout: desktop may expose the admin
    entry point after authentication; narrow screens show no admin navigation or
    destructive controls, including on direct `/admin/*` visits.
-5. Preserve the single-origin PWA mechanics. Defer manifest identity and icon
-   replacement until the product name and an approved asset package exist.
+5. Preserve the single-origin PWA mechanics and apply the approved Elpis
+   manifest identity and icon set.
 6. Add focused API and frontend-build coverage for the public/private boundary;
    exercise the shell at desktop and 390 px widths.
 
@@ -41,7 +41,6 @@ Product naming remains intentionally neutral until an approved identity exists.
 - Issue-scoped retrieval and chat (Phase 3)
 - Podcast jobs and media persistence (Phase 4)
 - Advisory source discovery (Phase 5)
-- Final product name, branded icons, and GitHub `origin` configuration
 
 ## Verification and rollback
 

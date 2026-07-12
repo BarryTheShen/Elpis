@@ -12,8 +12,8 @@ ensure_venv
 if [[ "${1:-}" == "--serve" ]]; then
   shift
   log "Starting web UI at http://127.0.0.1:${PORT:-8899}/"
-  condenseit serve --port "${PORT:-8899}" "$@"
+  elpis serve --port "${PORT:-8899}" "$@"
 else
   log "Running digest with Ollama"
-  condenseit run "$@"
+  elpis run "$@"
 fi

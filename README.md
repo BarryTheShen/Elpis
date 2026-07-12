@@ -1,10 +1,10 @@
-# CondenseIt
+# Elpis
 
-> Self-hosted AI news digest. Collect RSS feeds, YouTube channels, website
-> diffs, Google News searches, Hacker News, Reddit, GitHub Releases, and podcasts,
-> summarize with a local LLM (Ollama), OpenRouter, or any OpenAI-compatible endpoint,
-> learn your preferences from star ratings and engagement signals, and read a daily
-> digest in the browser.
+> An independent, self-hosted daily publication built on CondenseIt. Elpis
+> retains CondenseIt's mature ingestion, ranking, scheduling, storage, and LLM
+> provider foundation while replacing its identity and publication experience.
+> The project preserves the upstream Git history and MIT attribution, but has
+> its own roadmap and release process.
 
 ![Python 3.11+](https://img.shields.io/badge/python-3.11%2B-blue)
 ![License MIT](https://img.shields.io/badge/license-MIT-green)
@@ -13,7 +13,7 @@
 
 ## Preview
 
-![CondenseIt walkthrough with demo data](docs/assets/demo/walkthrough.gif)
+![Elpis walkthrough with demo data](docs/assets/demo/walkthrough.gif)
 
 ---
 
@@ -22,19 +22,23 @@
 | | Local | Remote | OpenAI-compatible |
 |-|-------|--------|-------------------|
 | **LLM** | Ollama on your Mac (Metal) | OpenRouter (cloud) | Any `/v1/chat/completions` server |
-| **Scheduling** | `condenseit run` from CLI, or `CONDENSEIT_SCHEDULER_ENABLED=1` | Built-in scheduler (`CONDENSEIT_SCHEDULER_ENABLED=1`) | Same as local or remote |
-| **Setup** | `uv sync` + `condenseit serve` | `bootstrap-server.sh` + `deploy.sh` | Set `OPENAI_API_BASE_URL` + `OPENAI_API_KEY` |
+| **Scheduling** | `elpis run` from CLI, or `CONDENSEIT_SCHEDULER_ENABLED=1` | Built-in scheduler (`CONDENSEIT_SCHEDULER_ENABLED=1`) | Same as local or remote |
+| **Setup** | `uv sync` + `elpis serve` | `bootstrap-server.sh` + `deploy.sh` | Set `OPENAI_API_BASE_URL` + `OPENAI_API_KEY` |
 | **Cost** | Free (local hardware) | Pay-per-token via OpenRouter | Depends on server |
 
 Both modes use the same unified web UI: digest reader and admin panel.
+
+The public distribution and CLI are **Elpis**. The `src/condenseit` Python
+namespace and `CONDENSEIT_*` environment variables remain inherited internal
+configuration seams; they are not the product name.
 
 ---
 
 ## What it does
 
-CondenseIt pulls from the sources you configure, scores and summarizes each
-article with a local or cloud LLM, ranks articles by your learned preferences,
-and produces a daily digest you can read in the browser.
+Elpis pulls from the sources you configure, scores and summarizes each article
+with a local or cloud LLM, ranks articles by your learned preferences, and
+produces a daily publication you can read in the browser.
 
 The ranking engine learns from multiple signals:
 
@@ -93,8 +97,8 @@ here?" breakdown so you can see exactly what drove its position.
 ### Quick start
 
 ```bash
-git clone https://github.com/wildlifechorus/condenseit
-cd condenseit
+git clone git@github.com:BarryTheShen/Elpis.git
+cd Elpis
 
 # Install dependencies
 uv sync
@@ -115,11 +119,11 @@ cp .env.example .env
 # OpenAI-compatible server (LM Studio, vLLM, llama.cpp, etc.).
 
 # Start the web UI
-condenseit serve --port 8899
+elpis serve --port 8899
 # Open http://localhost:8899
 
 # Run a digest (in a separate terminal, or from the web UI)
-condenseit run
+elpis run
 ```
 
 ### Automatic scheduling
@@ -134,26 +138,23 @@ Then configure run times in **Admin > Schedule** (or set a default in
 `config.schedule.times` in `config.yaml`). Changes made in the admin UI take
 effect immediately without a restart.
 
-### Docker (pre-built image)
+### Docker
 
-Run the web UI from a published image (no local Node.js or Python build).
-Digest runs and Ollama stay on the host.
+Elpis builds its own single-port application image by default; it does not pull
+an upstream CondenseIt image. Digest runs and Ollama stay on the host.
 
 ```bash
-git clone https://github.com/wildlifechorus/condenseit
-cd condenseit
+git clone git@github.com:BarryTheShen/Elpis.git
+cd Elpis
 cp config.example.yaml config.yaml
 cp .env.example .env
-docker compose pull
-docker compose up -d
+docker compose up -d --build
 # Open http://localhost:8899
 ```
 
-Images are published on each release to
-[GHCR](https://ghcr.io/wildlifechorus/condenseit) and
-[Docker Hub](https://hub.docker.com/r/wildlifechorus/condenseit). See
-[docs/docker-image.md](docs/docker-image.md) for version pins, registry
-overrides, and maintainer setup.
+Set `ELPIS_IMAGE` and `ELPIS_IMAGE_TAG` only when publishing Elpis to an
+operator-controlled registry. See [docs/docker-image.md](docs/docker-image.md)
+for the build and registry contract.
 
 ---
 
@@ -169,21 +170,21 @@ overrides, and maintainer setup.
 
 ```bash
 # Copy config for your domain
-cp scripts/nginx/digest.example.com.conf scripts/nginx/your.domain.conf
-# Edit the file: replace "digest.example.com" with your domain
+cp scripts/nginx/elpis.example.com.conf scripts/nginx/your.domain.conf
+# Edit the file: replace "elpis.example.com" with your domain
 
 # Set VPS connection details in your local .env
 echo 'DIGEST_PWA_SSH_HOST=your-ssh-host' >> .env
 echo 'DIGEST_PWA_DOMAIN=your.domain' >> .env
 echo 'CONDENSEIT_AUTH_PASSWORD=choose-a-strong-password' >> .env
 
-# Bootstrap the VPS (installs condenseit, systemd service, nginx)
+# Bootstrap the VPS (installs Elpis, its systemd service, and nginx)
 ./scripts/bootstrap-server.sh
 ```
 
-The bootstrap script will prompt for your OpenRouter API key, app password,
-and scheduler preference, then write everything to `~/condenseit/.env` on
-the VPS. Secrets never touch the systemd unit file.
+The bootstrap script prompts for your OpenRouter API key, app password, and
+scheduler preference, then writes its configuration to `~/elpis/.env` on the
+VPS. Secrets never touch the systemd unit file.
 
 ### Deploy
 
@@ -361,6 +362,9 @@ cd frontend && npm ci && npm run build
 
 ---
 
-## License
+## License and attribution
 
-MIT
+Elpis is an independent project derived from
+[CondenseIt](https://github.com/wildlifechorus/condenseit). It preserves the
+upstream Git history and the original MIT `LICENSE`; this repository's changes
+remain available under the same license.

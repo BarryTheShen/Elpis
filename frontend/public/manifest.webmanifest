@@ -1,11 +1,11 @@
 {
-  "name": "CondenseIt",
-  "short_name": "CondenseIt",
-  "description": "AI-powered news digest pipeline",
+  "name": "Elpis",
+  "short_name": "Elpis",
+  "description": "A self-hosted daily publication.",
   "start_url": "/",
   "display": "standalone",
-  "theme_color": "#0d9488",
-  "background_color": "#f8fafc",
+  "theme_color": "#2783de",
+  "background_color": "#ffffff",
   "icons": [
     {
       "src": "/icon.svg",

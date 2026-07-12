@@ -1,12 +1,12 @@
 [project]
-name = "condenseit"
+name = "elpis"
 version = "0.1.0"
-description = "AI-powered personal news digest with local LLM support"
+description = "Elpis — an independent self-hosted daily publication"
 readme = "README.md"
 license = { text = "MIT" }
 requires-python = ">=3.11"
 keywords = ["llm", "rss", "digest", "ollama", "summarization"]
-authors = [{ name = "wildlifechorus" }]
+authors = [{ name = "Elpis contributors" }]
 dependencies = [
   "click>=8.1",
   "cryptography>=43.0",
@@ -34,10 +34,9 @@ dependencies = [
 ]
 
 [project.urls]
-Homepage = "https://github.com/wildlifechorus/condenseit"
-Repository = "https://github.com/wildlifechorus/condenseit"
-Issues = "https://github.com/wildlifechorus/condenseit/issues"
-
+Homepage = "https://github.com/BarryTheShen/Elpis"
+Repository = "https://github.com/BarryTheShen/Elpis"
+Issues = "https://github.com/BarryTheShen/Elpis/issues"
 [project.optional-dependencies]
 dev = [
   "mypy>=1.13",
@@ -47,7 +46,7 @@ dev = [
 ]
 
 [project.scripts]
-condenseit = "condenseit.cli:cli"
+elpis = "condenseit.cli:cli"
 
 [build-system]
 requires = ["hatchling"]

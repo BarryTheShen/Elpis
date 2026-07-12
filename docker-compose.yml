@@ -1,8 +1,10 @@
-# Web UI only. Ollama and digest runs stay on the host (Metal GPU).
-# Shared ./data volume so native `condenseit run` appears in the UI.
+name: elpis
+
+# Single Elpis app serving the publication and desktop admin. A selected local
+# Ollama provider remains on the host; `./data` is shared with native `elpis run`.
 services:
   app:
-    image: ${CONDENSEIT_IMAGE:-ghcr.io/wildlifechorus/condenseit:${CONDENSEIT_IMAGE_TAG:-latest}}
+    image: ${ELPIS_IMAGE:-elpis:${ELPIS_IMAGE_TAG:-latest}}
     build: .
     ports:
       - "8899:8899"
@@ -17,7 +19,7 @@ services:
     volumes:
       - ./config.yaml:/app/config.yaml:ro
       - ./data:/app/data
-    command: ["condenseit", "serve", "--host", "0.0.0.0", "--port", "8899"]
+    command: ["elpis", "serve", "--host", "0.0.0.0", "--port", "8899"]
     healthcheck:
       test:
         [

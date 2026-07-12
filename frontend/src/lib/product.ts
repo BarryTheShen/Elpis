@@ -3,7 +3,7 @@
  * Keep every visitor-facing shell string here so the final identity is a single edit.
  */
 export const product = {
-  name: 'Daily briefing',
-  mark: 'D',
+  name: 'Elpis',
+  mark: 'E',
   tagline: 'One calm place to catch up on what matters today.',
 } as const;

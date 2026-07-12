@@ -21,8 +21,6 @@ permissions:
 
 env:
   REGISTRY_GHCR: ghcr.io
-  REGISTRY_DOCKERHUB: docker.io
-  IMAGE_NAME: wildlifechorus/condenseit
 
 jobs:
   publish:
@@ -46,19 +44,12 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Log in to Docker Hub
-        uses: docker/login-action@v3
-        with:
-          username: ${{ secrets.DOCKERHUB_USERNAME }}
-          password: ${{ secrets.DOCKERHUB_TOKEN }}
 
       - name: Docker metadata
         id: meta
         uses: docker/metadata-action@v5
         with:
-          images: |
-            ${{ env.REGISTRY_GHCR }}/${{ env.IMAGE_NAME }}
-            ${{ env.REGISTRY_DOCKERHUB }}/${{ env.IMAGE_NAME }}
+          images: ${{ env.REGISTRY_GHCR }}/${{ github.repository }}
           tags: |
             type=semver,pattern={{version}},value=${{ github.event_name == 'workflow_dispatch' && inputs.tag || github.event.release.tag_name }}
             type=semver,pattern={{major}}.{{minor}},value=${{ github.event_name == 'workflow_dispatch' && inputs.tag || github.event.release.tag_name }}

@@ -86,9 +86,9 @@ PROJECT_ID="${FIREBASE_PROJECT_ID:-}"
   || die "FIREBASE_PROJECT_ID is not set. Add it to .env or environment."
 
 REGION="${CLOUD_RUN_REGION:-us-central1}"
-SERVICE_NAME="${CLOUD_RUN_SERVICE:-condenseit-api}"
-GCS_BUCKET="${GCS_DATA_BUCKET:-${PROJECT_ID}-condenseit-data}"
-ARTIFACT_REPO="${CLOUD_RUN_ARTIFACT_REPO:-condenseit}"
+SERVICE_NAME="${CLOUD_RUN_SERVICE:-elpis-api}"
+GCS_BUCKET="${GCS_DATA_BUCKET:-${PROJECT_ID}-elpis-data}"
+ARTIFACT_REPO="${CLOUD_RUN_ARTIFACT_REPO:-elpis}"
 IMAGE="$REGION-docker.pkg.dev/$PROJECT_ID/$ARTIFACT_REPO/$SERVICE_NAME"
 
 info "Project:      $PROJECT_ID"

@@ -18,14 +18,14 @@ Quick path:
      and `OPENAI_API_KEY` in `.env`.
 3. Install deps: `uv sync` (see [installation.md](installation.md)) or a
    venv with `pip install -e ".[dev]"`.
-4. Run the web UI: `condenseit serve` (or `make docker-up` for Docker UI only).
-5. Run a digest: use **Run digest** in the header, or `uv run condenseit run`
-   (or `condenseit run` if your shell uses the project venv).
+4. Run the complete Elpis app: `elpis serve` (or `make docker-up` for Docker).
+5. Run a digest: use **Run digest** in the header, or `uv run elpis run`
+   (or `elpis run` if your shell uses the project venv).
 
 The web UI gives you the digest reader, rating controls, read-later actions,
 and admin pages in one place. This screenshot uses generated demo data.
 
-To open CondenseIt like a native app on your phone, see
+To open Elpis like a native app on your phone, see
 [add-to-home-screen.md](add-to-home-screen.md).
 
 ![Desktop digest reader with demo data](assets/demo/desktop-digest.png)

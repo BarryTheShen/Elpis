@@ -203,8 +203,8 @@ if instances and instance_name and instance_name in instances:
     path       = expand(str(vps.get("path", "")))
     digest_url = expand(str(vps.get("digest_url", "")))
     port       = expand(str(vps.get("port", "8765")))
-    app_dir    = expand(str(vps.get("app_dir", "~/condenseit")))
-    service    = expand(str(vps.get("service", "condenseit-web")))
+    app_dir    = expand(str(vps.get("app_dir", "~/elpis")))
+    service    = expand(str(vps.get("service", "elpis-web")))
 else:
     # Fall back to top-level vps: block.
     vps        = raw.get("vps", {})
@@ -213,8 +213,8 @@ else:
     path       = expand(str(vps.get("path", "")))
     digest_url = expand(str(vps.get("digest_url", "")))
     port       = "8765"
-    app_dir    = "~/condenseit"
-    service    = "condenseit-web"
+    app_dir    = "~/elpis"
+    service    = "elpis-web"
 
 import re as _re
 m = _re.search(r'https?://([^/]+)', digest_url)

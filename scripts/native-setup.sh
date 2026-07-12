@@ -23,5 +23,5 @@ ensure_frontend
 log "Setup complete."
 log ""
 log "  Start web UI:   ./scripts/native-serve.sh"
-log "  Run digest:     condenseit run"
+log "  Run digest:     elpis run"
 log "  Dry run:        ./scripts/run-without-ollama.sh"

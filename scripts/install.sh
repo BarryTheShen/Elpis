@@ -183,7 +183,7 @@ cron_line() {
   IFS=':' read -r h m <<<"$hm"
   h=$((10#$h))
   m=$((10#$m))
-  printf '%d %d * * * cd %q && %q run condenseit run\n' \
+  printf '%d %d * * * cd %q && %q run elpis run\n' \
     "$m" "$h" "$install_dir" "$uv_path"
 }
 
@@ -201,12 +201,12 @@ emit_launchd_snippet() {
 <dict>
   <!-- Edit paths if you move the repo or uv binary. -->
   <key>Label</key>
-  <string>com.condenseit.digest</string>
+  <string>com.elpis.digest</string>
   <key>ProgramArguments</key>
   <array>
     <string>${uv_path}</string>
     <string>run</string>
-    <string>condenseit</string>
+    <string>elpis</string>
     <string>run</string>
   </array>
   <key>WorkingDirectory</key>

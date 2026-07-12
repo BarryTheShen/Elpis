@@ -27,9 +27,9 @@ It is a **new independent product built from CondenseIt**, not merely a Condense
 ### Source-code basis
 
 - Start from a full independent copy of [CondenseIt](https://github.com/wildlifechorus/condenseit), preserving its Git history.
-- Keep the original repository configured as the optional `upstream` remote.
+- Elpis is an independent product and GitHub repository, not a GitHub fork; keep CondenseIt only as the optional `upstream` remote.
 - Retain CondenseIt’s original MIT `LICENSE` and copyright notice.
-- Rebrand the repository, UI, navigation, README, icons, and product name as the new product.
+- Rebrand the repository, UI, navigation, README, icons, and product name as Elpis.
 - Never commit `.env` files, API keys, production databases, generated private content, or other secrets.
 
 ---
@@ -485,7 +485,7 @@ A release is not complete merely because it works on the developer’s machine. 
 ### Phase 0 — Independent repository and untouched baseline
 
 - Copy CondenseIt with full Git history.
-- Point `origin` to the new product repository and `upstream` to CondenseIt.
+- Point `origin` to the independent Elpis repository and `upstream` to CondenseIt.
 - Retain MIT license/attribution.
 - Confirm upstream application works unchanged in Docker.
 - Tag the untouched baseline.
@@ -595,4 +595,4 @@ When receiving this page as context:
 - iPhone Home Screen web apps: [Apple Support](https://support.apple.com/guide/iphone/open-as-web-app-iphea86e5236/ios)
 - Podcast implementation reference: [Podcastfy](https://github.com/souzatharsis/podcastfy)
 
-*Architecture created: 2026-07-12. Product name remains undecided.*
+*Architecture created: 2026-07-12. Product name approved as Elpis; it is an independent product built from CondenseIt history.*

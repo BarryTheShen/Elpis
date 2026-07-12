@@ -4,7 +4,7 @@
 	build-frontend deploy bootstrap logs-clean
 
 PYTHON    ?= $(shell if [ -x .venv/bin/python ]; then echo .venv/bin/python; else echo python3; fi)
-CONDENSEIT ?= $(shell if [ -x .venv/bin/condenseit ]; then echo .venv/bin/condenseit; else echo condenseit; fi)
+ELPIS ?= $(shell if [ -x .venv/bin/elpis ]; then echo .venv/bin/elpis; else echo elpis; fi)
 
 # ---------------------------------------------------------------------------
 # Development
@@ -18,14 +18,14 @@ dev:
 
 # Run the digest pipeline once (local mode).
 run:
-	$(CONDENSEIT) run
+	$(ELPIS) run
 
 dry-run:
-	$(CONDENSEIT) run --dry-run
+	$(ELPIS) run --dry-run
 
 # Start the web UI and admin panel (local mode).
 serve:
-	$(CONDENSEIT) serve --port 8899
+	$(ELPIS) serve --port 8899
 
 # ---------------------------------------------------------------------------
 # Local helpers

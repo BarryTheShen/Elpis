@@ -13,4 +13,4 @@ ensure_venv
 ensure_frontend
 PORT="${PORT:-8899}"
 log "Serving on http://127.0.0.1:${PORT}/"
-condenseit serve --port "$PORT" "$@"
+elpis serve --port "$PORT" "$@"

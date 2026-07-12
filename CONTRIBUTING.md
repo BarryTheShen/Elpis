@@ -1,6 +1,6 @@
 # Contributing
 
-Thanks for helping improve CondenseIt.
+Thanks for helping improve Elpis.
 
 ## Development setup
 

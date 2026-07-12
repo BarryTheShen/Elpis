@@ -6,7 +6,7 @@ ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 cd "$ROOT"
 
 log() {
-  printf '\n[condenseit] %s\n' "$*"
+  printf '\n[elpis] %s\n' "$*"
 }
 
 ensure_config() {

@@ -1,4 +1,4 @@
-"""CondenseIt command-line interface."""
+"""Elpis command-line interface."""
 
 import logging
 
@@ -22,10 +22,10 @@ def _setup_logging(verbose: bool) -> None:
     )
 
 
-@click.group()
-@click.version_option()
+@click.group(name="elpis")
+@click.version_option(package_name="elpis")
 def cli() -> None:
-    """CondenseIt: AI-powered personal news digest."""
+    """Elpis: a self-hosted daily publication."""
 
 
 @cli.command()
@@ -66,7 +66,7 @@ def run(
             f"Videos: {stats.get('videos_count', 0)}\n"
             f"Time: {stats['processing_time']}\n"
             f"Model: {stats['model']}",
-            title="CondenseIt",
+            title="Elpis",
             style="green",
         ),
     )
@@ -83,7 +83,7 @@ def serve(port: int, host: str, config: str | None) -> None:
     from condenseit.web.app import create_app
 
     app = create_app(config)
-    console.print(f"[bold]CondenseIt[/] http://{host}:{port}/")
+    console.print(f"[bold]Elpis[/] http://{host}:{port}/")
     console.print(f"  Admin: http://{host}:{port}/admin/")
     uvicorn.run(app, host=host, port=port, log_level="info")
 

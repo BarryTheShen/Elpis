@@ -32,4 +32,4 @@ RUN mkdir -p /app/data/digests
 
 EXPOSE 8899
 
-CMD ["condenseit", "serve", "--host", "0.0.0.0", "--port", "8899"]
+CMD ["elpis", "serve", "--host", "0.0.0.0", "--port", "8899"]
