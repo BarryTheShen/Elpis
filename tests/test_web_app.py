@@ -9,7 +9,7 @@ from condenseit.store.database import ContentStore
 from condenseit.web.app import _digest_cost_usd, create_app
 
 # Operational APIs remain authenticated; publication reads are intentionally public.
-_AUTH = {"Authorization": "Bearer condenseit"}
+_AUTH = {"Authorization": "Bearer elpis"}
 
 
 def test_health_and_api_endpoints(
@@ -61,7 +61,7 @@ def test_spa_shell_served_for_ui_routes(
     monkeypatch: pytest.MonkeyPatch,
     tmp_path,
 ) -> None:
-    """Publication and admin routes use the SPA shell when dist is configured."""
+    """The SPA login route is public while admin routes require authorization."""
     dist = tmp_path / "dist"
     dist.mkdir()
     (dist / "index.html").write_text(
@@ -76,12 +76,26 @@ def test_spa_shell_served_for_ui_routes(
     assert home.status_code == 200
     assert "spa-shell-marker" in home.text
 
-    admin = client.get("/admin/sources")
-    assert admin.status_code == 200
-    assert "spa-shell-marker" in admin.text
+    admin = client.get("/admin/sources", follow_redirects=False)
+    assert admin.status_code == 303
+    assert admin.headers["location"] == "/login"
+
+    login = client.get("/login")
+    assert login.status_code == 200
+    assert "spa-shell-marker" in login.text
+
+    authorized_admin = client.get("/admin/sources", headers=_AUTH)
+    assert authorized_admin.status_code == 200
+    assert "spa-shell-marker" in authorized_admin.text
 
     legacy_admin_write = client.post("/admin/sources")
     assert legacy_admin_write.status_code == 401
+
+    session_login = client.post("/api/auth/login", json={"password": "elpis"})
+    assert session_login.status_code == 200
+    session_admin = client.get("/admin/sources")
+    assert session_admin.status_code == 200
+    assert "spa-shell-marker" in session_admin.text
 
 
 

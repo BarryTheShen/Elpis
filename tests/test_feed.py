@@ -10,7 +10,7 @@ from fastapi.testclient import TestClient
 from condenseit.store.database import ContentStore
 from condenseit.web.app import create_app
 
-_AUTH = {"Authorization": "Bearer condenseit"}
+_AUTH = {"Authorization": "Bearer elpis"}
 _ATOM_NS = "http://www.w3.org/2005/Atom"
 
 _SAMPLE_ITEMS = [

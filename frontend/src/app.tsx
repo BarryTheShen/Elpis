@@ -14,6 +14,9 @@ export function App() {
   return (
     <Router>
       <Switch>
+        <Route path="/login">
+          <AdminSurface loginOnly />
+        </Route>
         <Route path="/admin/*?">
           <AdminSurface />
         </Route>

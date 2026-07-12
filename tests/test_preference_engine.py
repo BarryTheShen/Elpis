@@ -914,7 +914,7 @@ def test_api_dismiss_endpoint(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -
         store_local, "https://dis.test/a", "Some Article", "content", "Tech", "Feed"
     )
 
-    _auth = {"Authorization": "Bearer condenseit"}
+    _auth = {"Authorization": "Bearer elpis"}
     client = TestClient(create_app())
     resp = client.post(
         "/api/dismiss",
@@ -934,7 +934,7 @@ def test_api_ranking_weights_get(
     from condenseit.web.app import create_app
 
     monkeypatch.setenv("CONDENSEIT_DATA_DIR", str(tmp_path / "data"))
-    _auth = {"Authorization": "Bearer condenseit"}
+    _auth = {"Authorization": "Bearer elpis"}
     client = TestClient(create_app())
     resp = client.get("/api/preferences/weights", headers=_auth)
     assert resp.status_code == 200
@@ -959,7 +959,7 @@ def test_api_ranking_weights_put(
     from condenseit.web.app import create_app
 
     monkeypatch.setenv("CONDENSEIT_DATA_DIR", str(tmp_path / "wdata"))
-    _auth = {"Authorization": "Bearer condenseit"}
+    _auth = {"Authorization": "Bearer elpis"}
     client = TestClient(create_app())
 
     resp = client.put(
@@ -1023,7 +1023,7 @@ def test_api_preferences_profile_endpoint(
 
     from condenseit.web.app import create_app
 
-    _auth = {"Authorization": "Bearer condenseit"}
+    _auth = {"Authorization": "Bearer elpis"}
     monkeypatch.setenv("CONDENSEIT_DATA_DIR", str(tmp_path / "data"))
     client = TestClient(create_app())
     resp = client.get("/api/preferences/profile", headers=_auth)
@@ -1062,7 +1062,7 @@ def test_digest_detail_includes_ratings(
     store.save_digest("# D", "<p>D</p>", json.dumps(payload))
     store.rate_article("https://r.test/a", 4)
 
-    _auth = {"Authorization": "Bearer condenseit"}
+    _auth = {"Authorization": "Bearer elpis"}
     monkeypatch.setenv("CONDENSEIT_DATA_DIR", str(data_root))
     client = TestClient(create_app())
     resp = client.get("/api/digests/latest", headers=_auth)

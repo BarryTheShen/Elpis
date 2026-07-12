@@ -32,7 +32,7 @@ export function PublicationLayout({ children }: PublicationLayoutProps) {
               Today
             </Link>
             <Link
-              href="/admin"
+              href="/login"
               class="hidden rounded-md px-3 py-2 text-sm font-medium text-[#2783de] transition-colors hover:bg-[#e5f2fc] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#2783de] md:inline-flex dark:hover:bg-slate-800"
             >
               Admin

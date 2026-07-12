@@ -82,8 +82,13 @@ function MobileAdminNotice() {
   );
 }
 
+interface AdminSurfaceProps {
+  /** `/login` is public; `/admin/*` is already authorized by the server. */
+  loginOnly?: boolean;
+}
+
 /** Server-protected operational tools, omitted entirely on narrow screens. */
-export function AdminSurface() {
+export function AdminSurface({ loginOnly = false }: AdminSurfaceProps) {
   const isDesktop = useDesktopViewport();
   const [authState, setAuthState] = useState<AuthState>('checking');
   const [digests, setDigests] = useState<DigestEntry[]>([]);
@@ -108,9 +113,15 @@ export function AdminSurface() {
   }, []);
 
   useEffect(() => {
-    if (authState !== 'authenticated') return;
+    if (loginOnly && authState === 'authenticated') {
+      window.location.replace('/admin/sources');
+    }
+  }, [authState, loginOnly]);
+
+  useEffect(() => {
+    if (loginOnly || authState !== 'authenticated') return;
     api.listDigests().then(setDigests).catch(() => setDigests([]));
-  }, [authState]);
+  }, [authState, loginOnly]);
 
   if (!isDesktop) return <MobileAdminNotice />;
 
@@ -123,9 +134,26 @@ export function AdminSurface() {
   }
 
   if (authState === 'unauthenticated') {
-    return <LoginPage onLogin={() => setAuthState('authenticated')} />;
+    return (
+      <LoginPage
+        onLogin={() => {
+          if (loginOnly) {
+            window.location.assign('/admin/sources');
+          } else {
+            setAuthState('authenticated');
+          }
+        }}
+      />
+    );
   }
 
+  if (loginOnly) {
+    return (
+      <div class="flex min-h-screen items-center justify-center bg-[#f9f8f7] dark:bg-slate-950">
+        <span class="h-8 w-8 animate-spin rounded-full border-4 border-[#2783de] border-t-transparent" />
+      </div>
+    );
+  }
   return (
     <AppLayout digests={digests} currentDigestId={null}>
       <AdminRoutes />

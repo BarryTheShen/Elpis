@@ -20,6 +20,7 @@ from fastapi.responses import (
     HTMLResponse,
     JSONResponse,
     PlainTextResponse,
+    RedirectResponse,
     Response,
 )
 from fastapi.staticfiles import StaticFiles
@@ -284,10 +285,14 @@ def create_app(config_path: str | None = None) -> FastAPI:
                 token_param, feed_token
             )
             if not admin_access and not token_ok:
+                if is_admin_route and request.method == "GET":
+                    return RedirectResponse("/login", status_code=303)
                 return JSONResponse(
                     {"detail": "Not authenticated"},
                     status_code=401,
                 )
+            if is_admin_route and request.method == "GET" and spa_dist.is_dir():
+                return FileResponse(spa_dist / "index.html")
         return await call_next(request)
 
     _https_only = os.environ.get("CONDENSEIT_HTTPS_ONLY", "").strip()
@@ -300,17 +305,6 @@ def create_app(config_path: str | None = None) -> FastAPI:
         same_site="lax",
     )
 
-    @app.middleware("http")
-    async def _serve_spa_admin_shell(request: Request, call_next: Callable) -> Response:
-        """Serve the client-side admin boundary before legacy page routes."""
-        path = request.url.path
-        if (
-            spa_dist.is_dir()
-            and request.method == "GET"
-            and (path == "/admin" or path.startswith("/admin/"))
-        ):
-            return FileResponse(spa_dist / "index.html")
-        return await call_next(request)
 
     if _STATIC.is_dir():
         app.mount("/static", StaticFiles(directory=str(_STATIC)), name="static")
