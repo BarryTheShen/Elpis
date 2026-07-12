@@ -39,6 +39,24 @@ def test_health_and_api_endpoints(
     assert latest.json() is None
 
 
+
+def test_health_reports_storage_failure(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path,
+) -> None:
+    """Health becomes unavailable when the data store cannot answer a query."""
+    monkeypatch.setenv("CONDENSEIT_DATA_DIR", str(tmp_path / "data"))
+    app = create_app()
+
+    def fail_execute(*_args, **_kwargs):
+        raise RuntimeError("storage unavailable")
+
+    monkeypatch.setattr(app.state.store.db, "execute", fail_execute)
+    response = TestClient(app).get("/health")
+
+    assert response.status_code == 503
+    assert response.json() == {"status": "unavailable"}
+
 def test_spa_shell_served_for_ui_routes(
     monkeypatch: pytest.MonkeyPatch,
     tmp_path,

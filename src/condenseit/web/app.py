@@ -197,6 +197,7 @@ def create_app(config_path: str | None = None) -> FastAPI:
 
     app = FastAPI(title="CondenseIt", docs_url="/docs", lifespan=lifespan)
     app.state.job_manager = job_manager
+    app.state.store = store
     templates.env.globals["digest_job"] = job_manager.snapshot
 
     default_auth_password = LOCAL_INSTALL_FALLBACK_CREDENTIAL
@@ -1084,9 +1085,14 @@ def create_app(config_path: str | None = None) -> FastAPI:
             ),
         )
 
-    @app.get("/health")
-    async def health() -> dict[str, str]:
-        return {"status": "ok"}
+    @app.get("/health", response_model=None)
+    async def health() -> JSONResponse:
+        try:
+            store.db.execute("SELECT 1").fetchone()
+        except Exception:
+            logging.exception("Storage unavailable during health check")
+            return JSONResponse({"status": "unavailable"}, status_code=503)
+        return JSONResponse({"status": "ok"})
 
     if spa_dist.is_dir():
         assets_dir = spa_dist / "assets"
