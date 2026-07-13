@@ -6,7 +6,7 @@ import { Button } from '../../components/Button';
 import { Spinner } from '../../components/Spinner';
 
 const INPUT =
-  'w-full px-3 py-2 text-sm bg-white dark:bg-slate-950 border border-slate-200 dark:border-slate-700 rounded-lg text-slate-900 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-teal-500';
+  'w-full px-3 py-2 text-sm bg-white dark:bg-slate-950 border border-slate-200 dark:border-slate-700 rounded-lg text-slate-900 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-blue-500';
 
 export function SecurityPage() {
   const [info, setInfo] = useState<PasswordInfo | null>(null);
@@ -119,7 +119,7 @@ export function SecurityPage() {
   if (loading) {
     return (
       <div class="flex items-center justify-center py-20">
-        <Spinner size="lg" className="text-teal-600 dark:text-teal-400" />
+        <Spinner size="lg" className="text-blue-600 dark:text-blue-400" />
       </div>
     );
   }
@@ -165,7 +165,7 @@ export function SecurityPage() {
           class={[
             'px-4 py-3 text-sm rounded-lg border',
             flash.ok
-              ? 'bg-teal-50 dark:bg-teal-900/20 text-teal-700 dark:text-teal-300 border-teal-200 dark:border-teal-800'
+              ? 'bg-blue-50 dark:bg-blue-900/20 text-blue-700 dark:text-blue-300 border-blue-200 dark:border-blue-800'
               : 'bg-red-50 dark:bg-red-900/20 text-red-700 dark:text-red-300 border-red-200 dark:border-red-800',
           ].join(' ')}
         >
@@ -258,7 +258,7 @@ export function SecurityPage() {
         />
 
         {feedTokenLoading ? (
-          <Spinner size="sm" className="text-teal-600 dark:text-teal-400" />
+          <Spinner size="sm" className="text-blue-600 dark:text-blue-400" />
         ) : (
           <div class="space-y-4">
             {feedFlash && (
@@ -266,7 +266,7 @@ export function SecurityPage() {
                 class={[
                   'px-4 py-3 text-sm rounded-lg border',
                   feedFlash.ok
-                    ? 'bg-teal-50 dark:bg-teal-900/20 text-teal-700 dark:text-teal-300 border-teal-200 dark:border-teal-800'
+                    ? 'bg-blue-50 dark:bg-blue-900/20 text-blue-700 dark:text-blue-300 border-blue-200 dark:border-blue-800'
                     : 'bg-red-50 dark:bg-red-900/20 text-red-700 dark:text-red-300 border-red-200 dark:border-red-800',
                 ].join(' ')}
               >

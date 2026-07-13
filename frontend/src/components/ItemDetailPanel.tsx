@@ -193,24 +193,24 @@ export function ItemDetailPanel({
       class="fixed inset-0 z-50 flex justify-end"
       role="dialog"
       aria-modal="true"
-      aria-label={item.title}
+      aria-labelledby="detail-title"
     >
       {/* Semi-transparent backdrop - click closes */}
       <div
-        class="absolute inset-0 bg-slate-900/60 backdrop-blur-sm"
+        class="absolute inset-0 bg-[#2c2c2b]/45"
         onClick={onClose}
         aria-hidden="true"
       />
 
       {/* Panel */}
-      <div class="relative z-10 flex flex-col w-full max-w-2xl h-full bg-white dark:bg-slate-900 shadow-2xl overflow-y-auto">
+      <div class="relative z-10 flex h-full w-full max-w-2xl flex-col overflow-y-auto border-l border-[#e6e5e3] bg-white dark:border-[#3b3a37] dark:bg-[#20201e]">
 
         {/* Top bar */}
-        <div class="sticky top-0 z-10 flex items-center justify-between gap-3 px-5 py-3 bg-white/95 dark:bg-slate-900/95 backdrop-blur border-b border-slate-100 dark:border-slate-800">
+        <div class="sticky top-0 z-10 flex items-center justify-between gap-3 border-b border-[#e6e5e3] bg-white/95 px-5 py-3 backdrop-blur-sm dark:border-[#3b3a37] dark:bg-[#20201e]/95">
           <button
             type="button"
             onClick={onClose}
-            class="flex items-center gap-1.5 text-sm text-slate-500 dark:text-slate-400 hover:text-slate-800 dark:hover:text-slate-200 transition-colors"
+            class="flex items-center gap-1.5 text-sm text-[#7d7a75] dark:text-[#b4b1ab] hover:text-[#2c2c2b] dark:hover:text-[#f4f3f1] transition-colors"
             aria-label="Close detail panel"
           >
             <svg
@@ -233,7 +233,7 @@ export function ItemDetailPanel({
             href={item.url}
             target="_blank"
             rel="noopener noreferrer"
-            class="flex items-center gap-1.5 text-sm font-medium text-teal-600 dark:text-teal-400 hover:text-teal-700 dark:hover:text-teal-300 transition-colors"
+            class="flex items-center gap-1.5 text-sm font-medium text-[#1d5f9f] dark:text-[#a6d2f8] hover:text-[#2783de] dark:hover:text-[#63aaf0] transition-colors"
           >
             Open original
             <svg
@@ -258,7 +258,7 @@ export function ItemDetailPanel({
             src={item.image_url}
             alt=""
             loading="lazy"
-            class="w-full max-h-64 object-cover bg-slate-100 dark:bg-slate-800"
+            class="w-full max-h-64 object-cover bg-[#f0efed] dark:bg-[#2a2927]"
             onError={(e) => {
               (e.currentTarget as HTMLImageElement).style.display = 'none';
             }}
@@ -272,34 +272,34 @@ export function ItemDetailPanel({
           <div class="flex items-center gap-2 flex-wrap">
             <Badge variant={kindVariant(item.kind)}>{item.kind}</Badge>
             {item.category && (
-              <span class="text-xs font-medium text-slate-500 dark:text-slate-400">
+              <span class="text-xs font-medium text-[#7d7a75] dark:text-[#b4b1ab]">
                 {item.category}
               </span>
             )}
           </div>
 
           {/* Title */}
-          <h1 class="text-2xl font-bold text-slate-900 dark:text-slate-100 leading-tight">
+          <h1 id="detail-title" class="text-3xl font-semibold tracking-tight text-[#2c2c2b] dark:text-[#f4f3f1] leading-tight">
             {item.title || 'Untitled'}
           </h1>
 
           {/* Meta */}
           {metaParts.length > 0 && (
-            <p class="text-sm text-slate-400 dark:text-slate-500">
+            <p class="text-sm text-[#7d7a75] dark:text-[#b4b1ab]">
               {metaParts.join(' · ')}
             </p>
           )}
 
           {/* Divider */}
-          <hr class="border-slate-100 dark:border-slate-800" />
+          <hr class="border-[#e6e5e3] dark:border-[#3b3a37]" />
 
           {/* TL;DR */}
           {tldr && (
             <div class="space-y-2">
-              <h2 class="text-xs font-semibold uppercase tracking-widest text-slate-400 dark:text-slate-500">
+              <h2 class="text-sm font-semibold text-[#7d7a75] dark:text-[#b4b1ab]">
                 TL;DR
               </h2>
-              <p class="text-[15px] font-medium text-slate-800 dark:text-slate-200 leading-relaxed">
+              <p class="text-base font-medium text-[#2c2c2b] dark:text-[#f4f3f1] leading-relaxed">
                 {tldr}
               </p>
             </div>
@@ -308,14 +308,14 @@ export function ItemDetailPanel({
           {/* Key Takeaways */}
           {keyTakeaways && keyTakeaways.length > 0 && (
             <div class="space-y-2">
-              <h2 class="text-xs font-semibold uppercase tracking-widest text-slate-400 dark:text-slate-500">
+              <h2 class="text-sm font-semibold text-[#7d7a75] dark:text-[#b4b1ab]">
                 Key Takeaways
               </h2>
               <ul class="space-y-2 pl-0 list-none">
                 {keyTakeaways.map((point, i) => (
-                  <li key={i} class="flex gap-2.5 text-[15px] text-slate-700 dark:text-slate-300 leading-relaxed">
+                  <li key={i} class="flex gap-2.5 text-base text-[#5f5c57] dark:text-[#d0cdc6] leading-relaxed">
                     <span
-                      class="mt-[0.45em] flex-shrink-0 w-1.5 h-1.5 rounded-full bg-teal-400 dark:bg-teal-500"
+                      class="mt-[0.45em] flex-shrink-0 w-1.5 h-1.5 rounded-full bg-[#2783de] dark:bg-[#63aaf0]"
                       aria-hidden="true"
                     />
                     <span>{point}</span>
@@ -327,16 +327,16 @@ export function ItemDetailPanel({
 
           {/* Divider before summary, shown only when structured fields are present */}
           {(tldr || (keyTakeaways && keyTakeaways.length > 0)) && (
-            <hr class="border-slate-100 dark:border-slate-800" />
+            <hr class="border-[#e6e5e3] dark:border-[#3b3a37]" />
           )}
 
           {/* Summary */}
           {segments.length > 0 ? (
             <div class="space-y-3">
-              <h2 class="text-xs font-semibold uppercase tracking-widest text-slate-400 dark:text-slate-500">
+              <h2 class="text-sm font-semibold text-[#7d7a75] dark:text-[#b4b1ab]">
                 Summary
               </h2>
-              <div class="space-y-3 text-slate-700 dark:text-slate-300 leading-relaxed text-[15px]">
+              <div class="space-y-3 text-base text-[#5f5c57] dark:text-[#d0cdc6] leading-relaxed">
                 {segments.map((seg, i) => {
                   if (seg.type === 'paragraph') {
                     return <p key={i}>{seg.text}</p>;
@@ -346,7 +346,7 @@ export function ItemDetailPanel({
                       {seg.items.map((bullet, j) => (
                         <li key={j} class="flex gap-2.5">
                           <span
-                            class="mt-[0.4em] flex-shrink-0 w-1.5 h-1.5 rounded-full bg-teal-400 dark:bg-teal-500"
+                            class="mt-[0.4em] flex-shrink-0 w-1.5 h-1.5 rounded-full bg-[#2783de] dark:bg-[#63aaf0]"
                             aria-hidden="true"
                           />
                           <span>{bullet}</span>
@@ -359,7 +359,7 @@ export function ItemDetailPanel({
             </div>
           ) : (
             !tldr && !keyTakeaways?.length && (
-              <p class="text-sm text-slate-400 dark:text-slate-500 italic">
+              <p class="text-base text-[#7d7a75] dark:text-[#b4b1ab] italic">
                 No summary available.
               </p>
             )
@@ -367,7 +367,7 @@ export function ItemDetailPanel({
         </div>
 
         {/* Footer actions */}
-        <div class="sticky bottom-0 bg-white/95 dark:bg-slate-900/95 backdrop-blur border-t border-slate-100 dark:border-slate-800 px-6 py-4">
+        <div class="sticky bottom-0 border-t border-[#e6e5e3] bg-white/95 px-6 py-4 backdrop-blur-sm dark:border-[#3b3a37] dark:bg-[#20201e]/95">
           <div class="flex items-center justify-between gap-4 flex-wrap">
             <div class="flex items-center gap-3">
               <RatingStars
@@ -376,7 +376,7 @@ export function ItemDetailPanel({
                 disabled={saving}
               />
               {savedFlash && (
-                <span class="text-xs text-teal-600 dark:text-teal-400 font-medium">
+                <span class="text-xs text-[#1d5f9f] dark:text-[#a6d2f8] font-medium">
                   Saved
                 </span>
               )}
@@ -392,7 +392,7 @@ export function ItemDetailPanel({
                   onClick={() => onToggleStar(item)}
                   title={isStarred ? 'Unstar this item' : 'Star to save forever'}
                   class={[
-                    'flex items-center gap-1.5 text-sm px-3 py-1.5 rounded-lg border',
+                    'flex items-center gap-1.5 text-sm px-3 py-1.5 rounded-lg border active:scale-[0.98] focus-visible:ring-2 focus-visible:ring-[#2783de]',
                     'transition-colors font-medium',
                     isStarred
                       ? 'border-yellow-300 dark:border-yellow-700 text-yellow-600 dark:text-yellow-400 bg-yellow-50 dark:bg-yellow-900/20'
@@ -425,7 +425,7 @@ export function ItemDetailPanel({
                   }}
                   title='Dismiss this item'
                   class={[
-                    'flex items-center gap-1.5 text-sm px-3 py-1.5 rounded-lg border',
+                    'flex items-center gap-1.5 text-sm px-3 py-1.5 rounded-lg border active:scale-[0.98] focus-visible:ring-2 focus-visible:ring-[#2783de]',
                     'transition-colors font-medium',
                     'border-slate-200 dark:border-slate-700 text-slate-500 dark:text-slate-400',
                     'hover:border-rose-300 hover:text-rose-600 dark:hover:text-rose-400',
@@ -458,7 +458,7 @@ export function ItemDetailPanel({
                       : 'Save to Read Later'
                   }
                   class={[
-                    'flex items-center gap-1.5 text-sm px-3 py-1.5 rounded-lg border',
+                    'flex items-center gap-1.5 text-sm px-3 py-1.5 rounded-lg border active:scale-[0.98] focus-visible:ring-2 focus-visible:ring-[#2783de]',
                     'transition-colors font-medium',
                     isReadLater
                       ? 'border-amber-200 dark:border-amber-800 text-amber-600 dark:text-amber-400 bg-amber-50 dark:bg-amber-900/20'
@@ -491,11 +491,11 @@ export function ItemDetailPanel({
                   }}
                   title={isRead ? 'Mark as unread' : 'Mark as read'}
                   class={[
-                    'flex items-center gap-1.5 text-sm px-3 py-1.5 rounded-lg border',
+                    'flex items-center gap-1.5 text-sm px-3 py-1.5 rounded-lg border active:scale-[0.98] focus-visible:ring-2 focus-visible:ring-[#2783de]',
                     'transition-colors font-medium',
                     isRead
-                      ? 'border-teal-200 dark:border-teal-800 text-teal-600 dark:text-teal-400 bg-teal-50 dark:bg-teal-900/20'
-                      : 'border-slate-200 dark:border-slate-700 text-slate-500 dark:text-slate-400 hover:border-teal-300 hover:text-teal-600 dark:hover:text-teal-400',
+                      ? 'border-[#9bcaf2] dark:border-[#4f8fc8] text-[#1d5f9f] dark:text-[#a6d2f8] bg-[#e5f2fc] dark:bg-[#1c3852]'
+                      : 'border-[#e6e5e3] dark:border-[#3b3a37] text-[#7d7a75] dark:text-[#b4b1ab] hover:border-[#9bcaf2] hover:text-[#1d5f9f] dark:hover:text-[#a6d2f8]',
                   ].join(' ')}
                 >
                   <svg

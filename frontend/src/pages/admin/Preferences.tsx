@@ -51,7 +51,7 @@ function BootstrapPanel({
           {result.high_keywords.map((k) => (
             <span
               key={k}
-              class="text-xs px-2 py-0.5 rounded-full bg-teal-50 dark:bg-teal-900/30 text-teal-700 dark:text-teal-300 font-medium"
+              class="text-xs px-2 py-0.5 rounded-full bg-blue-50 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 font-medium"
             >
               {k}
             </span>
@@ -90,7 +90,7 @@ function BootstrapPanel({
             'bg-white dark:bg-slate-900',
             'text-slate-700 dark:text-slate-300',
             'placeholder-slate-400 dark:placeholder-slate-600',
-            'focus:outline-none focus:ring-2 focus:ring-teal-400',
+            'focus:outline-none focus:ring-2 focus:ring-blue-400',
           ].join(' ')}
         />
         {error && (
@@ -101,8 +101,8 @@ function BootstrapPanel({
           disabled={loading || !text.trim()}
           class={[
             'flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium',
-            'bg-teal-600 dark:bg-teal-500 text-white',
-            'hover:bg-teal-700 dark:hover:bg-teal-400',
+            'bg-blue-600 dark:bg-blue-500 text-white',
+            'hover:bg-blue-700 dark:hover:bg-blue-400',
             'disabled:opacity-50 disabled:cursor-not-allowed',
             'transition-colors',
           ].join(' ')}
@@ -118,7 +118,7 @@ function BootstrapPanel({
 /** Signed score -> CSS color class. */
 const scoreColor = (score: number) =>
   score > 0
-    ? 'text-teal-600 dark:text-teal-400'
+    ? 'text-blue-600 dark:text-blue-400'
     : score < 0
       ? 'text-rose-500 dark:text-rose-400'
       : 'text-slate-400 dark:text-slate-500';
@@ -147,7 +147,7 @@ function ScoreBar({ score, maxAbs = 2 }: { score: number; maxAbs?: number }) {
       <div class="flex-1">
         {isPos && (
           <div
-            class="h-2 rounded-full bg-teal-400 dark:bg-teal-500"
+            class="h-2 rounded-full bg-blue-400 dark:bg-blue-500"
             style={{ width: `${pct * 100}%` }}
           />
         )}
@@ -169,7 +169,7 @@ function RatingDistribution({
     '1': 'bg-rose-400 dark:bg-rose-500',
     '2': 'bg-orange-400 dark:bg-orange-500',
     '3': 'bg-amber-400 dark:bg-amber-500',
-    '4': 'bg-teal-400 dark:bg-teal-500',
+    '4': 'bg-blue-400 dark:bg-blue-500',
     '5': 'bg-emerald-500 dark:bg-emerald-400',
   };
   return (
@@ -214,7 +214,7 @@ function TermBadge({
   const fontSize = 10 + relSize * 5; // 10px to 15px
   const baseClass =
     variant === 'liked'
-      ? 'bg-teal-50 dark:bg-teal-900/30 text-teal-700 dark:text-teal-300'
+      ? 'bg-blue-50 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300'
       : 'bg-rose-50 dark:bg-rose-900/30 text-rose-600 dark:text-rose-400';
   return (
     <span
@@ -247,7 +247,7 @@ export function PreferencesPage() {
   if (loading) {
     return (
       <div class="flex items-center justify-center py-20">
-        <Spinner size="lg" className="text-teal-600 dark:text-teal-400" />
+        <Spinner size="lg" className="text-blue-600 dark:text-blue-400" />
       </div>
     );
   }
@@ -279,14 +279,14 @@ export function PreferencesPage() {
                 class={[
                   'inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium',
                   profile.learning_active
-                    ? 'bg-teal-100 dark:bg-teal-900/30 text-teal-700 dark:text-teal-300'
+                    ? 'bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300'
                     : 'bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400',
                 ].join(' ')}
               >
                 <span
                   class={[
                     'w-1.5 h-1.5 rounded-full',
-                    profile.learning_active ? 'bg-teal-500' : 'bg-slate-400',
+                    profile.learning_active ? 'bg-blue-500' : 'bg-slate-400',
                   ].join(' ')}
                 />
                 {profile.learning_active
@@ -308,7 +308,7 @@ export function PreferencesPage() {
               <button
                 type="button"
                 onClick={() => setShowBootstrap((v) => !v)}
-                class="ml-auto text-xs text-teal-600 dark:text-teal-400 hover:underline"
+                class="ml-auto text-xs text-blue-600 dark:text-blue-400 hover:underline"
               >
                 {showBootstrap
                   ? 'Hide'
@@ -355,7 +355,7 @@ export function PreferencesPage() {
             />
             <div class="grid grid-cols-3 gap-3 text-center">
               <div class="space-y-1">
-                <p class="text-2xl font-bold text-teal-600 dark:text-teal-400">
+                <p class="text-2xl font-bold text-blue-600 dark:text-blue-400">
                   {profile.implicit_read_count}
                 </p>
                 <p class="text-xs text-slate-500 dark:text-slate-400">
@@ -549,7 +549,7 @@ export function PreferencesPage() {
                       {profile.top_liked_bigrams.map((t) => (
                         <span
                           key={t.term}
-                          class="px-2.5 py-0.5 rounded-full text-xs font-medium bg-teal-50 dark:bg-teal-900/30 text-teal-700 dark:text-teal-300"
+                          class="px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-50 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300"
                           title={`Score: ${t.score.toFixed(2)}`}
                         >
                           {t.term}

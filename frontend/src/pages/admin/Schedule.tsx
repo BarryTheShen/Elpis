@@ -6,7 +6,7 @@ import { Button } from '../../components/Button';
 import { Spinner } from '../../components/Spinner';
 
 const INPUT =
-  'px-3 py-2 text-sm bg-white dark:bg-slate-950 border border-slate-200 dark:border-slate-700 rounded-lg text-slate-900 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-teal-500';
+  'px-3 py-2 text-sm bg-white dark:bg-slate-950 border border-slate-200 dark:border-slate-700 rounded-lg text-slate-900 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-blue-500';
 
 const TIME_RE = /^([01]\d|2[0-3]):([0-5]\d)$/;
 
@@ -142,7 +142,7 @@ export function SchedulePage() {
   if (loading) {
     return (
       <div class="flex items-center justify-center py-20">
-        <Spinner size="lg" className="text-teal-600 dark:text-teal-400" />
+        <Spinner size="lg" className="text-blue-600 dark:text-blue-400" />
       </div>
     );
   }
@@ -163,7 +163,7 @@ export function SchedulePage() {
           class={[
             'px-4 py-3 text-sm rounded-lg border',
             flash.ok
-              ? 'bg-teal-50 dark:bg-teal-900/20 text-teal-700 dark:text-teal-300 border-teal-200 dark:border-teal-800'
+              ? 'bg-blue-50 dark:bg-blue-900/20 text-blue-700 dark:text-blue-300 border-blue-200 dark:border-blue-800'
               : 'bg-red-50 dark:bg-red-900/20 text-red-700 dark:text-red-300 border-red-200 dark:border-red-800',
           ].join(' ')}
         >
@@ -192,9 +192,9 @@ export function SchedulePage() {
             onClick={handleToggleEnabled}
             class={[
               'relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent',
-              'transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-teal-500 focus:ring-offset-2',
+              'transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2',
               enabled
-                ? 'bg-teal-500'
+                ? 'bg-blue-500'
                 : 'bg-slate-200 dark:bg-slate-700',
               togglingEnabled ? 'opacity-50 cursor-not-allowed' : '',
             ].join(' ')}

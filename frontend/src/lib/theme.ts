@@ -1,6 +1,6 @@
 export type Theme = 'dark' | 'light';
 
-const DEFAULT_THEME: Theme = 'dark';
+const DEFAULT_THEME: Theme = 'light';
 const THEME_STORAGE_KEY = 'condenseit:theme';
 
 /** Check that a persisted value is one of the supported themes. */

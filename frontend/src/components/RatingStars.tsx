@@ -27,12 +27,13 @@ export function RatingStars({
             title={LABELS[n - 1]}
             aria-label={`Rate ${n} star${n !== 1 ? 's' : ''}`}
             class={[
-              'w-8 h-8 flex items-center justify-center rounded-lg text-sm font-semibold',
-              'border transition-all cursor-pointer select-none',
+              'w-8 h-8 flex items-center justify-center rounded-md text-sm font-semibold',
+              'border transition-all cursor-pointer select-none active:scale-[0.96]',
               'disabled:opacity-50 disabled:cursor-not-allowed',
+              'focus-visible:ring-2 focus-visible:ring-[#2783de] focus-visible:ring-offset-2',
               active
-                ? 'border-teal-500 bg-teal-50 dark:bg-teal-900/30 text-teal-600 dark:text-teal-400'
-                : 'border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-400 dark:text-slate-500 hover:border-teal-400 hover:text-teal-500',
+                ? 'border-[#2783de] bg-[#e5f2fc] dark:border-[#63aaf0] dark:bg-[#1c3852] text-[#1d5f9f] dark:text-[#a6d2f8]'
+                : 'border-[#e6e5e3] dark:border-[#3b3a37] bg-white dark:bg-[#20201e] text-[#7d7a75] dark:text-[#b4b1ab] hover:border-[#2783de] hover:text-[#1d5f9f] dark:hover:border-[#63aaf0] dark:hover:text-[#a6d2f8]',
             ].join(' ')}
           >
             {n}

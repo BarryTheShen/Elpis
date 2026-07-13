@@ -13,7 +13,7 @@ import { itunesPodcastSearchUrl } from '../../lib/externalUrls';
 
 /** Shared Tailwind class string for text inputs and selects. */
 const inputCls =
-  'w-full px-3 py-2 text-sm bg-white dark:bg-slate-950 border border-slate-200 dark:border-slate-700 rounded-lg text-slate-900 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-teal-500';
+  'w-full px-3 py-2 text-sm bg-white dark:bg-slate-950 border border-slate-200 dark:border-slate-700 rounded-lg text-slate-900 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-blue-500';
 
 const PRIORITY_LABELS: Record<number, string> = {
   1: 'High',
@@ -300,7 +300,7 @@ export function SourcesPage() {
       <div class="flex items-center justify-center py-20">
         <Spinner
           size="lg"
-          className="text-teal-600 dark:text-teal-400"
+          className="text-blue-600 dark:text-blue-400"
         />
       </div>
     );
@@ -323,7 +323,7 @@ export function SourcesPage() {
             Sources
           </h1>
           {sources.length > 0 && (
-            <span class="inline-flex items-center px-2.5 py-0.5 text-xs font-semibold rounded-full bg-teal-100 text-teal-700 dark:bg-teal-900/30 dark:text-teal-300">
+            <span class="inline-flex items-center px-2.5 py-0.5 text-xs font-semibold rounded-full bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300">
               {sources.length}
             </span>
           )}
@@ -342,7 +342,7 @@ export function SourcesPage() {
       </p>
 
       {flash && (
-        <div class="px-4 py-3 text-sm rounded-lg bg-teal-50 dark:bg-teal-900/20 text-teal-700 dark:text-teal-300 border border-teal-200 dark:border-teal-800">
+        <div class="px-4 py-3 text-sm rounded-lg bg-blue-50 dark:bg-blue-900/20 text-blue-700 dark:text-blue-300 border border-blue-200 dark:border-blue-800">
           {flash}
         </div>
       )}
@@ -628,7 +628,7 @@ export function SourcesPage() {
                         type="button"
                         onClick={() => void searchPodcasts()}
                         disabled={podcastSearching}
-                        class="px-4 py-2 text-sm font-semibold rounded-lg bg-teal-600 text-white hover:bg-teal-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors whitespace-nowrap"
+                        class="px-4 py-2 text-sm font-semibold rounded-lg bg-blue-600 text-white hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors whitespace-nowrap"
                       >
                         {podcastSearching ? 'Searching...' : 'Search'}
                       </button>
@@ -714,7 +714,7 @@ export function SourcesPage() {
                 name="require_keywords"
                 label="Show only if"
                 hint='Only articles containing at least one of these are kept. Supports wildcards: CVE-*, GHSA-*. Leave empty to keep all articles.'
-                chipColor="teal"
+                chipColor="blue"
               />
               <KeywordChipInput
                 name="hide_keywords"
@@ -803,7 +803,7 @@ export function SourcesPage() {
                 class={[
                   'px-2.5 py-1 text-xs font-medium rounded-full transition-colors',
                   activeCategory === null
-                    ? 'bg-teal-600 text-white'
+                    ? 'bg-blue-600 text-white'
                     : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 hover:bg-slate-200 dark:hover:bg-slate-700',
                 ].join(' ')}
               >
@@ -821,7 +821,7 @@ export function SourcesPage() {
                   class={[
                     'px-2.5 py-1 text-xs font-medium rounded-full transition-colors',
                     activeCategory === cat
-                      ? 'bg-teal-600 text-white'
+                      ? 'bg-blue-600 text-white'
                       : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 hover:bg-slate-200 dark:hover:bg-slate-700',
                   ].join(' ')}
                 >
@@ -1349,7 +1349,7 @@ function SourceEditForm({
                   type="button"
                   onClick={() => void searchPodcasts()}
                   disabled={podcastSearching}
-                  class="px-4 py-2 text-sm font-semibold rounded-lg bg-teal-600 text-white hover:bg-teal-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors whitespace-nowrap"
+                  class="px-4 py-2 text-sm font-semibold rounded-lg bg-blue-600 text-white hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors whitespace-nowrap"
                 >
                   {podcastSearching ? 'Searching...' : 'Search'}
                 </button>
@@ -1428,7 +1428,7 @@ function SourceEditForm({
           name="require_keywords"
           label="Show only if"
           hint='Only articles containing at least one of these are kept. Supports wildcards: CVE-*, GHSA-*. Leave empty to keep all articles.'
-          chipColor="teal"
+          chipColor="blue"
           defaultKeywords={
             Array.isArray(extra['require_keywords'])
               ? (extra['require_keywords'] as unknown as string[]).filter(Boolean)
@@ -1505,7 +1505,7 @@ function KeywordChipInput({
   label: string;
   hint: string;
   defaultKeywords?: string[];
-  chipColor?: 'red' | 'amber' | 'teal' | 'slate';
+  chipColor?: 'red' | 'amber' | 'blue' | 'slate';
 }) {
   const [keywords, setKeywords] = useState<string[]>(defaultKeywords);
   const [inputValue, setInputValue] = useState('');
@@ -1515,8 +1515,8 @@ function KeywordChipInput({
       ? 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-300'
       : chipColor === 'amber'
       ? 'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-300'
-      : chipColor === 'teal'
-      ? 'bg-teal-100 text-teal-700 dark:bg-teal-900/30 dark:text-teal-300'
+      : chipColor === 'blue'
+      ? 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300'
       : 'bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-300';
 
   function addKeyword(raw: string) {
@@ -1611,9 +1611,9 @@ function ToggleSwitch({
       class={[
         'relative inline-flex h-5 w-9 flex-shrink-0 items-center rounded-full',
         'transition-colors duration-200 ease-in-out',
-        'focus:outline-none focus:ring-2 focus:ring-teal-500 focus:ring-offset-1',
+        'focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-1',
         enabled
-          ? 'bg-teal-500'
+          ? 'bg-blue-500'
           : 'bg-slate-300 dark:bg-slate-600',
         disabled
           ? 'opacity-50 cursor-not-allowed'

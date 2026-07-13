@@ -18,8 +18,8 @@ const SECTIONS: NavSection[] = [
     label: 'Read',
     links: [
       { href: '/', label: 'Latest digest', exact: true },
-      { href: '/read-later', label: 'Read Later' },
-      { href: '/starred', label: 'Starred' },
+      { href: '/admin/read-later', label: 'Read Later' },
+      { href: '/admin/starred', label: 'Starred' },
     ],
   },
   {
@@ -59,10 +59,10 @@ export function Sidebar({
   }
 
   return (
-    <aside class="flex flex-col h-full overflow-y-auto bg-white dark:bg-slate-900 border-r border-slate-200 dark:border-slate-700 py-4 px-3 gap-1">
+    <aside class="flex flex-col h-full overflow-y-auto bg-white dark:bg-[#20201e] border-r border-[#e6e5e3] dark:border-[#3b3a37] py-5 px-3 gap-1">
       {SECTIONS.map((section) => (
         <div key={section.label} class="mb-4">
-          <p class="px-3 mb-1 text-xs font-bold uppercase tracking-widest text-slate-400 dark:text-slate-500">
+          <p class="px-3 mb-1 text-xs font-semibold tracking-[0.12em] text-[#7d7a75] dark:text-[#b4b1ab]">
             {section.label}
           </p>
 
@@ -74,8 +74,8 @@ export function Sidebar({
               class={[
                 'flex items-center gap-2 px-3 py-2 rounded-lg text-sm transition-colors no-underline',
                 isActive(href, exact)
-                  ? 'bg-teal-50 dark:bg-teal-900/30 text-teal-700 dark:text-teal-300 font-semibold'
-                  : 'text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 hover:text-slate-900 dark:hover:text-slate-100',
+                  ? 'bg-[#e5f2fc] dark:bg-[#1c3852] text-[#1d5f9f] dark:text-[#a6d2f8] font-semibold'
+                  : 'text-[#7d7a75] dark:text-[#b4b1ab] hover:bg-[#f0efed] dark:hover:bg-[#2a2927] hover:text-[#2c2c2b] dark:hover:text-[#f4f3f1]',
               ].join(' ')}
             >
               {label}
@@ -93,8 +93,8 @@ export function Sidebar({
                     class={[
                       'flex items-center px-3 py-1.5 rounded-lg text-xs transition-colors no-underline truncate',
                       currentDigestId === d.id
-                        ? 'bg-teal-50 dark:bg-teal-900/30 text-teal-700 dark:text-teal-300 font-semibold'
-                        : 'text-slate-500 dark:text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-800 hover:text-slate-700 dark:hover:text-slate-300',
+                        ? 'bg-[#e5f2fc] dark:bg-[#1c3852] text-[#1d5f9f] dark:text-[#a6d2f8] font-semibold'
+                        : 'text-[#7d7a75] dark:text-[#b4b1ab] hover:bg-[#f0efed] dark:hover:bg-[#2a2927] hover:text-[#2c2c2b] dark:hover:text-[#f4f3f1]',
                     ].join(' ')}
                   >
                     #{d.id} · {formatDigestLabel(d.created_at)}

@@ -33,14 +33,14 @@ export function AppLayout({
   }, []);
 
   return (
-    <div class="min-h-screen flex flex-col bg-slate-50 dark:bg-slate-950">
+    <div class="min-h-screen flex flex-col bg-[#f9f8f7] text-[#2c2c2b] dark:bg-[#171716] dark:text-[#f4f3f1]">
       <Header
         onMobileMenuToggle={() => setMenuOpen((o) => !o)}
         mobileMenuOpen={menuOpen}
       />
 
       {usingDefaultPassword && (
-        <div class="flex items-center justify-between gap-3 px-4 py-2 bg-amber-500 dark:bg-amber-600 text-white text-xs font-medium">
+        <div class="flex items-center justify-between gap-3 px-4 py-2 bg-[#8f3f34] dark:bg-[#6e3029] text-white text-xs font-medium">
           <span>
             You are using the default password. Change it in{' '}
             <Link href="/admin/security" class="underline underline-offset-2 hover:no-underline">
@@ -63,7 +63,7 @@ export function AppLayout({
 
       {menuOpen && (
         <div
-          class="fixed inset-0 z-30 bg-black/40 lg:hidden"
+          class="fixed inset-0 z-30 bg-[#2c2c2b]/35 lg:hidden"
           onClick={() => setMenuOpen(false)}
         />
       )}
@@ -84,7 +84,7 @@ export function AppLayout({
           />
         </div>
 
-        <main class="flex-1 min-w-0 p-5 lg:pl-5 overflow-auto">
+        <main class="flex-1 min-w-0 p-5 lg:p-8 overflow-auto">
           <div class="max-w-5xl mx-auto">{children}</div>
         </main>
       </div>

@@ -28,12 +28,12 @@ export function Header({
 
   return (
     <div class="sticky top-0 z-40">
-      <header class="h-14 flex items-center justify-between gap-3 px-4 bg-white dark:bg-slate-900 border-b border-slate-200 dark:border-slate-700 shadow-sm">
+      <header class="h-16 flex items-center justify-between gap-3 px-4 sm:px-6 bg-white dark:bg-[#171716] border-b border-[#e6e5e3] dark:border-[#3b3a37]">
         {/* Left: hamburger (mobile) + brand */}
         <div class="flex items-center gap-3">
           <button
             type="button"
-            class="lg:hidden p-1.5 rounded-lg text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
+            class="lg:hidden p-1.5 rounded-md text-[#7d7a75] hover:bg-[#f0efed] dark:text-[#b4b1ab] dark:hover:bg-[#2a2927] transition-colors"
             onClick={onMobileMenuToggle}
             aria-label={mobileMenuOpen ? 'Close menu' : 'Open menu'}
           >
@@ -48,7 +48,7 @@ export function Header({
 
           <Link
             href="/"
-            class="flex items-center gap-2 font-bold text-slate-900 dark:text-slate-100 hover:text-[#2783de] dark:hover:text-[#2783de] transition-colors no-underline"
+            class="flex items-center gap-2 font-semibold text-[#2c2c2b] dark:text-[#f4f3f1] hover:text-[#2783de] dark:hover:text-[#63aaf0] transition-colors no-underline"
           >
             <BrandMark />
             <span class="hidden sm:inline">{product.name}</span>
@@ -70,8 +70,8 @@ export function Header({
                   class={[
                     'px-3 py-1.5 rounded-lg text-sm font-medium transition-colors no-underline',
                     active
-                      ? 'text-[#2783de] bg-[#e5f2fc] dark:bg-slate-800'
-                      : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-100 hover:bg-slate-100 dark:hover:bg-slate-800',
+                      ? 'text-[#1d5f9f] dark:text-[#a6d2f8] bg-[#e5f2fc] dark:bg-[#1c3852]'
+                      : 'text-[#7d7a75] dark:text-[#b4b1ab] hover:text-[#2c2c2b] dark:hover:text-[#f4f3f1] hover:bg-[#f0efed] dark:hover:bg-[#2a2927]',
                   ].join(' ')}
                 >
                   {label}
@@ -94,7 +94,7 @@ function RefreshButton() {
   return (
     <button
       type="button"
-      class="lg:hidden inline-flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-lg border border-slate-300 bg-white text-slate-700 shadow-sm transition-colors hover:bg-slate-100 dark:border-slate-600 dark:bg-slate-900 dark:text-slate-300 dark:hover:bg-slate-800"
+      class="lg:hidden inline-flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-md border border-[#e6e5e3] bg-white text-[#2c2c2b] transition-colors hover:bg-[#f0efed] dark:border-[#3b3a37] dark:bg-[#20201e] dark:text-[#f4f3f1] dark:hover:bg-[#2a2927]"
       onClick={() => window.location.reload()}
       title="Refresh"
       aria-label="Refresh"
@@ -119,7 +119,7 @@ function RefreshButton() {
 function BrandMark() {
   return (
     <span
-      class="w-7 h-7 rounded-lg flex-shrink-0 flex items-center justify-center text-white font-black text-xs"
+      class="w-7 h-7 rounded-md flex-shrink-0 flex items-center justify-center text-white font-black text-xs"
       style={{ background: '#2783de' }}
     >
       {product.mark}

@@ -47,10 +47,10 @@ export function ThemeToggle() {
       type="button"
       class={[
         'inline-flex h-9 w-9 flex-shrink-0 items-center justify-center',
-        'rounded-lg border border-slate-300 bg-white text-slate-700',
-        'shadow-sm transition-colors hover:bg-slate-100',
-        'dark:border-slate-600 dark:bg-slate-900 dark:text-slate-300',
-        'dark:hover:bg-slate-800',
+        'rounded-md border border-[#e6e5e3] bg-white text-[#2c2c2b]',
+        'transition-colors hover:bg-[#f0efed] active:scale-[0.96]',
+        'dark:border-[#3b3a37] dark:bg-[#20201e] dark:text-[#f4f3f1]',
+        'dark:hover:bg-[#2a2927]',
       ].join(' ')}
       onClick={handleToggle}
       title={label}

@@ -17,13 +17,13 @@ interface ButtonProps {
 
 const VARIANT: Record<Variant, string> = {
   primary:
-    'bg-teal-600 text-white hover:bg-teal-700 dark:bg-teal-500 dark:hover:bg-teal-600',
+    'bg-[#2783de] text-white hover:bg-[#1f6fbe] dark:bg-[#63aaf0] dark:text-[#171716] dark:hover:bg-[#83bdf5]',
   secondary:
-    'bg-slate-100 dark:bg-slate-800 text-slate-800 dark:text-slate-200 border border-slate-300 dark:border-slate-600 hover:bg-slate-200 dark:hover:bg-slate-700',
+    'bg-[#f0efed] dark:bg-[#2a2927] text-[#2c2c2b] dark:text-[#f4f3f1] border border-[#e6e5e3] dark:border-[#3b3a37] hover:bg-[#e6e5e3] dark:hover:bg-[#3b3a37]',
   ghost:
-    'text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800',
+    'text-[#7d7a75] dark:text-[#b4b1ab] hover:bg-[#f0efed] dark:hover:bg-[#2a2927] hover:text-[#2c2c2b] dark:hover:text-[#f4f3f1]',
   danger:
-    'bg-red-50 dark:bg-red-900/20 text-red-600 dark:text-red-400 hover:bg-red-100 dark:hover:bg-red-900/40',
+    'bg-[#fff1ef] dark:bg-[#4a2521] text-[#b9382f] dark:text-[#ff9f96] border border-[#f4c6c1] dark:border-[#7e3f37] hover:bg-[#ffe4e0] dark:hover:bg-[#63302b]',
 };
 
 const SIZE: Record<Size, string> = {
@@ -50,8 +50,8 @@ export function Button({
       onClick={onClick}
       title={title}
       class={[
-        'inline-flex items-center justify-center font-semibold cursor-pointer',
         'transition-colors select-none disabled:opacity-50 disabled:cursor-not-allowed',
+        'active:scale-[0.98] focus-visible:ring-2 focus-visible:ring-[#2783de] focus-visible:ring-offset-2 dark:focus-visible:ring-offset-[#171716]',
         VARIANT[variant],
         SIZE[size],
         className,

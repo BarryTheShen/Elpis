@@ -93,8 +93,8 @@ export function FilterPanel({
   const activeCount = Object.values(filters).filter(Boolean).length;
 
   return (
-    <div class="border-b border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/50">
-      <div class="flex items-center gap-2 p-3">
+    <div class="border-y border-[#e6e5e3] dark:border-[#3b3a37] bg-[#f9f8f7] dark:bg-[#20201e]">
+      <div class="flex flex-col gap-2 p-3 sm:flex-row sm:items-center">
         <div class="relative flex-1">
           <svg
             class="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400"
@@ -112,7 +112,7 @@ export function FilterPanel({
           <input
             type="search"
             placeholder="Search title, summary, source..."
-            class="w-full pl-9 pr-3 py-2 text-sm bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg text-slate-900 dark:text-slate-100 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-teal-500 dark:focus:ring-teal-400"
+            class="w-full rounded-md border border-[#e6e5e3] bg-white py-2.5 pl-9 pr-3 text-sm text-[#2c2c2b] placeholder-[#7d7a75] outline-none transition-colors focus:border-[#2783de] focus:ring-2 focus:ring-[#2783de]/20 dark:border-[#3b3a37] dark:bg-[#171716] dark:text-[#f4f3f1] dark:placeholder-[#b4b1ab]"
             onInput={(e) => handleSearch((e.target as HTMLInputElement).value)}
           />
         </div>
@@ -120,10 +120,10 @@ export function FilterPanel({
           type="button"
           onClick={() => setOpen((o) => !o)}
           class={[
-            'flex items-center gap-1.5 px-3 py-2 text-sm rounded-lg border transition-colors',
+            'flex items-center gap-1.5 px-3 py-2 text-sm rounded-md border transition-colors active:scale-[0.98] focus-visible:ring-2 focus-visible:ring-[#2783de]',
             open
-              ? 'bg-teal-50 dark:bg-teal-900/20 border-teal-300 dark:border-teal-700 text-teal-700 dark:text-teal-300'
-              : 'bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800',
+              ? 'bg-[#e5f2fc] dark:bg-[#1c3852] border-[#9bcaf2] dark:border-[#4f8fc8] text-[#1d5f9f] dark:text-[#a6d2f8]'
+              : 'bg-white dark:bg-[#171716] border-[#e6e5e3] dark:border-[#3b3a37] text-[#7d7a75] dark:text-[#b4b1ab] hover:bg-[#f0efed] dark:hover:bg-[#2a2927]',
           ].join(' ')}
         >
           <svg
@@ -141,7 +141,7 @@ export function FilterPanel({
           </svg>
           Filters
           {activeCount > 0 && (
-            <span class="ml-0.5 bg-teal-600 dark:bg-teal-500 text-white text-xs font-bold rounded-full w-4 h-4 flex items-center justify-center">
+            <span class="ml-0.5 bg-[#2783de] text-white text-xs font-bold rounded-md min-w-4 h-4 px-1 flex items-center justify-center">
               {activeCount}
             </span>
           )}
@@ -150,7 +150,7 @@ export function FilterPanel({
           <button
             type="button"
             onClick={reset}
-            class="px-3 py-2 text-sm text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 transition-colors"
+            class="px-3 py-2 text-sm text-[#7d7a75] dark:text-[#b4b1ab] hover:text-[#2c2c2b] dark:hover:text-[#f4f3f1] transition-colors"
           >
             Clear
           </button>
@@ -161,10 +161,10 @@ export function FilterPanel({
             type="button"
             onClick={onToggleHideRead}
             class={[
-              'flex items-center gap-1.5 px-3 py-2 text-sm rounded-lg border transition-colors',
-              hideRead
-                ? 'bg-amber-50 dark:bg-amber-900/20 border-amber-300 dark:border-amber-700 text-amber-700 dark:text-amber-300 hover:bg-amber-100 dark:hover:bg-amber-900/40'
-                : 'bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800',
+            'flex items-center gap-1.5 px-3 py-2 text-sm rounded-md border transition-colors active:scale-[0.98] focus-visible:ring-2 focus-visible:ring-[#2783de]',
+            hideRead
+              ? 'bg-[#e5f2fc] dark:bg-[#1c3852] border-[#9bcaf2] dark:border-[#4f8fc8] text-[#1d5f9f] dark:text-[#a6d2f8] hover:bg-[#d8ecfa] dark:hover:bg-[#244867]'
+              : 'bg-white dark:bg-[#171716] border-[#e6e5e3] dark:border-[#3b3a37] text-[#7d7a75] dark:text-[#b4b1ab] hover:bg-[#f0efed] dark:hover:bg-[#2a2927]',
             ].join(' ')}
           >
             <svg
@@ -203,13 +203,13 @@ export function FilterPanel({
       </div>
 
       {open && (
-        <div class="px-3 pb-3 grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-2">
+        <div class="px-3 pb-3 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3">
           <label class="flex flex-col gap-1">
-            <span class="text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">
+            <span class="text-xs font-semibold text-[#7d7a75] dark:text-[#b4b1ab]">
               Category
             </span>
             <select
-              class="py-1.5 px-2 text-sm bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg text-slate-900 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-teal-500"
+              class="rounded-md border border-[#e6e5e3] bg-white px-2.5 py-2 text-sm text-[#2c2c2b] outline-none transition-colors focus:border-[#2783de] focus:ring-2 focus:ring-[#2783de]/20 dark:border-[#3b3a37] dark:bg-[#171716] dark:text-[#f4f3f1]"
               value={filters.category}
               onChange={(e) =>
                 set('category', (e.target as HTMLSelectElement).value)
@@ -225,11 +225,11 @@ export function FilterPanel({
           </label>
 
           <label class="flex flex-col gap-1">
-            <span class="text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">
+            <span class="text-xs font-semibold text-[#7d7a75] dark:text-[#b4b1ab]">
               Source
             </span>
             <select
-              class="py-1.5 px-2 text-sm bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg text-slate-900 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-teal-500"
+              class="rounded-md border border-[#e6e5e3] bg-white px-2.5 py-2 text-sm text-[#2c2c2b] outline-none transition-colors focus:border-[#2783de] focus:ring-2 focus:ring-[#2783de]/20 dark:border-[#3b3a37] dark:bg-[#171716] dark:text-[#f4f3f1]"
               value={filters.source}
               onChange={(e) =>
                 set('source', (e.target as HTMLSelectElement).value)
@@ -245,11 +245,11 @@ export function FilterPanel({
           </label>
 
           <label class="flex flex-col gap-1">
-            <span class="text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">
+            <span class="text-xs font-semibold text-[#7d7a75] dark:text-[#b4b1ab]">
               Type
             </span>
             <select
-              class="py-1.5 px-2 text-sm bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg text-slate-900 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-teal-500"
+              class="rounded-md border border-[#e6e5e3] bg-white px-2.5 py-2 text-sm text-[#2c2c2b] outline-none transition-colors focus:border-[#2783de] focus:ring-2 focus:ring-[#2783de]/20 dark:border-[#3b3a37] dark:bg-[#171716] dark:text-[#f4f3f1]"
               value={filters.kind}
               onChange={(e) =>
                 set('kind', (e.target as HTMLSelectElement).value)
@@ -263,12 +263,12 @@ export function FilterPanel({
           </label>
 
           <label class="flex flex-col gap-1">
-            <span class="text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">
+            <span class="text-xs font-semibold text-[#7d7a75] dark:text-[#b4b1ab]">
               From
             </span>
             <input
               type="date"
-              class="py-1.5 px-2 text-sm bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg text-slate-900 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-teal-500"
+              class="rounded-md border border-[#e6e5e3] bg-white px-2.5 py-2 text-sm text-[#2c2c2b] outline-none transition-colors focus:border-[#2783de] focus:ring-2 focus:ring-[#2783de]/20 dark:border-[#3b3a37] dark:bg-[#171716] dark:text-[#f4f3f1]"
               value={filters.dateFrom}
               onChange={(e) =>
                 set('dateFrom', (e.target as HTMLInputElement).value)
@@ -277,12 +277,12 @@ export function FilterPanel({
           </label>
 
           <label class="flex flex-col gap-1">
-            <span class="text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">
+            <span class="text-xs font-semibold text-[#7d7a75] dark:text-[#b4b1ab]">
               To
             </span>
             <input
               type="date"
-              class="py-1.5 px-2 text-sm bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg text-slate-900 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-teal-500"
+              class="rounded-md border border-[#e6e5e3] bg-white px-2.5 py-2 text-sm text-[#2c2c2b] outline-none transition-colors focus:border-[#2783de] focus:ring-2 focus:ring-[#2783de]/20 dark:border-[#3b3a37] dark:bg-[#171716] dark:text-[#f4f3f1]"
               value={filters.dateTo}
               onChange={(e) =>
                 set('dateTo', (e.target as HTMLInputElement).value)

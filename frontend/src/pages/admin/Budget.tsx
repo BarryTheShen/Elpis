@@ -7,7 +7,7 @@ import { Spinner } from '../../components/Spinner';
 import { formatDigestLabel } from '../../lib/dates';
 
 const INPUT =
-  'w-full px-3 py-2 text-sm bg-white dark:bg-slate-950 border border-slate-200 dark:border-slate-700 rounded-lg text-slate-900 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-teal-500';
+  'w-full px-3 py-2 text-sm bg-white dark:bg-slate-950 border border-slate-200 dark:border-slate-700 rounded-lg text-slate-900 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-blue-500';
 
 function fmt(usd: number): string {
   if (usd === 0) return '$0.00';
@@ -31,12 +31,12 @@ function UsageBar({ used, limit, label }: BarProps) {
   const pct = limit && limit > 0 ? Math.min((used / limit) * 100, 100) : null;
   const color =
     pct == null
-      ? 'bg-teal-500'
+      ? 'bg-blue-500'
       : pct > 90
         ? 'bg-red-500'
         : pct > 70
           ? 'bg-amber-500'
-          : 'bg-teal-500';
+          : 'bg-blue-500';
 
   return (
     <div class="space-y-1">
@@ -99,7 +99,7 @@ export function BudgetPage() {
   if (loading) {
     return (
       <div class="flex items-center justify-center py-20">
-        <Spinner size="lg" className="text-teal-600 dark:text-teal-400" />
+        <Spinner size="lg" className="text-blue-600 dark:text-blue-400" />
       </div>
     );
   }
@@ -169,7 +169,7 @@ export function BudgetPage() {
           <CardHeader title="OpenRouter account" />
           <p class="text-sm text-slate-500 dark:text-slate-400">
             No OpenRouter API key configured. Add one in{' '}
-            <a href="/admin/keys" class="text-teal-600 dark:text-teal-400 hover:underline">API Keys</a>.
+            <a href="/admin/keys" class="text-blue-600 dark:text-blue-400 hover:underline">API Keys</a>.
           </p>
         </Card>
       )}
@@ -260,7 +260,7 @@ export function BudgetPage() {
               </Button>
               {limitsFlash && (
                 <span
-                  class={`text-xs ${limitsFlash.ok ? 'text-teal-600 dark:text-teal-400' : 'text-red-600 dark:text-red-400'}`}
+                  class={`text-xs ${limitsFlash.ok ? 'text-blue-600 dark:text-blue-400' : 'text-red-600 dark:text-red-400'}`}
                 >
                   {limitsFlash.text}
                 </span>

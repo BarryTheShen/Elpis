@@ -42,96 +42,79 @@ export function LoginPage({ onLogin }: LoginPageProps) {
   }
 
   return (
-    <div
-      class={[
-        'relative min-h-screen flex flex-col items-center justify-center',
-        'bg-slate-50 dark:bg-slate-950 px-4',
-      ].join(' ')}
-    >
-      <div class='absolute right-4 top-4'>
+    <div class="relative flex min-h-screen items-center justify-center bg-[#f9f8f7] px-4 py-12 text-[#2c2c2b] dark:bg-[#171716] dark:text-[#f4f3f1]">
+      <div class="absolute right-4 top-4">
         <ThemeToggle />
       </div>
 
-      {/* Card */}
-      <div class='w-full max-w-sm bg-white dark:bg-slate-900 rounded-2xl shadow-lg border border-slate-200 dark:border-slate-700 p-8'>
-        {/* Brand */}
-        <div class='flex flex-col items-center gap-3 mb-8'>
-          <span
-            class='w-12 h-12 rounded-xl flex items-center justify-center text-white font-black text-lg select-none'
-            style={{ background: '#2783de' }}
-          >
+      <main class="w-full max-w-md">
+        <div class="mb-8 flex items-center gap-3">
+          <span class="flex h-10 w-10 items-center justify-center rounded-md bg-[#2783de] text-base font-black text-white">
             {product.mark}
           </span>
-          <div class='text-center'>
-            <h1 class='text-lg font-bold text-slate-900 dark:text-slate-100 leading-tight'>
-              {product.name}
-            </h1>
-            <p class='text-sm text-slate-500 dark:text-slate-400'>
-              Admin sign-in
-            </p>
+          <div>
+            <p class="text-sm font-semibold tracking-tight">{product.name}</p>
+            <p class="text-sm text-[#7d7a75] dark:text-[#b4b1ab]">Admin sign-in</p>
           </div>
         </div>
 
-        {/* Form */}
-        <form onSubmit={handleSubmit} class='flex flex-col gap-4'>
-          <div class='flex flex-col gap-1.5'>
-            <label
-              for='password'
-              class='text-xs font-semibold text-slate-600 dark:text-slate-400 uppercase tracking-wide'
-            >
-              Password
-            </label>
-            <input
-              id='password'
-              type='password'
-              autoComplete='current-password'
-              required
-              value={password}
-              onInput={(e) =>
-                setPassword((e.target as HTMLInputElement).value)
-              }
-              placeholder='Enter your password'
-              class={[
-                'w-full px-3 py-2.5 rounded-lg text-sm border outline-none',
-                'bg-white dark:bg-slate-800',
-                'text-slate-900 dark:text-slate-100',
-                'placeholder-slate-400 dark:placeholder-slate-500',
-                'transition-colors',
-                error
-                  ? 'border-red-400 dark:border-red-500 focus:border-red-500 dark:focus:border-red-400'
-                  : 'border-slate-300 dark:border-slate-600 focus:border-[#2783de] dark:focus:border-[#2783de]',
-              ].join(' ')}
-            />
-          </div>
+        <section class="border-y border-[#e6e5e3] bg-white px-6 py-8 dark:border-[#3b3a37] dark:bg-[#20201e] sm:px-8">
+          <h1 class="text-3xl font-semibold tracking-tight">Welcome back</h1>
+          <p class="mt-2 text-base leading-7 text-[#7d7a75] dark:text-[#b4b1ab]">
+            Sign in to manage sources, settings, and today&apos;s publication.
+          </p>
 
-          {/* Error message */}
-          {error && (
-            <p
-              role='alert'
-              class='text-sm text-red-600 dark:text-red-400 -mt-1'
-            >
-              {error}
-            </p>
-          )}
+          <form onSubmit={handleSubmit} class="mt-8 flex flex-col gap-5">
+            <div class="flex flex-col gap-2">
+              <label
+                for="password"
+                class="text-sm font-semibold text-[#2c2c2b] dark:text-[#f4f3f1]"
+              >
+                Password
+              </label>
+              <input
+                id="password"
+                type="password"
+                autoComplete="current-password"
+                required
+                value={password}
+                onInput={(e) =>
+                  setPassword((e.target as HTMLInputElement).value)
+                }
+                aria-invalid={error ? 'true' : undefined}
+                aria-describedby={error ? 'login-error' : undefined}
+                placeholder="Enter your password"
+                class={[
+                  'w-full rounded-md border px-3 py-2.5 text-base outline-none transition-colors',
+                  'bg-white dark:bg-[#171716]',
+                  'text-[#2c2c2b] dark:text-[#f4f3f1]',
+                  'placeholder-[#7d7a75] dark:placeholder-[#b4b1ab]',
+                  error
+                    ? 'border-[#b9382f] focus:ring-2 focus:ring-[#b9382f]/20'
+                    : 'border-[#e6e5e3] focus:border-[#2783de] focus:ring-2 focus:ring-[#2783de]/20 dark:border-[#3b3a37]',
+                ].join(' ')}
+              />
+            </div>
 
-          <button
-            type='submit'
-            disabled={loading || !password.trim()}
-            class={[
-              'w-full py-2.5 rounded-lg text-sm font-semibold text-white',
-              'bg-[#2783de] hover:bg-[#1e6fbf] dark:bg-[#2783de] dark:hover:bg-[#1e6fbf]',
-              'transition-colors',
-              'disabled:opacity-50 disabled:cursor-not-allowed',
-              'flex items-center justify-center gap-2',
-            ].join(' ')}
-          >
-            {loading && (
-              <span class='w-4 h-4 rounded-full border-2 border-white border-t-transparent animate-spin' />
+            {error && (
+              <p id="login-error" role="alert" class="text-sm leading-6 text-[#b9382f] dark:text-[#ff9f96]">
+                {error}
+              </p>
             )}
-            {loading ? 'Signing in...' : 'Sign in'}
-          </button>
-        </form>
-      </div>
+
+            <button
+              type="submit"
+              disabled={loading || !password.trim()}
+              class="inline-flex min-h-11 items-center justify-center gap-2 rounded-md bg-[#2783de] px-4 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-[#1f6fbe] active:scale-[0.98] focus-visible:ring-2 focus-visible:ring-[#2783de] disabled:cursor-not-allowed disabled:opacity-50 dark:bg-[#63aaf0] dark:text-[#171716] dark:hover:bg-[#83bdf5]"
+            >
+              {loading && (
+                <span class="h-4 w-4 rounded-full border-2 border-current border-t-transparent animate-spin" />
+              )}
+              {loading ? 'Signing in...' : 'Sign in'}
+            </button>
+          </form>
+        </section>
+      </main>
     </div>
   );
 }

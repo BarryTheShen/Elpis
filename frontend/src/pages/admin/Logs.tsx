@@ -41,7 +41,7 @@ export function LogsPage() {
   if (loading) {
     return (
       <div class="flex items-center justify-center py-20">
-        <Spinner size="lg" className="text-teal-600 dark:text-teal-400" />
+        <Spinner size="lg" className="text-blue-600 dark:text-blue-400" />
       </div>
     );
   }
@@ -102,7 +102,7 @@ export function LogsPage() {
             <div class="border-t border-slate-100 dark:border-slate-800 px-5 pb-5 pt-4">
               {loadingLog ? (
                 <div class="flex justify-center py-4">
-                  <Spinner size="sm" className="text-teal-600 dark:text-teal-400" />
+                  <Spinner size="sm" className="text-blue-600 dark:text-blue-400" />
                 </div>
               ) : (
                 <pre class="text-xs font-mono text-slate-600 dark:text-slate-300 whitespace-pre-wrap break-words overflow-x-auto bg-slate-50 dark:bg-slate-950 rounded-lg p-4 max-h-[60vh] overflow-y-auto">

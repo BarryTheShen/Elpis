@@ -7,7 +7,6 @@ import { DigestCard } from '../components/DigestCard';
 import { ItemDetailPanel } from '../components/ItemDetailPanel';
 import { FilterPanel } from '../components/FilterPanel';
 import { EmptyState } from '../components/EmptyState';
-import { Spinner } from '../components/Spinner';
 import { Button } from '../components/Button';
 import { formatDigestSubtitle } from '../lib/dates';
 
@@ -19,6 +18,33 @@ function fmtProcessingTime(raw: string): string {
   const m = Math.floor(total / 60);
   const s = total % 60;
   return s === 0 ? `${m}m` : `${m}m ${s}s`;
+}
+function DigestSkeleton() {
+  return (
+    <div class="animate-pulse space-y-8" aria-label="Loading digest">
+      <div class="space-y-3">
+        <div class="h-3 w-24 rounded bg-[#e6e5e3] dark:bg-[#3b3a37]" />
+        <div class="h-9 w-64 rounded bg-[#e6e5e3] dark:bg-[#3b3a37]" />
+        <div class="h-4 w-80 max-w-full rounded bg-[#f0efed] dark:bg-[#2a2927]" />
+      </div>
+      <div class="border-y border-[#e6e5e3] py-4 dark:border-[#3b3a37]">
+        <div class="h-10 w-full rounded bg-[#f0efed] dark:bg-[#2a2927]" />
+      </div>
+      <div class="grid gap-5 md:grid-cols-2">
+        {[0, 1, 2, 3].map((key) => (
+          <div
+            key={key}
+            class="space-y-4 rounded-lg border border-[#e6e5e3] p-5 dark:border-[#3b3a37]"
+          >
+            <div class="h-3 w-24 rounded bg-[#e6e5e3] dark:bg-[#3b3a37]" />
+            <div class="h-5 w-4/5 rounded bg-[#e6e5e3] dark:bg-[#3b3a37]" />
+            <div class="h-4 w-full rounded bg-[#f0efed] dark:bg-[#2a2927]" />
+            <div class="h-4 w-11/12 rounded bg-[#f0efed] dark:bg-[#2a2927]" />
+          </div>
+        ))}
+      </div>
+    </div>
+  );
 }
 
 /** Map of url -> current saved rating for this digest view. */
@@ -215,11 +241,7 @@ export function DigestPage({ onDigestLoaded, readOnly = false }: DigestPageProps
   }, []);
 
   if (loading) {
-    return (
-      <div class="flex items-center justify-center py-20">
-        <Spinner size="lg" className="text-teal-600 dark:text-teal-400" />
-      </div>
-    );
+    return <DigestSkeleton />;
   }
 
   if (error) {
@@ -250,7 +272,7 @@ export function DigestPage({ onDigestLoaded, readOnly = false }: DigestPageProps
         }
         action={
           readOnly ? undefined : (
-            <a href="/admin/sources" class="inline-flex items-center px-4 py-2 text-sm font-semibold bg-teal-600 text-white rounded-lg hover:bg-teal-700 transition-colors">
+            <a href="/admin/sources" class="inline-flex items-center rounded-md bg-[#2783de] px-4 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-[#1f6fbe] active:scale-[0.98] focus-visible:ring-2 focus-visible:ring-[#2783de] dark:bg-[#63aaf0] dark:text-[#171716] dark:hover:bg-[#83bdf5]">
               Configure sources
             </a>
           )
@@ -276,25 +298,44 @@ export function DigestPage({ onDigestLoaded, readOnly = false }: DigestPageProps
       : filtered;
 
   return (
-    <div class="space-y-4">
+    <div class="space-y-10">
       {/* Page header */}
-      <div class="flex items-start justify-between gap-4 flex-wrap">
-        <div>
-          <h1 class="text-2xl font-bold tracking-tight text-slate-900 dark:text-slate-100">
-            Digest #{meta.id}
-          </h1>
-          <p class="mt-1 text-sm text-slate-500 dark:text-slate-400">
-            {meta.created_at && formatDigestSubtitle(meta.created_at)}
-            {meta.articles_count != null && ` · ${meta.articles_count} articles`}
-            {meta.model && ` · ${meta.model}`}
-            {meta.processing_time && ` · ${fmtProcessingTime(meta.processing_time)}`}
+      <header class="space-y-4">
+        <div class="flex flex-wrap items-end justify-between gap-4">
+          <div>
+            <p class="text-sm font-medium text-[#1d5f9f] dark:text-[#a6d2f8]">
+              Daily briefing
+            </p>
+            <h1 class="mt-2 text-4xl font-semibold tracking-[-0.035em] text-[#2c2c2b] dark:text-[#f4f3f1]">
+              Today&apos;s reading
+            </h1>
+            <p class="mt-2 max-w-prose text-base leading-7 text-[#7d7a75] dark:text-[#b4b1ab]">
+              A focused selection of stories, ranked for your attention.
+            </p>
+          </div>
+          <p class="text-sm text-[#7d7a75] dark:text-[#b4b1ab]">
+            Issue #{meta.id}
           </p>
         </div>
-      </div>
+        <p class="text-sm text-[#7d7a75] dark:text-[#b4b1ab]">
+          {meta.created_at && formatDigestSubtitle(meta.created_at)}
+          {meta.articles_count != null && ` · ${meta.articles_count} articles`}
+          {meta.model && ` · ${meta.model}`}
+          {meta.processing_time && ` · ${fmtProcessingTime(meta.processing_time)}`}
+        </p>
+      </header>
+      {!hasItems && (
+        <div class="border-y border-[#e6e5e3] dark:border-[#3b3a37]">
+          <EmptyState
+            title="This issue is empty"
+            description="The publication has not received any readable items yet."
+          />
+        </div>
+      )}
 
       {/* Card browser */}
       {hasItems && (
-        <div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl shadow-sm overflow-hidden">
+        <div class="overflow-hidden">
           <FilterPanel
             items={items}
             onFiltered={handleFiltered}
@@ -305,8 +346,8 @@ export function DigestPage({ onDigestLoaded, readOnly = false }: DigestPageProps
             }
           />
 
-          <div class="px-4 py-3 border-b border-slate-100 dark:border-slate-800 flex items-center justify-between gap-4 flex-wrap">
-            <p class="text-xs text-slate-500 dark:text-slate-400">
+          <div class="flex items-center justify-between gap-4 border-b border-[#e6e5e3] py-3 dark:border-[#3b3a37]">
+            <p class="text-sm text-[#7d7a75] dark:text-[#b4b1ab]">
               {visibleItems.length === items.length
                 ? `${items.length} item${items.length !== 1 ? 's' : ''}`
                 : `${visibleItems.length} of ${items.length} item${items.length !== 1 ? 's' : ''}`}
@@ -314,13 +355,13 @@ export function DigestPage({ onDigestLoaded, readOnly = false }: DigestPageProps
           </div>
 
           {visibleItems.length === 0 ? (
-            <div class="py-10 text-center text-sm text-slate-500 dark:text-slate-400">
+            <div class="py-16 text-center text-base text-[#7d7a75] dark:text-[#b4b1ab]">
               {readCount > 0 && hideRead
                 ? 'All matching items are marked as read.'
                 : 'No items match these filters.'}
             </div>
           ) : (
-            <div class="p-4 grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div class="grid grid-cols-1 gap-5 py-5 md:grid-cols-2">
               {visibleItems.map((raw) => {
                 const item = normalizeItem({
                   ...raw,

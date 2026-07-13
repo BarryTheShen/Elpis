@@ -110,7 +110,7 @@ export function CategoryCombobox({
               class={[
                 'px-3 py-1.5 text-sm cursor-pointer select-none',
                 i === highlighted
-                  ? 'bg-teal-600 text-white dark:bg-teal-500'
+                  ? 'bg-blue-600 text-white dark:bg-blue-500'
                   : 'text-slate-900 dark:text-slate-100 hover:bg-slate-100 dark:hover:bg-slate-800',
               ].join(' ')}
               onClick={() => select(option)}

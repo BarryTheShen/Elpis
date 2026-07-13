@@ -2,9 +2,76 @@
 
 @custom-variant dark (&:where(.dark, .dark *));
 
-/* ---------------------------------------------------------------------------
- * Scrollbar
- * --------------------------------------------------------------------------- */
 :root {
+  color-scheme: light;
+  --elpis-canvas: #ffffff;
+  --elpis-surface: #f9f8f7;
+  --elpis-surface-strong: #f0efed;
+  --elpis-border: #e6e5e3;
+  --elpis-text: #2c2c2b;
+  --elpis-muted: #7d7a75;
+  --elpis-accent: #2783de;
+  --elpis-accent-soft: #e5f2fc;
+}
+
+html.dark {
   color-scheme: dark;
+  --elpis-canvas: #171716;
+  --elpis-surface: #20201e;
+  --elpis-surface-strong: #2a2927;
+  --elpis-border: #3b3a37;
+  --elpis-text: #f4f3f1;
+  --elpis-muted: #b4b1ab;
+  --elpis-accent: #63aaf0;
+  --elpis-accent-soft: #1c3852;
+}
+
+html {
+  background: var(--elpis-canvas);
+}
+
+body {
+  min-width: 320px;
+  margin: 0;
+  background: var(--elpis-canvas);
+  color: var(--elpis-text);
+  font-family:
+    ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI",
+    sans-serif;
+  font-size: 16px;
+  line-height: 1.5;
+  text-rendering: optimizeLegibility;
+}
+
+button,
+input,
+select,
+textarea {
+  font: inherit;
+}
+
+button,
+a {
+  -webkit-tap-highlight-color: transparent;
+}
+
+:focus-visible {
+  outline: 2px solid var(--elpis-accent);
+  outline-offset: 3px;
+}
+
+::selection {
+  background: var(--elpis-accent-soft);
+  color: var(--elpis-text);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    scroll-behavior: auto !important;
+    transition-duration: 0.01ms !important;
+  }
 }

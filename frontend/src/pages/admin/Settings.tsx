@@ -12,7 +12,7 @@ import { Spinner } from '../../components/Spinner';
 const INPUT =
   'w-full px-3 py-2 text-sm bg-white dark:bg-slate-950 border border-slate-200' +
   ' dark:border-slate-700 rounded-lg text-slate-900 dark:text-slate-100' +
-  ' focus:outline-none focus:ring-2 focus:ring-teal-500';
+  ' focus:outline-none focus:ring-2 focus:ring-blue-500';
 
 const TEXTAREA =
   INPUT + ' resize-none leading-relaxed';
@@ -123,11 +123,11 @@ function LanguageInput({
   }
 
   return (
-    <div class='flex flex-wrap gap-1.5 p-2 min-h-[42px] bg-white dark:bg-slate-950 border border-slate-200 dark:border-slate-700 rounded-lg focus-within:ring-2 focus-within:ring-teal-500'>
+    <div class='flex flex-wrap gap-1.5 p-2 min-h-[42px] bg-white dark:bg-slate-950 border border-slate-200 dark:border-slate-700 rounded-lg focus-within:ring-2 focus-within:ring-blue-500'>
       {value.map((code) => (
         <span
           key={code}
-          class='inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-xs font-medium bg-teal-100 dark:bg-teal-900/40 text-teal-800 dark:text-teal-200'
+          class='inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-xs font-medium bg-blue-100 dark:bg-blue-900/40 text-blue-800 dark:text-blue-200'
         >
           {code}
           <button
@@ -198,7 +198,7 @@ function KeywordInput({
         : 'bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300';
 
   return (
-    <div class='flex flex-wrap gap-1.5 p-2 min-h-[42px] bg-white dark:bg-slate-950 border border-slate-200 dark:border-slate-700 rounded-lg focus-within:ring-2 focus-within:ring-teal-500'>
+    <div class='flex flex-wrap gap-1.5 p-2 min-h-[42px] bg-white dark:bg-slate-950 border border-slate-200 dark:border-slate-700 rounded-lg focus-within:ring-2 focus-within:ring-blue-500'>
       {value.map((phrase) => (
         <span
           key={phrase}
@@ -251,7 +251,7 @@ function PresetTile({
       class={[
         'flex-1 text-left rounded-xl border-2 px-4 py-3 transition-all',
         active
-          ? 'border-teal-500 bg-teal-50 dark:bg-teal-900/20'
+          ? 'border-blue-500 bg-blue-50 dark:bg-blue-900/20'
           : 'border-slate-200 dark:border-slate-700 hover:border-slate-300 dark:hover:border-slate-600 bg-white dark:bg-slate-900',
       ].join(' ')}
     >
@@ -259,13 +259,13 @@ function PresetTile({
         class={[
           'text-sm font-semibold',
           active
-            ? 'text-teal-700 dark:text-teal-300'
+            ? 'text-blue-700 dark:text-blue-300'
             : 'text-slate-800 dark:text-slate-200',
         ].join(' ')}
       >
         {title}
         {active && (
-          <span class='ml-2 text-xs font-medium px-1.5 py-0.5 rounded-full bg-teal-100 dark:bg-teal-800/50 text-teal-700 dark:text-teal-300'>
+          <span class='ml-2 text-xs font-medium px-1.5 py-0.5 rounded-full bg-blue-100 dark:bg-blue-800/50 text-blue-700 dark:text-blue-300'>
             active
           </span>
         )}
@@ -402,7 +402,7 @@ export function SettingsPage() {
   if (loadingCfg) {
     return (
       <div class='flex items-center justify-center py-20'>
-        <Spinner size='lg' className='text-teal-600 dark:text-teal-400' />
+        <Spinner size='lg' className='text-blue-600 dark:text-blue-400' />
       </div>
     );
   }
@@ -436,7 +436,7 @@ export function SettingsPage() {
           class={[
             'px-4 py-3 text-sm rounded-lg border',
             flash.ok
-              ? 'bg-teal-50 dark:bg-teal-900/20 text-teal-700 dark:text-teal-300 border-teal-200 dark:border-teal-800'
+              ? 'bg-blue-50 dark:bg-blue-900/20 text-blue-700 dark:text-blue-300 border-blue-200 dark:border-blue-800'
               : 'bg-red-50 dark:bg-red-900/20 text-red-700 dark:text-red-300 border-red-200 dark:border-red-800',
           ].join(' ')}
         >

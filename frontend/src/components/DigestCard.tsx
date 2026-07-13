@@ -44,7 +44,7 @@ function ScoreBreakdownPanel({ breakdown }: { breakdown: ScoreBreakdown }) {
           e.stopPropagation();
           setOpen((o) => !o);
         }}
-        class="flex items-center gap-1 text-xs text-slate-400 dark:text-slate-500 hover:text-slate-600 dark:hover:text-slate-300 transition-colors"
+        class="flex items-center gap-1 text-xs text-[#7d7a75] dark:text-[#b4b1ab] hover:text-[#2c2c2b] dark:hover:text-[#f4f3f1] transition-colors"
       >
         <svg
           class={`w-3 h-3 transition-transform ${open ? 'rotate-90' : ''}`}
@@ -69,18 +69,18 @@ function ScoreBreakdownPanel({ breakdown }: { breakdown: ScoreBreakdown }) {
             const label = SIGNAL_LABELS[key] ?? key;
             return (
               <div key={key} class="flex items-center gap-2">
-                <span class="text-xs text-slate-500 dark:text-slate-400 w-32 flex-shrink-0 truncate">
+                <span class="text-xs text-[#7d7a75] dark:text-[#b4b1ab] w-32 flex-shrink-0 truncate">
                   {label}
                 </span>
                 <div class="flex-1 flex items-center gap-1">
-                  <div class="flex-1 bg-slate-100 dark:bg-slate-800 rounded-full h-1.5 overflow-hidden">
+                  <div class="flex-1 bg-[#f0efed] dark:bg-[#2a2927] rounded-full h-1.5 overflow-hidden">
                     <div
-                      class={`h-1.5 rounded-full ${isPos ? 'bg-teal-400 dark:bg-teal-500' : 'bg-rose-400 dark:bg-rose-500'}`}
+                      class={`h-1.5 rounded-full ${isPos ? 'bg-[#2783de] dark:bg-[#63aaf0]' : 'bg-[#b9382f] dark:bg-[#ff9f96]'}`}
                       style={{ width: `${pct}%` }}
                     />
                   </div>
                   <span
-                    class={`text-xs font-mono w-10 text-right flex-shrink-0 ${isPos ? 'text-teal-600 dark:text-teal-400' : 'text-rose-500 dark:text-rose-400'}`}
+                    class={`text-xs font-mono w-10 text-right flex-shrink-0 ${isPos ? 'text-[#1d5f9f] dark:text-[#a6d2f8]' : 'text-[#b9382f] dark:text-[#ff9f96]'}`}
                   >
                     {isPos ? '+' : ''}
                     {val.toFixed(2)}
@@ -188,10 +188,10 @@ export function DigestCard({
   return (
     <article
       class={[
-        'relative flex flex-col gap-2 bg-white dark:bg-slate-900 rounded-xl p-4 pl-5 transition-shadow overflow-hidden',
+        'relative flex flex-col gap-3 bg-white dark:bg-[#20201e] rounded-lg p-5 pl-6 transition-colors overflow-hidden',
         isRead
-          ? 'border border-slate-100 dark:border-slate-800 shadow-sm opacity-55 hover:opacity-80'
-          : 'border border-slate-200 dark:border-slate-700 shadow hover:shadow-md',
+          ? 'border border-[#e6e5e3] dark:border-[#3b3a37] opacity-55 hover:opacity-80'
+          : 'border border-[#e6e5e3] dark:border-[#3b3a37] hover:bg-[#f9f8f7] dark:hover:bg-[#2a2927]',
       ].join(' ')}
     >
       {/* Left accent strip acts as a clear visual start-of-card marker */}
@@ -199,8 +199,8 @@ export function DigestCard({
         class={[
           'absolute inset-y-0 left-0 w-1',
           isRead
-            ? 'bg-teal-200 dark:bg-teal-800'
-            : 'bg-teal-400 dark:bg-teal-500',
+            ? 'bg-[#b8d8f3] dark:bg-[#2d5c87]'
+            : 'bg-[#2783de] dark:bg-[#63aaf0]',
         ].join(' ')}
       />
 
@@ -242,7 +242,7 @@ export function DigestCard({
       <div class="flex items-center gap-2 flex-wrap">
         <Badge variant={kindVariant(item.kind)}>{item.kind}</Badge>
         {item.category && (
-          <span class="text-xs text-slate-500 dark:text-slate-400 font-medium">
+          <span class="text-xs text-[#7d7a75] dark:text-[#b4b1ab] font-medium">
             {item.category}
           </span>
         )}
@@ -258,7 +258,7 @@ export function DigestCard({
 
       <div class="flex items-start gap-3">
         <div class="flex-1 min-w-0">
-          <h3 class="text-sm font-semibold text-slate-900 dark:text-slate-100 leading-snug">
+          <h3 class="text-base font-semibold text-[#2c2c2b] dark:text-[#f4f3f1] leading-snug">
             {/*
              * When a detail panel is available, left-click opens it.
              * The href is still present so right-click / middle-click opens the
@@ -279,8 +279,8 @@ export function DigestCard({
               class={[
                 'transition-colors',
                 onSelect
-                  ? 'cursor-pointer hover:text-teal-600 dark:hover:text-teal-400'
-                  : 'hover:text-teal-600 dark:hover:text-teal-400',
+                  ? 'cursor-pointer hover:text-[#1d5f9f] dark:hover:text-[#a6d2f8]'
+                  : 'hover:text-[#1d5f9f] dark:hover:text-[#a6d2f8]',
               ].join(' ')}
             >
               {item.title || 'Untitled'}
@@ -288,7 +288,7 @@ export function DigestCard({
           </h3>
 
           {metaParts.length > 0 && (
-            <p class="mt-1 text-xs text-slate-400 dark:text-slate-500">
+            <p class="mt-1 text-xs text-[#7d7a75] dark:text-[#b4b1ab]">
               {metaParts.join(' · ')}
             </p>
           )}
@@ -310,7 +310,7 @@ export function DigestCard({
       {summary && (
         <p
           class={[
-            'text-sm text-slate-600 dark:text-slate-400 leading-relaxed line-clamp-4',
+            'text-base text-[#5f5c57] dark:text-[#d0cdc6] leading-relaxed line-clamp-4',
             onSelect ? 'cursor-pointer' : '',
           ].join(' ')}
           onClick={onSelect ? () => onSelect(item) : undefined}
@@ -320,7 +320,7 @@ export function DigestCard({
       )}
 
       {item.relevance_to_you && (
-        <p class="text-xs text-teal-700 dark:text-teal-400 bg-teal-50 dark:bg-teal-900/20 rounded px-2 py-1 leading-relaxed">
+        <p class="text-sm text-[#1d5f9f] dark:text-[#a6d2f8] bg-[#e5f2fc] dark:bg-[#1c3852] rounded-md px-2.5 py-1.5 leading-relaxed">
           {item.relevance_to_you}
         </p>
       )}
@@ -330,7 +330,7 @@ export function DigestCard({
           {item.topics.slice(0, 5).map((t) => (
             <span
               key={t}
-              class="text-xs px-1.5 py-0.5 rounded-full bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400"
+              class="text-xs px-1.5 py-0.5 rounded-md bg-[#f0efed] dark:bg-[#2a2927] text-[#7d7a75] dark:text-[#b4b1ab]"
             >
               {t}
             </span>
@@ -348,7 +348,7 @@ export function DigestCard({
       )}
 
       {item.url && (
-        <div class="mt-1 pt-2 border-t border-slate-100 dark:border-slate-800 overflow-x-auto pb-1">
+        <div class="mt-1 overflow-x-auto border-t border-[#e6e5e3] pb-1 pt-3 dark:border-[#3b3a37]">
           <div class="flex w-max min-w-full items-center gap-2">
             <div class="flex items-center gap-1.5 shrink-0">
               {onToggleStar && (
@@ -363,7 +363,7 @@ export function DigestCard({
                   }}
                   title={isStarred ? 'Unstar this item' : 'Star to save forever'}
                   class={[
-                    'flex items-center gap-1 text-xs px-2 py-1 rounded-md border',
+                    'flex items-center gap-1 text-xs px-2 py-1 rounded-md border active:scale-[0.98] focus-visible:ring-2 focus-visible:ring-[#2783de]',
                     'transition-colors',
                     isStarred
                       ? 'border-yellow-300 dark:border-yellow-700 text-yellow-600 dark:text-yellow-400 bg-yellow-50 dark:bg-yellow-900/20'
@@ -403,7 +403,7 @@ export function DigestCard({
                     isReadLater ? 'Remove from Read Later' : 'Save to Read Later'
                   }
                   class={[
-                    'flex items-center gap-1 text-xs px-2 py-1 rounded-md border',
+                    'flex items-center gap-1 text-xs px-2 py-1 rounded-md border active:scale-[0.98] focus-visible:ring-2 focus-visible:ring-[#2783de]',
                     'transition-colors',
                     isReadLater
                       ? 'border-amber-200 dark:border-amber-800 text-amber-600 dark:text-amber-400 bg-amber-50 dark:bg-amber-900/20'
@@ -435,11 +435,11 @@ export function DigestCard({
                   onClick={() => onMarkRead(item.url)}
                   title={isRead ? 'Mark as unread' : 'Mark as read'}
                   class={[
-                    'flex items-center gap-1 text-xs px-2 py-1 rounded-md border',
+                    'flex items-center gap-1 text-xs px-2 py-1 rounded-md border active:scale-[0.98] focus-visible:ring-2 focus-visible:ring-[#2783de]',
                     'transition-colors',
                     isRead
-                      ? 'border-teal-200 dark:border-teal-800 text-teal-600 dark:text-teal-400 bg-teal-50 dark:bg-teal-900/20'
-                      : 'border-slate-200 dark:border-slate-700 text-slate-400 dark:text-slate-500 hover:border-teal-300 hover:text-teal-600 dark:hover:text-teal-400',
+                      ? 'border-[#9bcaf2] dark:border-[#4f8fc8] text-[#1d5f9f] dark:text-[#a6d2f8] bg-[#e5f2fc] dark:bg-[#1c3852]'
+                      : 'border-[#e6e5e3] dark:border-[#3b3a37] text-[#7d7a75] dark:text-[#b4b1ab] hover:border-[#9bcaf2] hover:text-[#1d5f9f] dark:hover:text-[#a6d2f8]',
                   ].join(' ')}
                 >
                   <svg
@@ -468,7 +468,7 @@ export function DigestCard({
                   disabled={saving}
                 />
                 {savedFlash && (
-                  <span class="text-xs text-teal-600 dark:text-teal-400 font-medium">
+                  <span class="text-xs text-[#1d5f9f] dark:text-[#a6d2f8] font-medium">
                     Saved
                   </span>
                 )}
