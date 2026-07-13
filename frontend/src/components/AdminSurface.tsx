@@ -4,6 +4,7 @@ import { Link, Redirect, Route, Switch } from 'wouter';
 import { AppLayout } from '../layouts/AppLayout';
 import { LoginPage } from '../pages/Login';
 import { ApiKeysPage } from '../pages/admin/ApiKeys';
+import { DigestPage } from '../pages/Digest';
 import { BudgetPage } from '../pages/admin/Budget';
 import { ReadLaterPage } from '../pages/ReadLater';
 import { LlmConfigPage } from '../pages/admin/LlmConfig';
@@ -42,6 +43,7 @@ function AdminRoutes() {
       <Route path="/admin">
         <Redirect to="/admin/sources" />
       </Route>
+      <Route path="/admin/digest"><DigestPage /></Route>
       <Route path="/admin/sources"><SourcesPage /></Route>
       <Route path="/admin/llm"><LlmConfigPage /></Route>
       <Route path="/admin/keys"><ApiKeysPage /></Route>
@@ -54,7 +56,7 @@ function AdminRoutes() {
       <Route path="/admin/profile"><PreferencesPage /></Route>
       <Route path="/admin/security"><SecurityPage /></Route>
       <Route>
-        <div class="py-20 text-center text-slate-500 dark:text-slate-400">
+        <div class="py-20 text-center text-[#7d7a75] dark:text-[#b4b1ab]">
           Admin page not found.
         </div>
       </Route>

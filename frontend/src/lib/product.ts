@@ -1,6 +1,6 @@
 /**
- * Neutral publication identity until a product name and visual assets are approved.
- * Keep every visitor-facing shell string here so the final identity is a single edit.
+ * Visitor-facing publication identity and shell copy.
+ * Keep the product metadata here so the publication frame has one source of truth.
  */
 export const product = {
   name: 'Elpis',

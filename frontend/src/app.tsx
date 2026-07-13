@@ -27,7 +27,7 @@ export function App() {
         </Route>
         <Route>
           <PublicationLayout>
-            <div class="py-20 text-center text-[#7d7a75] dark:text-slate-400">
+            <div class="py-20 text-center text-[#7d7a75] dark:text-[#b4b1ab]">
               Page not found.
             </div>
           </PublicationLayout>

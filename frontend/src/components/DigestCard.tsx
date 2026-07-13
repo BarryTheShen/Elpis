@@ -348,8 +348,8 @@ export function DigestCard({
       )}
 
       {item.url && (
-        <div class="mt-1 overflow-x-auto border-t border-[#e6e5e3] pb-1 pt-3 dark:border-[#3b3a37]">
-          <div class="flex w-max min-w-full items-center gap-2">
+        <div class="mt-1 border-t border-[#e6e5e3] pb-1 pt-3 dark:border-[#3b3a37]">
+          <div class="flex flex-wrap items-center gap-2">
             <div class="flex items-center gap-1.5 shrink-0">
               {onToggleStar && (
                 <button
@@ -461,7 +461,7 @@ export function DigestCard({
             </div>
 
             {!readOnly && (
-              <div class="ml-auto flex items-center gap-2 shrink-0">
+              <div class="flex items-center gap-2 shrink-0 sm:ml-auto">
                 <RatingStars
                   value={localRating}
                   onChange={handleRate}

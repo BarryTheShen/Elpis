@@ -17,7 +17,7 @@ const SECTIONS: NavSection[] = [
   {
     label: 'Read',
     links: [
-      { href: '/', label: 'Latest digest', exact: true },
+      { href: '/admin/digest', label: 'Latest digest', exact: true },
       { href: '/admin/read-later', label: 'Read Later' },
       { href: '/admin/starred', label: 'Starred' },
     ],
