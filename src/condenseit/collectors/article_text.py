@@ -5,6 +5,8 @@ import logging
 import httpx
 import trafilatura
 
+from condenseit.network import load_network_proxy, safe_network_error
+
 logger = logging.getLogger(__name__)
 
 
@@ -17,5 +19,9 @@ def fetch_article_text(client: httpx.Client, url: str) -> str | None:
         if extracted:
             return extracted
     except Exception as exc:
-        logger.debug("Article fetch failed for %s: %s", url, exc)
+        logger.debug(
+            "Article fetch failed for %s: %s",
+            url,
+            safe_network_error(exc, load_network_proxy()),
+        )
     return None

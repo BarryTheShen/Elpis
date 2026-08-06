@@ -20,9 +20,9 @@ if TYPE_CHECKING:
     from condenseit.learning.preference_engine import PreferenceEngine
     from condenseit.providers.budget import BudgetTracker
 
-import httpx
 
-from condenseit.api_urls import OPENROUTER_CHAT_URL
+from condenseit.network import load_network_proxy, safe_network_error
+from condenseit.providers.litellm_client import call_litellm
 
 logger = logging.getLogger(__name__)
 
@@ -165,16 +165,29 @@ def _parse_rerank_response(raw: str) -> dict[str, tuple[float, str]]:
     return {}
 
 
-def _call_openrouter(
+def _call_litellm(
     prompt: str,
     model: str,
-    api_key: str,
+    provider: str,
+    api_key: str = "",
+    base_url: str = "",
+    reasoning_effort: str = "none",
+    thinking_enabled: bool = False,
+    thinking_budget_tokens: int = 0,
     budget: BudgetTracker | None = None,
 ) -> str:
-
-    payload = {
-        "model": model,
-        "messages": [
+    headers = (
+        {
+            "HTTP-Referer": "https://github.com/BarryTheShen/Elpis",
+            "X-Title": "Elpis",
+        }
+        if provider == "openrouter"
+        else None
+    )
+    result = call_litellm(
+        provider=provider,
+        model=model,
+        messages=[
             {
                 "role": "system",
                 "content": (
@@ -184,101 +197,17 @@ def _call_openrouter(
             },
             {"role": "user", "content": prompt},
         ],
-        "temperature": 0.1,
-        "max_tokens": 2500,
-    }
-    headers = {
-        "Authorization": f"Bearer {api_key}",
-        "HTTP-Referer": "https://github.com/condenseit/condenseit",
-        "X-Title": "CondenseIt",
-    }
-    with httpx.Client(timeout=120.0) as client:
-        resp = client.post(
-            OPENROUTER_CHAT_URL,
-            json=payload,
-            headers=headers,
-        )
-        resp.raise_for_status()
-        data = resp.json()
-    if budget is not None:
-        usage = data.get("usage") or {}
-        cost = float(usage.get("cost", 0) or 0)
-        if cost > 0:
-            budget.record_spend(
-                cost, model=model, tokens=int(usage.get("total_tokens", 0) or 0)
-            )
-    choices = data.get("choices") or []
-    if not choices:
-        return ""
-    message_raw = choices[0].get("message")
-    message = message_raw if isinstance(message_raw, dict) else {}
-    content = str(message.get("content", "")).strip()
-    reasoning = message.get("reasoning", "") or ""
-    if reasoning:
-        # Only keep content that is not just the reasoning repeated.
-        content = content.replace(reasoning.strip(), "").strip()
-    return content
-
-
-def _call_openai_compat(
-    prompt: str,
-    model: str,
-    base_url: str,
-    api_key: str = "",
-) -> str:
-    """Call any OpenAI-compatible /chat/completions endpoint for reranking."""
-
-    base_url = base_url.rstrip("/")
-    payload = {
-        "model": model,
-        "messages": [
-            {
-                "role": "system",
-                "content": (
-                    "You are a relevance ranker. Respond ONLY with a JSON array. "
-                    "No markdown, no code fences, no extra text, no thinking."
-                ),
-            },
-            {"role": "user", "content": prompt},
-        ],
-        "temperature": 0.1,
-        "max_tokens": 2500,
-    }
-    headers: dict[str, str] = {}
-    if api_key:
-        headers["Authorization"] = f"Bearer {api_key}"
-
-    with httpx.Client(timeout=120.0) as client:
-        resp = client.post(
-            f"{base_url}/chat/completions",
-            json=payload,
-            headers=headers,
-        )
-        resp.raise_for_status()
-        data = resp.json()
-    choices = data.get("choices") or []
-    if not choices:
-        return ""
-    return str(choices[0]["message"]["content"]).strip()
-
-
-def _call_ollama(prompt: str, model: str, host: str) -> str:
-
-    host = host.rstrip("/")
-    with httpx.Client(timeout=120.0) as client:
-        resp = client.post(
-            f"{host}/api/generate",
-            json={
-                "model": model,
-                "prompt": prompt,
-                "stream": False,
-                "think": False,
-                "options": {"temperature": 0.1, "num_predict": 2500},
-            },
-        )
-        resp.raise_for_status()
-        data = resp.json()
-    return str(data.get("response", "")).strip()
+        api_key=api_key,
+        base_url=base_url,
+        temperature=0.1,
+        max_tokens=2500,
+        reasoning_effort=reasoning_effort,
+        thinking_enabled=thinking_enabled,
+        thinking_budget_tokens=thinking_budget_tokens,
+        extra_headers=headers,
+        budget=budget,
+    )
+    return result.content
 
 
 def rerank(
@@ -286,43 +215,38 @@ def rerank(
     profile_narrative: str,
     *,
     model: str,
-    api_key: str | None = None,
-    ollama_host: str | None = None,
-    openai_base_url: str | None = None,
-    openai_api_key: str = "",
+    provider: str,
+    api_key: str = "",
+    base_url: str = "",
+    reasoning_effort: str = "none",
+    thinking_enabled: bool = False,
+    thinking_budget_tokens: int = 0,
     top_k: int = 30,
     blend: float = 0.4,
     budget: BudgetTracker | None = None,
 ) -> list[dict[str, Any]]:
-    """Reorder articles using a single LLM call, blending LLM scores with classical.
-
-    Returns the full list with LLM-blended ``preference_score`` values and
-    ``llm_rerank`` / ``llm_reason`` keys added to ``score_breakdown``.
-    Fails silently (original order preserved) when the LLM call or parse fails.
-
-    Provider selection order: OpenRouter (api_key) → OpenAI-compat
-    (openai_base_url) → Ollama (ollama_host).
-    """
+    """Reorder articles with one LiteLLM call and blend scores."""
     if not articles or not profile_narrative:
         return articles
 
     candidates = articles[:top_k]
     rest = articles[top_k:]
-
     prompt = _build_rerank_prompt(candidates, profile_narrative)
 
     try:
-        if api_key:
-            raw = _call_openrouter(prompt, model, api_key, budget=budget)
-        elif openai_base_url:
-            raw = _call_openai_compat(
-                prompt, model, openai_base_url, api_key=openai_api_key
-            )
-        elif ollama_host:
-            raw = _call_ollama(prompt, model, ollama_host)
-        else:
+        if not provider:
             return articles
-
+        raw = _call_litellm(
+            prompt,
+            model,
+            provider,
+            api_key=api_key,
+            base_url=base_url,
+            reasoning_effort=reasoning_effort,
+            thinking_enabled=thinking_enabled,
+            thinking_budget_tokens=thinking_budget_tokens,
+            budget=budget,
+        )
         scores = _parse_rerank_response(raw)
         if not scores:
             logger.warning(
@@ -337,7 +261,10 @@ def rerank(
         return reranked + rest
 
     except Exception as exc:
-        logger.warning("Reranker failed, using original order: %s", exc)
+        logger.warning(
+            "Reranker failed, using original order: %s",
+            safe_network_error(exc, load_network_proxy()),
+        )
         return articles
 
 

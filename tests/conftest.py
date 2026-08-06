@@ -1,4 +1,4 @@
-"""Shared pytest fixtures for CondenseIt tests."""
+"""Shared pytest fixtures for Elpis tests."""
 
 from __future__ import annotations
 

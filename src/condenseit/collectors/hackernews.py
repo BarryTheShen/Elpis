@@ -8,13 +8,12 @@ import logging
 from datetime import UTC, datetime
 from typing import Any
 
-import httpx
-
 from condenseit.collectors.article_text import fetch_article_text
 from condenseit.collectors.feed_dates import unix_timestamp_to_iso
 from condenseit.collectors.health import collect_with_health
 from condenseit.config import HackerNewsConfig
 from condenseit.fetch_headers import digest_fetch_headers
+from condenseit.network import httpx_client, load_network_proxy, safe_network_error
 from condenseit.store.database import ContentStore
 
 logger = logging.getLogger(__name__)
@@ -29,7 +28,7 @@ class HackerNewsCollector:
 
     def __init__(self, sources: list[HackerNewsConfig]) -> None:
         self.sources = sources
-        self._client = httpx.Client(
+        self._client = httpx_client(
             timeout=30.0,
             follow_redirects=True,
             headers=digest_fetch_headers(),
@@ -79,8 +78,12 @@ class HackerNewsCollector:
 
             try:
                 item = self._fetch_item(story_id)
-            except Exception:
-                logger.debug("HN item fetch failed for %d", story_id, exc_info=True)
+            except Exception as exc:
+                logger.debug(
+                    "HN item fetch failed for %d: %s",
+                    story_id,
+                    safe_network_error(exc, load_network_proxy()),
+                )
                 continue
 
             if not item:

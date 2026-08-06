@@ -1,4 +1,4 @@
-/** All shared TypeScript interfaces for CondenseIt UI. */
+/** All shared TypeScript interfaces for Elpis UI. */
 
 /**
  * Per-signal breakdown of how an article's preference_score was composed.
@@ -100,13 +100,42 @@ export interface RatingArticle {
   rating?: number | null;
 }
 
+export type ReasoningEffort =
+  | 'none'
+  | 'minimal'
+  | 'low'
+  | 'medium'
+  | 'high'
+  | 'xhigh';
+
 export interface LlmConfig {
+  /** Active provider selected on the Providers page. */
   provider: string;
+  /** Active provider's model identifier. */
   model: string;
-  openrouter_model: string;
+  reasoning_effort: ReasoningEffort;
+  thinking_enabled: boolean;
+  thinking_budget_tokens: number;
+}
+
+export interface ProviderDefinition {
+  id: string;
+  label: string;
+  description: string;
+  litellm_provider: string;
+  base_url: string;
+  default_base_url: string;
+  supports_base_url: boolean;
+  requires_api_key: boolean;
+  api_key_configured: boolean;
+  key_preview: string;
+}
+
+export interface ProvidersConfig {
+  active_provider: string;
+  providers: ProviderDefinition[];
   openrouter_pick_cheapest: boolean;
-  /** Resolved cheapest model when pick_cheapest is enabled. */
-  cheapest_model_id?: string;
+  cheapest_model_id?: string | null;
   ollama_host: string;
   ollama_models: string[];
   ollama_reachable: boolean;
@@ -121,9 +150,31 @@ export type JobState = 'idle' | 'running' | 'completed' | 'failed';
 
 export interface Job {
   state: JobState;
+  run_id?: number | null;
   message: string;
-  digest_id?: number;
+  started_at?: string | null;
+  finished_at?: string | null;
+  stats?: Record<string, unknown> | null;
+  digest_id?: number | null;
   post_display?: string;
+  error?: string | null;
+  log_id?: number | null;
+}
+
+export type DigestRunState = 'running' | 'completed' | 'failed';
+
+export interface DigestRunSummary {
+  id: number;
+  state: DigestRunState;
+  message: string;
+  started_at: string;
+  finished_at: string | null;
+  digest_id: number | null;
+  stats: Record<string, unknown>;
+  error: string;
+  dry_run: boolean;
+  skip_deploy: boolean;
+  log_id: number | null;
 }
 
 export interface PreferenceTerm {
@@ -305,6 +356,24 @@ export interface FeedTokenInfo {
   feed_url: string | null;
 }
 
+
+export interface NetworkConfig {
+  enabled: boolean;
+  proxy_configured: boolean;
+  proxy_url_display: string | null;
+  proxy_source: 'database' | 'environment' | 'disabled';
+  bypass_hosts: string[];
+  youtube_proxy_override: boolean;
+}
+
+export interface NetworkTestResult {
+  ok: boolean;
+  status_code?: number;
+  elapsed_ms?: number;
+  proxy_used: boolean;
+  target?: string;
+  error?: string;
+}
 /**
  * A digest item that the user has saved to the read-later list.
  * Mirrors DigestItem plus a `saved_at` timestamp set when it was bookmarked.
@@ -323,14 +392,18 @@ export interface StarredItem extends DigestItem {
 
 export interface RunLogSummary {
   id: number;
+  run_id: number | null;
   digest_id: number | null;
   created_at: string;
   log_preview: string;
+  status: DigestRunState | null;
 }
 
 export interface RunLog {
   id: number;
+  run_id: number | null;
   digest_id: number | null;
   created_at: string;
   log_text: string;
+  status: DigestRunState | null;
 }

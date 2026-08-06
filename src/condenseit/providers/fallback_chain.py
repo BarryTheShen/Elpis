@@ -3,6 +3,7 @@
 import logging
 from typing import Any
 
+from condenseit.network import load_network_proxy, sanitize_network_text
 from condenseit.providers.base import ArticleSummary, SummarizerProvider
 
 logger = logging.getLogger(__name__)
@@ -31,10 +32,12 @@ class FallbackChainProvider(SummarizerProvider):
                 result = provider.summarize_article(article)
                 self._active = provider
                 return result
-            except Exception:
-                logger.exception(
-                    "Provider %s failed for summarize_article",
+            except Exception as exc:
+                error = sanitize_network_text(str(exc), load_network_proxy())
+                logger.error(
+                    "Provider %s failed for summarize_article: %s",
                     provider.model_name,
+                    error,
                 )
         raise RuntimeError("All LLM providers failed")
 
@@ -49,9 +52,11 @@ class FallbackChainProvider(SummarizerProvider):
                 result = provider.generate_digest(categorized, changes, videos)
                 self._active = provider
                 return result
-            except Exception:
-                logger.exception(
-                    "Provider %s failed for generate_digest",
+            except Exception as exc:
+                error = sanitize_network_text(str(exc), load_network_proxy())
+                logger.error(
+                    "Provider %s failed for generate_digest: %s",
                     provider.model_name,
+                    error,
                 )
         raise RuntimeError("All LLM providers failed")

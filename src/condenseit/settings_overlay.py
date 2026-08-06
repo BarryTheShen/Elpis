@@ -1,6 +1,6 @@
 """Apply admin DB settings onto AppConfig."""
 
-from condenseit.config import AppConfig
+from condenseit.config import AppConfig, LlmProviderConfig
 from condenseit.setting_parsers import (
     parse_float_in_range,
     parse_float_min,
@@ -18,21 +18,56 @@ def _apply_llm_settings(config: AppConfig, store: ContentStore) -> None:
         config.model = model
     provider = store.get_setting("llm_provider")
     if provider:
-        config.llm.provider = provider
+        config.llm.provider = provider.strip().lower()
+
+    providers_raw = store.get_setting("llm_providers", "")
+    provider_values = parse_json_dict(providers_raw, "llm_providers")
+    if provider_values is not None:
+        config.llm.providers = {}
+        for provider_id, raw in provider_values.items():
+            if not isinstance(raw, dict):
+                continue
+            base_url = str(raw.get("base_url", "")).strip()
+            if base_url:
+                config.llm.providers[str(provider_id)] = LlmProviderConfig(
+                    base_url=base_url
+                )
+
     or_model = store.get_setting("openrouter_model")
     if or_model:
         config.llm.openrouter_model = or_model
     openai_base_url = store.get_setting("openai_base_url", "")
-    if openai_base_url:
+    if openai_base_url and provider_values is None:
         config.llm.openai_base_url = openai_base_url
+        config.llm.providers["openai"] = LlmProviderConfig(base_url=openai_base_url)
     openai_model = store.get_setting("openai_model", "")
     if openai_model:
         config.llm.openai_model = openai_model
+
     pick = store.get_setting("openrouter_pick_cheapest", "")
     if pick == "1":
         config.llm.openrouter_pick_cheapest = True
     elif pick == "0":
         config.llm.openrouter_pick_cheapest = False
+
+    reasoning_effort = store.get_setting("reasoning_effort", "").strip().lower()
+    if reasoning_effort in {"none", "minimal", "low", "medium", "high", "xhigh"}:
+        config.llm.reasoning_effort = reasoning_effort  # type: ignore[assignment]
+    thinking = store.get_setting("thinking_enabled", "")
+    if thinking == "1":
+        config.llm.thinking_enabled = True
+    elif thinking == "0":
+        config.llm.thinking_enabled = False
+    thinking_budget = store.get_setting("thinking_budget_tokens", "")
+    if thinking_budget:
+        val = parse_int_in_range(
+            thinking_budget,
+            "thinking_budget_tokens",
+            0,
+            100000,
+        )
+        if val is not None:
+            config.llm.thinking_budget_tokens = val
 
     daily_budget = store.get_setting("openrouter_daily_budget_usd", "")
     if daily_budget:

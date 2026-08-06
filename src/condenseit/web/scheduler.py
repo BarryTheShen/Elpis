@@ -16,6 +16,8 @@ from contextlib import suppress
 from datetime import UTC, datetime, timedelta
 from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
+from condenseit.network import load_network_proxy, sanitize_network_text
+
 logger = logging.getLogger(__name__)
 
 _SCHEDULER_STATE: dict[str, object] = {
@@ -172,7 +174,6 @@ async def scheduler_loop(
         if rescheduled:
             logger.info("Scheduler: rescheduling due to config change.")
             continue
-
         logger.info("Scheduler: triggering digest run")
         try:
             ok, msg = job_manager_start()
@@ -180,8 +181,12 @@ async def scheduler_loop(
                 logger.warning("Scheduler: digest not started: %s", msg)
             else:
                 logger.info("Scheduler: digest run started (%s)", msg)
-        except Exception:
-            logger.exception("Scheduler: unexpected error starting digest run")
+        except Exception as exc:
+            error = sanitize_network_text(str(exc), load_network_proxy())
+            logger.error(
+                "Scheduler: unexpected error starting digest run: %s",
+                error,
+            )
 
 
 def get_scheduler_status() -> dict[str, object]:

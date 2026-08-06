@@ -1,12 +1,23 @@
 import { useState, useEffect } from 'preact/hooks';
+import { Link } from 'wouter';
+import type { ComponentChildren } from 'preact';
 import { api } from '../../lib/api';
-import type { LlmConfig } from '../../lib/types';
+import type { LlmConfig, ReasoningEffort } from '../../lib/types';
 import { Card, CardHeader } from '../../components/Card';
 import { Button } from '../../components/Button';
 import { Spinner } from '../../components/Spinner';
 
 const INPUT =
   'w-full px-3 py-2 text-sm bg-white dark:bg-slate-950 border border-slate-200 dark:border-slate-700 rounded-lg text-slate-900 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-blue-500';
+
+const REASONING_OPTIONS: Array<{ value: ReasoningEffort; label: string; hint: string }> = [
+  { value: 'none', label: 'Off', hint: 'Fastest response with no explicit reasoning request.' },
+  { value: 'minimal', label: 'Minimal', hint: 'Small reasoning budget for simple decisions.' },
+  { value: 'low', label: 'Low', hint: 'Light reasoning with modest latency.' },
+  { value: 'medium', label: 'Medium', hint: 'Balanced quality and latency.' },
+  { value: 'high', label: 'High', hint: 'More deliberate reasoning for difficult articles.' },
+  { value: 'xhigh', label: 'Extra high', hint: 'Maximum supported effort on capable models.' },
+];
 
 function Field({
   label,
@@ -15,7 +26,7 @@ function Field({
 }: {
   label: string;
   hint?: string;
-  children: preact.ComponentChildren;
+  children: ComponentChildren;
 }) {
   return (
     <label class="flex flex-col gap-1">
@@ -23,9 +34,7 @@ function Field({
         {label}
       </span>
       {children}
-      {hint && (
-        <span class="text-xs text-slate-400 dark:text-slate-500">{hint}</span>
-      )}
+      {hint && <span class="text-xs text-slate-400 dark:text-slate-500">{hint}</span>}
     </label>
   );
 }
@@ -35,83 +44,33 @@ export function LlmConfigPage() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [flash, setFlash] = useState<string | null>(null);
-  const [pullModel, setPullModel] = useState('');
-  const [pulling, setPulling] = useState(false);
-  const [delModel, setDelModel] = useState('');
-  const [deleting, setDeleting] = useState(false);
-  const [actionMsg, setActionMsg] = useState<string | null>(null);
 
   useEffect(() => {
     api
       .getLlmConfig()
       .then(setCfg)
-      .catch((e: unknown) => {
-        setFlash(e instanceof Error ? e.message : 'Failed to load config.');
+      .catch((error: unknown) => {
+        setFlash(error instanceof Error ? error.message : 'Failed to load LLM settings.');
       })
       .finally(() => setLoading(false));
   }, []);
 
-  function showFlash(msg: string) {
-    setFlash(msg);
+  function showFlash(message: string) {
+    setFlash(message);
     setTimeout(() => setFlash(null), 4000);
   }
 
-  async function handleSave(e: Event) {
-    e.preventDefault();
+  async function handleSave(event: Event) {
+    event.preventDefault();
     if (!cfg) return;
     setSaving(true);
     try {
       await api.saveLlmConfig(cfg);
-      showFlash('Settings saved.');
-    } catch (err) {
-      showFlash(err instanceof Error ? err.message : 'Save failed.');
+      showFlash('LLM settings saved.');
+    } catch (error) {
+      showFlash(error instanceof Error ? error.message : 'Save failed.');
     } finally {
       setSaving(false);
-    }
-  }
-
-  async function handlePull(e: Event) {
-    e.preventDefault();
-    if (!pullModel.trim()) return;
-    setPulling(true);
-    setActionMsg(null);
-    try {
-      const r = await api.pullOllamaModel(pullModel.trim());
-      setActionMsg(r.message);
-      setCfg((prev) =>
-        prev && !prev.ollama_models.includes(pullModel.trim())
-          ? { ...prev, ollama_models: [...prev.ollama_models, pullModel.trim()] }
-          : prev,
-      );
-      setPullModel('');
-    } catch (err) {
-      setActionMsg(err instanceof Error ? err.message : 'Pull failed.');
-    } finally {
-      setPulling(false);
-    }
-  }
-
-  async function handleDelete(e: Event) {
-    e.preventDefault();
-    if (!delModel) return;
-    setDeleting(true);
-    setActionMsg(null);
-    try {
-      const r = await api.deleteOllamaModel(delModel);
-      setActionMsg(r.message);
-      setCfg((prev) =>
-        prev
-          ? {
-              ...prev,
-              ollama_models: prev.ollama_models.filter((m) => m !== delModel),
-            }
-          : prev,
-      );
-      setDelModel('');
-    } catch (err) {
-      setActionMsg(err instanceof Error ? err.message : 'Delete failed.');
-    } finally {
-      setDeleting(false);
     }
   }
 
@@ -126,19 +85,26 @@ export function LlmConfigPage() {
   if (!cfg) {
     return (
       <p class="text-sm text-red-600 dark:text-red-400 p-4">
-        {flash ?? 'Could not load LLM config.'}
+        {flash ?? 'Could not load LLM settings.'}
       </p>
     );
   }
+
+  const selectedReasoning =
+    REASONING_OPTIONS.find((option) => option.value === cfg.reasoning_effort) ??
+    REASONING_OPTIONS[0];
 
   return (
     <div class="space-y-5">
       <div>
         <h1 class="text-2xl font-bold tracking-tight text-slate-900 dark:text-slate-100">
-          LLM configuration
+          LLM settings
         </h1>
         <p class="mt-1 text-sm text-slate-500 dark:text-slate-400">
-          Local Ollama on the host, or OpenRouter in the cloud.
+          Choose the model and how much reasoning it should use. Credentials and endpoints are managed in{' '}
+          <Link href="/admin/providers" class="text-blue-600 hover:underline dark:text-blue-400">
+            Providers
+          </Link>.
         </p>
       </div>
 
@@ -149,171 +115,118 @@ export function LlmConfigPage() {
       )}
 
       <Card>
-        <CardHeader title="Provider settings" />
-        <form onSubmit={handleSave} class="grid grid-cols-1 sm:grid-cols-2 gap-4">
-          <Field label="Provider">
-            <select
-              class={INPUT}
-              value={cfg.provider}
-              onChange={(e) =>
-                setCfg((p) =>
-                  p
-                    ? { ...p, provider: (e.target as HTMLSelectElement).value }
-                    : p,
-                )
-              }
-            >
-              <option value="ollama">Ollama (local, Metal GPU)</option>
-              <option value="openrouter">OpenRouter</option>
-              <option value="fallback">Fallback (local then cloud)</option>
-            </select>
-          </Field>
+        <CardHeader title="Model output" />
+        <form onSubmit={handleSave} class="space-y-5">
+          <div class="rounded-lg border border-slate-200 bg-slate-50 px-3 py-2.5 dark:border-slate-700 dark:bg-slate-800/50">
+            <p class="text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">
+              Active provider
+            </p>
+            <p class="mt-1 text-sm font-medium text-slate-900 dark:text-slate-100">
+              {cfg.provider}
+            </p>
+          </div>
 
           <Field
-            label="Model / Ollama tag"
-            hint={`Ollama host: ${cfg.ollama_host}`}
+            label="Model"
+            hint="Use the model identifier expected by the active provider. OpenRouter IDs look like provider/model."
           >
             <input
               class={INPUT}
               value={cfg.model}
               required
-              onInput={(e) =>
-                setCfg((p) =>
-                  p
-                    ? { ...p, model: (e.target as HTMLInputElement).value }
-                    : p,
+              onInput={(event) =>
+                setCfg((previous) =>
+                  previous
+                    ? { ...previous, model: (event.target as HTMLInputElement).value }
+                    : previous,
                 )
               }
             />
           </Field>
 
-          <Field label="OpenRouter model">
-            <input
+          <Field label="Reasoning effort" hint={selectedReasoning.hint}>
+            <select
               class={INPUT}
-              value={cfg.openrouter_model}
-              placeholder="anthropic/claude-…"
-              onInput={(e) =>
-                setCfg((p) =>
-                  p
+              value={cfg.reasoning_effort}
+              onChange={(event) =>
+                setCfg((previous) =>
+                  previous
                     ? {
-                        ...p,
-                        openrouter_model: (e.target as HTMLInputElement).value,
+                        ...previous,
+                        reasoning_effort: (event.target as HTMLSelectElement)
+                          .value as ReasoningEffort,
                       }
-                    : p,
+                    : previous,
                 )
               }
-            />
+            >
+              {REASONING_OPTIONS.map((option) => (
+                <option key={option.value} value={option.value}>
+                  {option.label}
+                </option>
+              ))}
+            </select>
           </Field>
 
-          <div class="sm:col-span-2 space-y-1">
-            <label class="flex items-start gap-2 cursor-pointer">
+          <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <Field
+              label="Extended thinking"
+              hint="Passes a provider-neutral thinking budget when supported."
+            >
+              <label class="flex items-center gap-2 min-h-10 text-sm text-slate-700 dark:text-slate-300">
+                <input
+                  type="checkbox"
+                  checked={cfg.thinking_enabled}
+                  onChange={(event) =>
+                    setCfg((previous) =>
+                      previous
+                        ? {
+                            ...previous,
+                            thinking_enabled: (event.target as HTMLInputElement).checked,
+                          }
+                        : previous,
+                    )
+                  }
+                />
+                Enable thinking tokens
+              </label>
+            </Field>
+
+            <Field
+              label="Thinking token budget"
+              hint="0 lets the provider choose. Range: 0-100000 tokens."
+            >
               <input
-                type="checkbox"
-                class="mt-0.5"
-                checked={cfg.openrouter_pick_cheapest}
-                onChange={(e) =>
-                  setCfg((p) =>
-                    p
+                class={INPUT}
+                type="number"
+                min="0"
+                max="100000"
+                step="1"
+                value={cfg.thinking_budget_tokens}
+                onInput={(event) =>
+                  setCfg((previous) =>
+                    previous
                       ? {
-                          ...p,
-                          openrouter_pick_cheapest: (
-                            e.target as HTMLInputElement
-                          ).checked,
+                          ...previous,
+                          thinking_budget_tokens: Number(
+                            (event.target as HTMLInputElement).value,
+                          ),
                         }
-                      : p,
+                      : previous,
                   )
                 }
               />
-              <span class="text-sm text-slate-700 dark:text-slate-300">
-                Prefer cheapest OpenRouter model (re-checked hourly)
-              </span>
-            </label>
-            {cfg.openrouter_pick_cheapest && cfg.cheapest_model_id && (
-              <p class="ml-6 text-xs text-slate-500 dark:text-slate-400">
-                Currently using:{' '}
-                <code class="font-mono bg-slate-100 dark:bg-slate-800 px-1 rounded">
-                  {cfg.cheapest_model_id}
-                </code>
-              </p>
-            )}
+            </Field>
           </div>
 
-          <div class="sm:col-span-2">
-            <Button type="submit" loading={saving}>
-              Save settings
-            </Button>
+          <div class="rounded-lg bg-slate-50 px-3 py-2.5 text-xs leading-5 text-slate-600 dark:bg-slate-800/50 dark:text-slate-400">
+            LiteLLM normalizes reasoning controls across OpenRouter, OpenAI, Anthropic, Gemini, local Ollama, and custom OpenAI-compatible servers. Providers that do not support a control safely ignore it.
           </div>
+
+          <Button type="submit" loading={saving}>
+            Save LLM settings
+          </Button>
         </form>
-      </Card>
-
-      <Card>
-        <CardHeader
-          title="Ollama models on host"
-          description="Pull can take several minutes for large models."
-        />
-
-        {!cfg.ollama_reachable && (
-          <div class="mb-4 px-4 py-3 rounded-lg bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 text-sm text-amber-700 dark:text-amber-300">
-            Ollama is not reachable at <code class="font-mono">{cfg.ollama_host}</code>.
-            Model management is only available when Ollama is running locally.
-          </div>
-        )}
-
-        {cfg.ollama_reachable && (
-          <>
-            {actionMsg && (
-              <div class="mb-3 px-3 py-2 text-sm rounded-lg bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300">
-                {actionMsg}
-              </div>
-            )}
-
-            <form onSubmit={handlePull} class="flex gap-2 mb-4">
-              <input
-                class={`${INPUT} flex-1`}
-                placeholder="llama3.2:3b"
-                value={pullModel}
-                onInput={(e) => setPullModel((e.target as HTMLInputElement).value)}
-                required
-              />
-              <Button type="submit" loading={pulling}>
-                Pull
-              </Button>
-            </form>
-
-            {cfg.ollama_models.length > 0 && (
-              <form onSubmit={handleDelete} class="flex gap-2">
-                <select
-                  class={`${INPUT} flex-1`}
-                  value={delModel}
-                  onChange={(e) =>
-                    setDelModel((e.target as HTMLSelectElement).value)
-                  }
-                  required
-                >
-                  <option value="">Select model to delete…</option>
-                  {cfg.ollama_models.map((m) => (
-                    <option key={m} value={m}>
-                      {m}
-                    </option>
-                  ))}
-                </select>
-                <Button type="submit" variant="secondary" loading={deleting}>
-                  Delete
-                </Button>
-              </form>
-            )}
-
-            {cfg.ollama_models.length === 0 && (
-              <p class="text-sm text-slate-500 dark:text-slate-400">
-                No models found. Run{' '}
-                <code class="font-mono bg-slate-100 dark:bg-slate-800 px-1 rounded">
-                  ollama pull llama3.2:3b
-                </code>{' '}
-                on the host.
-              </p>
-            )}
-          </>
-        )}
       </Card>
     </div>
   );

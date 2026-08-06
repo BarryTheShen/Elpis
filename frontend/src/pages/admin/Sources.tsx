@@ -757,7 +757,7 @@ export function SourcesPage() {
           </label>
           <a
             href={api.exportOpmlUrl()}
-            download="condenseit-sources.opml"
+            download="elpis-sources.opml"
             class="inline-flex items-center px-4 py-2 text-sm font-semibold bg-slate-100 dark:bg-slate-800 text-slate-800 dark:text-slate-200 border border-slate-300 dark:border-slate-600 rounded-lg hover:bg-slate-200 dark:hover:bg-slate-700 transition-colors"
           >
             Export OPML

@@ -177,19 +177,26 @@ make docker-down
 
 ## LLM provider comparison
 
+All chat calls use the LiteLLM-backed provider adapter.
+
 | Provider | Cost | Privacy | GPU required |
 |----------|------|---------|-------------|
 | Ollama (local) | Free | All data stays on device | Yes (or slow CPU) |
-| OpenRouter | Pay-per-token | Sends article text to cloud | No |
+| OpenRouter and hosted providers | Pay-per-token | Sends article text to cloud | No |
+| Custom OpenAI-compatible | Depends on server | Depends on server | Depends on server |
 | Fallback | Free first, cloud on error | Mixed | Optional |
 
-Set in `config.yaml`:
+Choose the backend and save keys/endpoints in **Admin > Providers**. Set the
+model and reasoning controls in **Admin > LLM**. The equivalent YAML for a local
+setup is:
 
 ```yaml
+model: "llama3.2:3b"
 llm:
-  provider: "ollama"        # local only
-  # provider: "openrouter"  # cloud only
-  # provider: "fallback"    # ollama first, openrouter on error
+  provider: "ollama"
+  providers:
+    ollama:
+      base_url: "http://localhost:11434"
 ```
 
 ---
@@ -203,11 +210,11 @@ If you do not have a GPU or Ollama installed:
    ```
    OPENROUTER_API_KEY=sk-or-...
    ```
-3. Set in `config.yaml`:
+3. Set in `config.yaml` (or choose it in **Admin > Providers**):
    ```yaml
+   model: "qwen/qwen3.5-flash-02-23"
    llm:
      provider: "openrouter"
-     openrouter_model: "qwen/qwen3.5-flash-02-23"
      openrouter_daily_budget_usd: 0.50
      openrouter_monthly_budget_usd: 5.0
    ```

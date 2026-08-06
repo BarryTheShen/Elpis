@@ -101,5 +101,5 @@ them locally; scrub paths if you share the output.
 
 See [scheduling.md](scheduling.md) for manual cron, systemd, and LaunchAgent
 setup. **Windows** is not covered by the installer; use Task Scheduler on the
-host or run CondenseIt under **WSL** and follow the Linux section in
+host or run Elpis under **WSL** and follow the Linux section in
 [scheduling.md](scheduling.md).

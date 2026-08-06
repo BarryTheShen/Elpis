@@ -1,3 +1,4 @@
+import sqlite3
 from pathlib import Path
 
 from click.testing import CliRunner
@@ -14,6 +15,29 @@ def test_migrate_applies_schema(tmp_path: Path) -> None:
     store = ContentStore(db_path=db_path)
     assert "articles" in store.db.table_names()
     store.close()
+
+
+def test_local_sqlite_run_state_survives_restart(tmp_path: Path) -> None:
+    db_path = tmp_path / "restart.db"
+    store = ContentStore(db_path=db_path)
+    run_id = store.create_digest_run(started_at="2026-07-13T12:00:00Z")
+    store.update_digest_run(
+        run_id,
+        state="completed",
+        message="Digest ready.",
+        finished_at="2026-07-13T12:01:00Z",
+        digest_id=7,
+        stats={"articles_count": 3},
+    )
+    store.close()
+
+    restarted = ContentStore(db_path=db_path)
+    run = restarted.latest_digest_run()
+    assert run is not None
+    assert run["id"] == run_id
+    assert run["state"] == "completed"
+    assert run["stats"]["articles_count"] == 3
+    restarted.close()
 
 
 def test_migrate_cli(tmp_path: Path, monkeypatch) -> None:
@@ -53,3 +77,28 @@ def test_deduplicate_new_article(tmp_path: Path) -> None:
     assert row["collected_at"] == "2026-01-01T00:00:00+00:00"
     assert row["title"] == "Test renamed"
     assert row["content_hash"] == expected_hash
+
+
+def test_existing_run_logs_get_run_id_column(tmp_path: Path) -> None:
+    db_path = tmp_path / "legacy.db"
+    connection = sqlite3.connect(db_path)
+    connection.execute(
+        "CREATE TABLE digest_run_logs ("
+        "id INTEGER PRIMARY KEY,"
+        "digest_id INTEGER,"
+        "log_text TEXT,"
+        "created_at TEXT"
+        ")",
+    )
+    connection.commit()
+    connection.close()
+
+    store = ContentStore(db_path=db_path)
+    columns = {
+        row[1]
+        for row in store.db.execute(
+            "PRAGMA table_info(digest_run_logs)",
+        ).fetchall()
+    }
+    assert "run_id" in columns
+    store.close()

@@ -3,23 +3,24 @@
 import logging
 from difflib import unified_diff
 
-import httpx
 import trafilatura
 
 from condenseit.config import WatchUrlConfig
 from condenseit.fetch_headers import digest_fetch_headers
+from condenseit.network import httpx_client, load_network_proxy, sanitize_network_text
 from condenseit.store.database import ContentStore
 
 logger = logging.getLogger(__name__)
 
 
 def _fetch_text(url: str) -> str:
-    response = httpx.get(
-        url,
-        timeout=30.0,
-        follow_redirects=True,
-        headers=digest_fetch_headers(),
-    )
+    with httpx_client() as client:
+        response = client.get(
+            url,
+            timeout=30.0,
+            follow_redirects=True,
+            headers=digest_fetch_headers(),
+        )
     response.raise_for_status()
     downloaded = response.text
     text = trafilatura.extract(downloaded, include_comments=False)
@@ -87,6 +88,7 @@ def check_website_changes_with_health(
                 )
             health.append((item.url, None, len(current)))
         except Exception as exc:
-            logger.exception("Change check failed for %s", item.url)
-            health.append((item.url, str(exc), 0))
+            error = sanitize_network_text(str(exc), load_network_proxy())
+            logger.error("Change check failed for %s: %s", item.url, error)
+            health.append((item.url, error, 0))
     return changes, health

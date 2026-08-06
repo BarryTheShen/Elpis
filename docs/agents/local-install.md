@@ -111,14 +111,17 @@ At minimum:
   `"ollama"` if you completed Phase 3, or leave it as `"openrouter"` and
   supply `OPENROUTER_API_KEY` in `.env`.
 
-For OpenRouter, also set:
+For OpenRouter, set the model at the top level:
 
 ```yaml
+model: "qwen/qwen3.5-flash-02-23"
 llm:
   provider: "openrouter"
-  openrouter_model: "qwen/qwen3.5-flash-02-23"
   openrouter_daily_budget_usd: 0.50
 ```
+
+You can also select the provider and endpoint in **Admin > Providers**, then set
+the model and reasoning controls in **Admin > LLM**.
 
 ### 4.2 Edit `.env`
 

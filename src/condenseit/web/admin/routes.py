@@ -16,7 +16,22 @@ from fastapi.responses import (
 )
 
 from condenseit.api_urls import youtube_channel_feed_url
-from condenseit.config import load_config
+from condenseit.config import LOCAL_INSTALL_FALLBACK_CREDENTIAL, load_config
+from condenseit.network import (
+    NetworkProxySettings,
+    load_network_proxy,
+    parse_bypass_hosts,
+    safe_network_error,
+    save_network_proxy,
+    test_network_connection,
+    validate_proxy_url,
+)
+from condenseit.providers.catalog import (
+    PROVIDER_SPECS,
+    get_provider_base_url,
+    get_provider_model,
+    get_provider_spec,
+)
 from condenseit.providers.openrouter_models import pick_cheapest_text_model
 from condenseit.services.ollama_client import (
     ollama_delete,
@@ -275,6 +290,91 @@ def create_admin_router(
     def _merged():
         return apply_db_settings(load_config(config_path), store)
 
+    @router.get("/api/config/network", response_model=None)
+    async def api_get_network() -> JSONResponse:
+        return JSONResponse(load_network_proxy(store).as_api_payload())
+
+    @router.put("/api/config/network", response_model=None)
+    async def api_save_network(body: dict[str, Any]) -> JSONResponse:
+        enabled = body.get("enabled")
+        if not isinstance(enabled, bool):
+            return JSONResponse({"error": "enabled must be a boolean"}, status_code=422)
+        bypass = body.get("bypass_hosts", "")
+        if not isinstance(bypass, (str, list)):
+            return JSONResponse(
+                {"error": "bypass_hosts must be a string or list"},
+                status_code=422,
+            )
+        proxy_url = body.get("proxy_url")
+        if proxy_url is None:
+            proxy_url = ""
+        if not isinstance(proxy_url, str):
+            return JSONResponse(
+                {"error": "proxy_url must be a string"},
+                status_code=422,
+            )
+        try:
+            settings = save_network_proxy(
+                store,
+                enabled=enabled,
+                proxy_url=proxy_url,
+                bypass_hosts=bypass,
+            )
+        except ValueError as exc:
+            return JSONResponse({"error": str(exc)}, status_code=422)
+        return JSONResponse({"ok": True, **settings.as_api_payload()})
+
+    @router.post("/api/config/network/test", response_model=None)
+    def api_test_network(body: dict[str, Any] | None = None) -> JSONResponse:
+        settings = load_network_proxy(store)
+        if body is not None:
+            enabled = body.get("enabled")
+            bypass = body.get("bypass_hosts", "")
+            proxy_url = body.get("proxy_url") or ""
+            if not isinstance(enabled, bool):
+                return JSONResponse(
+                    {"error": "enabled must be a boolean"},
+                    status_code=422,
+                )
+            if not isinstance(bypass, (str, list)):
+                return JSONResponse(
+                    {"error": "bypass_hosts must be a string or list"},
+                    status_code=422,
+                )
+            if not isinstance(proxy_url, str):
+                return JSONResponse(
+                    {"error": "proxy_url must be a string"},
+                    status_code=422,
+                )
+            try:
+                candidate = (
+                    validate_proxy_url(proxy_url or settings.proxy_url)
+                    if enabled
+                    else ""
+                )
+            except ValueError as exc:
+                return JSONResponse({"error": str(exc)}, status_code=422)
+            settings = NetworkProxySettings(
+                proxy_url=candidate,
+                bypass_hosts=parse_bypass_hosts(bypass),
+                source="database" if candidate else "disabled",
+                youtube_proxy_override=settings.youtube_proxy_override,
+            )
+        try:
+            result = test_network_connection(settings)
+        except Exception as exc:
+            return JSONResponse(
+                {
+                    "ok": False,
+                    "proxy_used": bool(
+                        settings.proxy_for_url("https://www.google.com")
+                    ),
+                    "error": safe_network_error(exc, settings),
+                },
+                status_code=502,
+            )
+        return JSONResponse({"ok": True, **result})
+
     def _sources_table_response(request: Request) -> HTMLResponse:
         return templates.TemplateResponse(
             request,
@@ -423,57 +523,160 @@ def create_admin_router(
             body,
             media_type="application/xml; charset=utf-8",
             headers={
-                "Content-Disposition": 'attachment; filename="condenseit-sources.opml"',
+                "Content-Disposition": 'attachment; filename="elpis-sources.opml"',
             },
         )
+
+    def _provider_payload(merged) -> dict[str, Any]:
+        stored_rows = {
+            str(row["service"]): row for row in keys.list_keys()
+        }
+        rows: list[dict[str, Any]] = []
+        for spec in PROVIDER_SPECS:
+            secret = keys.get_key(spec.key_service) or ""
+            if spec.id == "openrouter":
+                secret = secret or merged.llm.openrouter_api_key
+            elif spec.id in {"openai", "custom"}:
+                secret = secret or merged.llm.openai_api_key
+            stored = stored_rows.get(spec.key_service)
+            rows.append(
+                {
+                    "id": spec.id,
+                    "label": spec.label,
+                    "description": spec.description,
+                    "litellm_provider": spec.litellm_provider,
+                    "base_url": get_provider_base_url(merged, spec.id),
+                    "default_base_url": spec.default_base_url,
+                    "supports_base_url": spec.supports_base_url,
+                    "requires_api_key": spec.requires_api_key,
+                    "api_key_configured": bool(secret),
+                    "key_preview": (
+                        str(stored["key_preview"])
+                        if stored is not None
+                        else ("Configured via environment" if secret else "")
+                    ),
+                }
+            )
+        ollama_host = get_provider_base_url(merged, "ollama")
+        try:
+            ollama_models = ollama_list_tags(ollama_host)
+            ollama_reachable = True
+        except Exception:
+            ollama_models = []
+            ollama_reachable = False
+        cheapest = (
+            pick_cheapest_text_model()
+            if merged.llm.openrouter_pick_cheapest
+            else None
+        )
+        return {
+            "active_provider": merged.llm.provider,
+            "providers": rows,
+            "openrouter_pick_cheapest": merged.llm.openrouter_pick_cheapest,
+            "cheapest_model_id": cheapest,
+            "ollama_host": ollama_host,
+            "ollama_models": ollama_models,
+            "ollama_reachable": ollama_reachable,
+        }
+
+    @router.get("/api/config/providers", response_model=None)
+    async def api_get_providers() -> JSONResponse:
+        return JSONResponse(_provider_payload(_merged()))
+
+    @router.put("/api/config/providers", response_model=None)
+    async def api_save_providers(body: dict[str, Any]) -> JSONResponse:
+        active = str(body.get("active_provider", "")).strip().lower()
+        valid_ids = {spec.id for spec in PROVIDER_SPECS} | {"fallback"}
+        if active not in valid_ids:
+            return JSONResponse({"error": "Unknown provider"}, status_code=422)
+
+        endpoints = body.get("endpoints", {})
+        if not isinstance(endpoints, dict):
+            return JSONResponse(
+                {"error": "endpoints must be an object"},
+                status_code=422,
+            )
+        cleaned: dict[str, dict[str, str]] = {}
+        for provider_id, raw in endpoints.items():
+            spec = get_provider_spec(str(provider_id))
+            if spec is None or not isinstance(raw, dict):
+                continue
+            base_url = str(raw.get("base_url", "")).strip().rstrip("/")
+            if base_url and not base_url.startswith(("http://", "https://")):
+                return JSONResponse(
+                    {"error": f"{spec.label} base URL must use http:// or https://"},
+                    status_code=422,
+                )
+            if base_url:
+                cleaned[spec.id] = {"base_url": base_url}
+
+        if active == "custom" and not cleaned.get("custom", {}).get("base_url"):
+            return JSONResponse(
+                {"error": "Custom OpenAI-compatible base URL is required"},
+                status_code=422,
+            )
+
+        store.set_setting("llm_provider", active)
+        store.set_setting("llm_providers", json.dumps(cleaned))
+        if "openrouter_pick_cheapest" in body:
+            store.set_setting(
+                "openrouter_pick_cheapest",
+                "1" if bool(body["openrouter_pick_cheapest"]) else "0",
+            )
+        return JSONResponse({"ok": True})
 
     @router.get("/api/config/llm", response_model=None)
     async def api_get_llm() -> JSONResponse:
         merged = _merged()
-        model = store.get_setting("model", merged.model)
-        provider = store.get_setting("llm_provider", merged.llm.provider)
-        ollama_reachable = False
-        try:
-            ollama_models = ollama_list_tags(merged.llm.ollama_host)
-            ollama_reachable = True
-        except Exception:
-            ollama_models = []
-        cheapest: str | None = None
-        if merged.llm.openrouter_pick_cheapest:
-            cheapest = pick_cheapest_text_model()
-
         return JSONResponse(
             {
-                "provider": provider,
-                "model": model,
-                "openrouter_model": merged.llm.openrouter_model,
-                "openrouter_pick_cheapest": merged.llm.openrouter_pick_cheapest,
-                "cheapest_model_id": cheapest,
-                "ollama_host": merged.llm.ollama_host,
-                "ollama_models": ollama_models,
-                "ollama_reachable": ollama_reachable,
-                "openai_base_url": merged.llm.openai_base_url,
-                "openai_model": merged.llm.openai_model,
+                "provider": merged.llm.provider,
+                "model": get_provider_model(merged, store),
+                "reasoning_effort": merged.llm.reasoning_effort,
+                "thinking_enabled": merged.llm.thinking_enabled,
+                "thinking_budget_tokens": merged.llm.thinking_budget_tokens,
             }
         )
 
     @router.put("/api/config/llm", response_model=None)
     async def api_save_llm(body: dict[str, Any]) -> JSONResponse:
-        if "provider" in body:
-            store.set_setting("llm_provider", str(body["provider"]))
         if "model" in body:
-            store.set_setting("model", str(body["model"]))
-        if "openrouter_model" in body and body["openrouter_model"]:
-            store.set_setting("openrouter_model", str(body["openrouter_model"]))
-        if "openrouter_pick_cheapest" in body:
+            model = str(body["model"]).strip()
+            if not model:
+                return JSONResponse({"error": "model is required"}, status_code=422)
+            store.set_setting("model", model)
+        if "reasoning_effort" in body:
+            effort = str(body["reasoning_effort"]).strip().lower()
+            if effort not in {"none", "minimal", "low", "medium", "high", "xhigh"}:
+                return JSONResponse(
+                    {"error": "Invalid reasoning_effort"},
+                    status_code=422,
+                )
+            store.set_setting("reasoning_effort", effort)
+        if "thinking_enabled" in body:
+            if not isinstance(body["thinking_enabled"], bool):
+                return JSONResponse(
+                    {"error": "thinking_enabled must be a boolean"},
+                    status_code=422,
+                )
             store.set_setting(
-                "openrouter_pick_cheapest",
-                "1" if body["openrouter_pick_cheapest"] else "0",
+                "thinking_enabled",
+                "1" if body["thinking_enabled"] else "0",
             )
-        if "openai_base_url" in body:
-            store.set_setting("openai_base_url", str(body["openai_base_url"]))
-        if "openai_model" in body and body["openai_model"]:
-            store.set_setting("openai_model", str(body["openai_model"]))
+        if "thinking_budget_tokens" in body:
+            try:
+                budget = int(body["thinking_budget_tokens"])
+            except (TypeError, ValueError):
+                return JSONResponse(
+                    {"error": "thinking_budget_tokens must be 0-100000"},
+                    status_code=422,
+                )
+            if not 0 <= budget <= 100000:
+                return JSONResponse(
+                    {"error": "thinking_budget_tokens must be 0-100000"},
+                    status_code=422,
+                )
+            store.set_setting("thinking_budget_tokens", str(budget))
         return JSONResponse({"ok": True})
 
     @router.post("/api/config/llm/ollama/pull", response_model=None)
@@ -483,7 +686,7 @@ def create_admin_router(
         if not model:
             return JSONResponse({"error": "model required"}, status_code=422)
         try:
-            ollama_pull(merged.llm.ollama_host, model)
+            ollama_pull(get_provider_base_url(merged, "ollama"), model)
             return JSONResponse({"message": f"Pulled {model}."})
         except Exception as exc:
             return JSONResponse({"message": f"Pull failed: {exc}"}, status_code=500)
@@ -495,7 +698,7 @@ def create_admin_router(
         if not model:
             return JSONResponse({"error": "model required"}, status_code=422)
         try:
-            ollama_delete(merged.llm.ollama_host, model)
+            ollama_delete(get_provider_base_url(merged, "ollama"), model)
             return JSONResponse({"message": f"Deleted {model}."})
         except Exception as exc:
             return JSONResponse({"message": f"Delete failed: {exc}"}, status_code=500)
@@ -511,9 +714,12 @@ def create_admin_router(
 
     @router.post("/api/config/keys", response_model=None)
     async def api_save_key(body: dict[str, Any]) -> JSONResponse:
-        service = str(body.get("service", "")).strip()
+        service = str(body.get("service", "")).strip().lower()
         key_value = str(body.get("key_value", "")).strip()
-        if not service or not key_value:
+        valid_services = {spec.key_service for spec in PROVIDER_SPECS} | {"resend"}
+        if service not in valid_services:
+            return JSONResponse({"error": "Unsupported provider key"}, status_code=422)
+        if not key_value:
             return JSONResponse(
                 {"error": "service and key_value required"},
                 status_code=422,
@@ -523,6 +729,10 @@ def create_admin_router(
 
     @router.delete("/api/config/keys/{service}", response_model=None)
     async def api_delete_key(service: str) -> JSONResponse:
+        service = service.strip().lower()
+        valid_services = {spec.key_service for spec in PROVIDER_SPECS} | {"resend"}
+        if service not in valid_services:
+            return JSONResponse({"error": "Unsupported provider key"}, status_code=422)
         keys.delete_key(service)
         return JSONResponse({"ok": True})
 
@@ -737,7 +947,10 @@ def create_admin_router(
         return JSONResponse({"source": source, "using_default": source == "default"})
 
     @router.put("/api/config/password", response_model=None)
-    async def api_change_password(body: dict[str, Any]) -> JSONResponse:
+    async def api_change_password(
+        request: Request,
+        body: dict[str, Any],
+    ) -> JSONResponse:
         """Change the admin password. Stores the new password in the DB."""
         current = str(body.get("current_password", "")).strip()
         new_pw = str(body.get("new_password", "")).strip()
@@ -758,7 +971,7 @@ def create_admin_router(
             os.environ.get("CONDENSEIT_AUTH_PASSWORD", "").strip()
             or os.environ.get("DIGEST_PWA_AUTH_PASSWORD", "").strip()
         )
-        effective = db_pw or env_pw or "condenseit"
+        effective = db_pw or env_pw or LOCAL_INSTALL_FALLBACK_CREDENTIAL
 
         if not secrets.compare_digest(current, effective):
             return JSONResponse(
@@ -767,6 +980,10 @@ def create_admin_router(
             )
 
         store.set_setting("auth_password", new_pw)
+        generation = secrets.token_hex(16)
+        store.set_setting("auth_generation", generation)
+        request.session["authenticated"] = True
+        request.session["auth_generation"] = generation
         return JSONResponse({"ok": True})
 
     def _feed_url(request: Request, token: str) -> str:
@@ -933,19 +1150,13 @@ def create_admin_router(
             body,
             media_type="application/xml; charset=utf-8",
             headers={
-                "Content-Disposition": 'attachment; filename="condenseit-sources.opml"',
+                "Content-Disposition": 'attachment; filename="elpis-sources.opml"',
             },
         )
 
     @router.get("/admin/llm", response_class=HTMLResponse)
     async def llm_config(request: Request) -> HTMLResponse:
         merged = _merged()
-        model = store.get_setting("model", merged.model)
-        provider = store.get_setting("llm_provider", merged.llm.provider)
-        try:
-            ollama_models = ollama_list_tags(merged.llm.ollama_host)
-        except Exception:
-            ollama_models = []
         return templates.TemplateResponse(
             request,
             "llm_config.html",
@@ -954,38 +1165,33 @@ def create_admin_router(
                 "LLM",
                 "llm",
                 digests=_digests(),
-                model=model,
-                provider=provider,
-                ollama_host=merged.llm.ollama_host,
-                or_model=merged.llm.openrouter_model,
-                openrouter_pick_cheapest=merged.llm.openrouter_pick_cheapest,
-                ollama_models=ollama_models,
-                openai_base_url=merged.llm.openai_base_url,
-                openai_model=merged.llm.openai_model,
+                model=get_provider_model(merged, store),
+                provider=merged.llm.provider,
+                reasoning_effort=merged.llm.reasoning_effort,
+                thinking_enabled=merged.llm.thinking_enabled,
+                thinking_budget_tokens=merged.llm.thinking_budget_tokens,
                 msg=request.query_params.get("msg", ""),
             ),
         )
 
     @router.post("/admin/llm")
     async def llm_save(
-        provider: str = Form(...),
         model: str = Form(...),
-        openrouter_model: str = Form(""),
-        openrouter_pick_cheapest: str = Form(""),
-        openai_base_url: str = Form(""),
-        openai_model: str = Form(""),
+        reasoning_effort: str = Form("none"),
+        thinking_enabled: str = Form(""),
+        thinking_budget_tokens: str = Form("0"),
     ) -> RedirectResponse:
-        store.set_setting("llm_provider", provider)
-        store.set_setting("model", model)
-        if openrouter_model:
-            store.set_setting("openrouter_model", openrouter_model)
-        store.set_setting(
-            "openrouter_pick_cheapest",
-            "1" if openrouter_pick_cheapest == "on" else "0",
-        )
-        store.set_setting("openai_base_url", openai_base_url)
-        if openai_model:
-            store.set_setting("openai_model", openai_model)
+        effort = reasoning_effort.strip().lower()
+        if effort not in {"none", "minimal", "low", "medium", "high", "xhigh"}:
+            effort = "none"
+        try:
+            budget = max(0, min(100000, int(thinking_budget_tokens)))
+        except ValueError:
+            budget = 0
+        store.set_setting("model", model.strip())
+        store.set_setting("reasoning_effort", effort)
+        store.set_setting("thinking_enabled", "1" if thinking_enabled == "on" else "0")
+        store.set_setting("thinking_budget_tokens", str(budget))
         return RedirectResponse("/admin/llm", status_code=303)
 
     @router.post("/admin/llm/ollama/pull", response_model=None)
@@ -995,7 +1201,7 @@ def create_admin_router(
     ) -> HTMLResponse | RedirectResponse:
         merged = _merged()
         try:
-            ollama_pull(merged.llm.ollama_host, pull_model)
+            ollama_pull(get_provider_base_url(merged, "ollama"), pull_model)
             msg = f"Pulled {pull_model}."
         except Exception as exc:
             msg = f"Pull failed: {exc}"
@@ -1010,7 +1216,7 @@ def create_admin_router(
     ) -> HTMLResponse | RedirectResponse:
         merged = _merged()
         try:
-            ollama_delete(merged.llm.ollama_host, delete_model)
+            ollama_delete(get_provider_base_url(merged, "ollama"), delete_model)
             msg = f"Deleted {delete_model}."
         except Exception as exc:
             msg = f"Delete failed: {exc}"
@@ -1018,31 +1224,71 @@ def create_admin_router(
             return HTMLResponse(f'<p class="flash flash-warn">{msg}</p>')
         return RedirectResponse(f"/admin/llm?msg={quote(msg[:500])}", status_code=303)
 
-    @router.get("/admin/keys", response_class=HTMLResponse)
-    async def keys_page(request: Request) -> HTMLResponse:
+    @router.get("/admin/providers", response_class=HTMLResponse)
+    async def providers_page(request: Request) -> HTMLResponse:
+        payload = _provider_payload(_merged())
         return templates.TemplateResponse(
             request,
-            "keys.html",
+            "providers.html",
             page_context(
                 request,
-                "API Keys",
-                "keys",
+                "Providers",
+                "providers",
                 digests=_digests(),
-                keys=keys.list_keys(),
+                providers=payload["providers"],
+                active_provider=payload["active_provider"],
+                openrouter_pick_cheapest=payload["openrouter_pick_cheapest"],
+                ollama_host=payload["ollama_host"],
+                ollama_models=payload["ollama_models"],
+                msg=request.query_params.get("msg", ""),
             ),
         )
+
+    @router.post("/admin/providers")
+    async def providers_save(request: Request) -> RedirectResponse:
+        form = await request.form()
+        active = str(form.get("active_provider", "")).strip().lower()
+        valid_ids = {spec.id for spec in PROVIDER_SPECS} | {"fallback"}
+        if active not in valid_ids:
+            return RedirectResponse(
+                "/admin/providers?msg=Unknown%20provider",
+                status_code=303,
+            )
+        endpoints: dict[str, dict[str, str]] = {}
+        for spec in PROVIDER_SPECS:
+            base_url = str(form.get(f"base_url_{spec.id}", "")).strip().rstrip("/")
+            if base_url:
+                endpoints[spec.id] = {"base_url": base_url}
+        if active == "custom" and not endpoints.get("custom", {}).get("base_url"):
+            return RedirectResponse(
+                "/admin/providers?msg=Custom%20base%20URL%20is%20required",
+                status_code=303,
+            )
+        store.set_setting("llm_provider", active)
+        store.set_setting("llm_providers", json.dumps(endpoints))
+        store.set_setting(
+            "openrouter_pick_cheapest",
+            "1" if form.get("openrouter_pick_cheapest") == "on" else "0",
+        )
+        return RedirectResponse("/admin/providers", status_code=303)
+
+    @router.get("/admin/keys")
+    async def keys_page() -> RedirectResponse:
+        return RedirectResponse("/admin/providers", status_code=303)
 
     @router.post("/admin/keys")
     async def keys_save(
         service: str = Form(...),
         key_value: str = Form(...),
     ) -> RedirectResponse:
-        keys.store_key(service, key_value)
-        return RedirectResponse("/admin/keys", status_code=303)
+        valid_services = {spec.key_service for spec in PROVIDER_SPECS}
+        if service.strip().lower() in valid_services and key_value.strip():
+            keys.store_key(service.strip().lower(), key_value.strip())
+        return RedirectResponse("/admin/providers", status_code=303)
 
     @router.post("/admin/keys/{service}/delete")
     async def keys_delete(service: str) -> RedirectResponse:
-        keys.delete_key(service)
-        return RedirectResponse("/admin/keys", status_code=303)
+        keys.delete_key(service.strip().lower())
+        return RedirectResponse("/admin/providers", status_code=303)
 
     return router

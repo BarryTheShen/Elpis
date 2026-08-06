@@ -15,6 +15,12 @@ from condenseit.collectors.feed_dates import parse_feed_entry_date
 from condenseit.collectors.health import collect_with_health
 from condenseit.config import FeedConfig
 from condenseit.fetch_headers import digest_fetch_headers
+from condenseit.network import (
+    httpx_client,
+    load_network_proxy,
+    requests_session,
+    safe_network_error,
+)
 from condenseit.store.database import ContentStore
 
 logger = logging.getLogger(__name__)
@@ -70,7 +76,7 @@ class RSSCollector:
     def __init__(self, feeds: list[FeedConfig]) -> None:
         self.feeds = feeds
         self.fetch_headers = digest_fetch_headers()
-        self.client = httpx.Client(
+        self.client = httpx_client(
             timeout=30.0,
             follow_redirects=True,
             headers=self.fetch_headers,
@@ -139,6 +145,19 @@ class RSSCollector:
         url: str,
         original_exc: httpx.HTTPStatusError,
     ) -> str:
+        settings = load_network_proxy()
+        if settings.proxy_url.lower().startswith(("socks5://", "socks5h://")):
+            try:
+                with requests_session(settings) as session:
+                    response = session.get(
+                        url,
+                        headers=self.fetch_headers,
+                        timeout=30.0,
+                    )
+                    response.raise_for_status()
+                    return response.text
+            except Exception as exc:
+                raise original_exc from exc
         logger.info("RSS feed %s returned 403 via httpx; retrying with urllib", url)
         request = Request(url, headers=self.fetch_headers)
         try:
@@ -171,7 +190,11 @@ class RSSCollector:
             if extracted:
                 return extracted, image_url
         except Exception as exc:
-            logger.debug("article fetch failed for %s: %s", url, exc)
+            logger.debug(
+                "article fetch failed for %s: %s",
+                url,
+                safe_network_error(exc, load_network_proxy()),
+            )
         summary = entry.get("summary", "")
         content = summary if isinstance(summary, str) else str(summary)
         return content, image_url

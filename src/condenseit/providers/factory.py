@@ -1,13 +1,15 @@
-"""Build summarizer from config and secrets."""
+"""Build the configured LiteLLM-backed summarizer."""
 
 from condenseit.config import AppConfig
 from condenseit.providers.base import SummarizerProvider
 from condenseit.providers.budget import BudgetTracker
+from condenseit.providers.catalog import (
+    get_provider_base_url,
+    get_provider_spec,
+)
 from condenseit.providers.fallback_chain import FallbackChainProvider
-from condenseit.providers.ollama_provider import OllamaSummarizer
-from condenseit.providers.openai_provider import OpenAISummarizer
+from condenseit.providers.litellm_provider import LiteLLMSummarizer
 from condenseit.providers.openrouter_models import pick_cheapest_text_model
-from condenseit.providers.openrouter_provider import OpenRouterSummarizer
 from condenseit.store.database import ContentStore
 from condenseit.store.secure_keys import SecureKeyStore
 
@@ -16,74 +18,97 @@ def build_summarizer(
     config: AppConfig,
     store: ContentStore,
     digest_run_id: str = "",
+    *,
+    allow_unconfigured: bool = False,
 ) -> SummarizerProvider:
+    """Build the active provider or the configured local/cloud fallback chain."""
     keys = SecureKeyStore(store)
-    provider = config.llm.provider.lower()
-    model = config.model
-    max_takeaways = config.max_key_takeaways
-    max_paragraphs = config.max_summary_paragraphs
+    selected = config.llm.provider.strip().lower()
+    stored_model = store.get_setting("model", "").strip()
 
-    if provider == "ollama":
-        return OllamaSummarizer(
-            model=model,
-            host=config.llm.ollama_host,
-            max_key_takeaways=max_takeaways,
-            max_summary_paragraphs=max_paragraphs,
-            digest_language=config.digest_language,
-        )
+    def model_for(provider: str) -> str:
+        if stored_model:
+            return stored_model
+        if provider == "openrouter" and config.llm.openrouter_model.strip():
+            return config.llm.openrouter_model.strip()
+        if provider in {"openai", "custom"} and config.llm.openai_model.strip():
+            return config.llm.openai_model.strip()
+        return config.model.strip()
 
-    if provider == "openai":
-        api_key = keys.get_key("openai") or config.llm.openai_api_key
-        if not config.llm.openai_base_url:
+    def build_one(
+        provider: str,
+        *,
+        budget: BudgetTracker | None = None,
+    ) -> LiteLLMSummarizer:
+        spec = get_provider_spec(provider)
+        if spec is None:
+            raise ValueError(f"Unknown llm.provider: {provider}")
+        key = keys.get_key(spec.key_service) or ""
+        if provider == "openrouter":
+            key = key or config.llm.openrouter_api_key
+        elif provider in {"openai", "custom"}:
+            key = key or config.llm.openai_api_key
+        if spec.requires_api_key and not key and not allow_unconfigured:
             raise ValueError(
-                "OpenAI-compatible base URL required "
-                "(llm.openai_base_url or OPENAI_API_BASE_URL)"
+                f"{spec.label} API key required (set it in Admin > Providers)"
             )
-        return OpenAISummarizer(
-            model=config.llm.openai_model or model,
-            base_url=config.llm.openai_base_url,
-            api_key=api_key,
-            max_key_takeaways=max_takeaways,
-            max_summary_paragraphs=max_paragraphs,
+        base_url = get_provider_base_url(config, provider)
+        if provider == "custom" and not base_url and not allow_unconfigured:
+            raise ValueError(
+                "Custom OpenAI-compatible base URL required "
+                "(set it in Admin > Providers)"
+            )
+        return LiteLLMSummarizer(
+            provider=provider,
+            model=model_for(provider),
+            base_url=base_url,
+            api_key=key,
+            max_key_takeaways=config.max_key_takeaways,
+            max_summary_paragraphs=config.max_summary_paragraphs,
             digest_language=config.digest_language,
+            reasoning_effort=config.llm.reasoning_effort,
+            thinking_enabled=config.llm.thinking_enabled,
+            thinking_budget_tokens=config.llm.thinking_budget_tokens,
+            budget=budget,
         )
 
-    or_key = keys.get_key("openrouter") or config.llm.openrouter_api_key
-    if not or_key:
-        raise ValueError("OpenRouter API key required (admin or OPENROUTER_API_KEY)")
+    if selected == "fallback":
+        or_key = keys.get_key("openrouter") or config.llm.openrouter_api_key
+        if not or_key and not allow_unconfigured:
+            raise ValueError(
+                "Fallback mode requires an OpenRouter API key "
+                "(set it in Admin > Providers)"
+            )
+        budget = BudgetTracker(
+            store,
+            config.llm.openrouter_daily_budget_usd,
+            config.llm.openrouter_monthly_budget_usd,
+            digest_run_id=digest_run_id,
+        )
+        cloud = build_one("openrouter", budget=budget)
+        if config.llm.openrouter_pick_cheapest:
+            picked = pick_cheapest_text_model()
+            if picked:
+                cloud.model = picked
+        return FallbackChainProvider(build_one("ollama"), cloud)
 
-    budget = BudgetTracker(
-        store,
-        config.llm.openrouter_daily_budget_usd,
-        config.llm.openrouter_monthly_budget_usd,
-        digest_run_id=digest_run_id,
-    )
-    or_model = config.llm.openrouter_model or model
-    if config.llm.openrouter_pick_cheapest:
+    spec = get_provider_spec(selected)
+    if spec is None:
+        raise ValueError(f"Unknown llm.provider: {selected}")
+
+    budget = None
+    if selected == "openrouter":
+        key = keys.get_key("openrouter") or config.llm.openrouter_api_key
+        if key:
+            budget = BudgetTracker(
+                store,
+                config.llm.openrouter_daily_budget_usd,
+                config.llm.openrouter_monthly_budget_usd,
+                digest_run_id=digest_run_id,
+            )
+    summarizer = build_one(selected, budget=budget)
+    if selected == "openrouter" and config.llm.openrouter_pick_cheapest:
         picked = pick_cheapest_text_model()
         if picked:
-            or_model = picked
-
-    cloud = OpenRouterSummarizer(
-        or_model,
-        or_key,
-        budget=budget,
-        max_key_takeaways=max_takeaways,
-        max_summary_paragraphs=max_paragraphs,
-        digest_language=config.digest_language,
-    )
-
-    if provider == "openrouter":
-        return cloud
-
-    if provider == "fallback":
-        ollama = OllamaSummarizer(
-            model=model,
-            host=config.llm.ollama_host,
-            max_key_takeaways=max_takeaways,
-            max_summary_paragraphs=max_paragraphs,
-            digest_language=config.digest_language,
-        )
-        return FallbackChainProvider(ollama, cloud)
-
-    raise ValueError(f"Unknown llm.provider: {provider}")
+            summarizer.model = picked
+    return summarizer

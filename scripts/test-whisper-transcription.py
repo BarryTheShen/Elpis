@@ -44,7 +44,7 @@ if not shutil.which("yt-dlp"):
     print("ERROR: yt-dlp not found on PATH. Install with: pip install yt-dlp")
     sys.exit(1)
 
-# load OR key from condenseit config / env
+# load Elpis config / env
 try:
     from condenseit.config import load_config
     from condenseit.store.database import ContentStore
@@ -56,7 +56,7 @@ try:
     or_key = keys.get_key("openrouter") or cfg.llm.openrouter_api_key or ""
     store.close()
 except Exception:
-    logger.exception("Could not load CondenseIt config")
+    logger.exception("Could not load Elpis config")
     sys.exit(1)
 
 if not or_key:
@@ -103,7 +103,7 @@ print()
 
 # --- step 2: download audio with yt-dlp ---
 print("Step 2: Downloading audio with yt-dlp (audio-only, m4a)...")
-tmp_dir = Path(tempfile.mkdtemp(prefix="condenseit_whisper_test_"))
+tmp_dir = Path(tempfile.mkdtemp(prefix="elpis_whisper_test_"))
 audio_path = tmp_dir / "audio.m4a"
 url = youtube_watch_url(video_id)
 

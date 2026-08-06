@@ -149,7 +149,7 @@ def test_feed_empty_digest_returns_valid_atom(tmp_path, monkeypatch) -> None:
     entries = root.findall(f"{{{_ATOM_NS}}}entry")
     assert entries == []
     title = root.findtext(f"{{{_ATOM_NS}}}title")
-    assert title == "CondenseIt Digest"
+    assert title == "Elpis Digest"
 
 
 def test_feed_includes_entries_for_digest_items(tmp_path, monkeypatch) -> None:

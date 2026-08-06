@@ -65,6 +65,7 @@ export function DigestPage({ onDigestLoaded, readOnly = false }: DigestPageProps
   const [detail, setDetail] = useState<DigestDetail | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [refreshToken, setRefreshToken] = useState(0);
   const [filtered, setFiltered] = useState<DigestItem[]>([]);
 
   /** Ratings keyed by URL, seeded from server response. */
@@ -84,6 +85,13 @@ export function DigestPage({ onDigestLoaded, readOnly = false }: DigestPageProps
 
   /** Item currently open in the detail panel, or null when closed. */
   const [selectedItem, setSelectedItem] = useState<DigestItem | null>(null);
+
+  useEffect(() => {
+    const handleDigestCompleted = () => setRefreshToken((value) => value + 1);
+    window.addEventListener('digest:completed', handleDigestCompleted);
+    return () =>
+      window.removeEventListener('digest:completed', handleDigestCompleted);
+  }, []);
 
   useEffect(() => {
     setLoading(true);
@@ -134,7 +142,7 @@ export function DigestPage({ onDigestLoaded, readOnly = false }: DigestPageProps
         setError(e instanceof Error ? e.message : 'Failed to load digest.');
       })
       .finally(() => setLoading(false));
-  }, [requestedId, readOnly, onDigestLoaded]);
+  }, [requestedId, readOnly, onDigestLoaded, refreshToken]);
 
   /** Update ratings after a card-level save. */
   const handleRate = useCallback((url: string, rating: number) => {

@@ -9,12 +9,12 @@ import logging
 from datetime import UTC, datetime
 
 import feedparser
-import httpx
 
 from condenseit.collectors.feed_dates import parse_feed_entry_date
 from condenseit.collectors.health import collect_with_health
 from condenseit.config import GitHubReleasesConfig
 from condenseit.fetch_headers import digest_fetch_headers
+from condenseit.network import httpx_client
 from condenseit.store.database import ContentStore
 
 logger = logging.getLogger(__name__)
@@ -27,7 +27,7 @@ class GitHubReleasesCollector:
 
     def __init__(self, sources: list[GitHubReleasesConfig]) -> None:
         self.sources = sources
-        self._client = httpx.Client(
+        self._client = httpx_client(
             timeout=30.0,
             follow_redirects=True,
             headers=digest_fetch_headers(),

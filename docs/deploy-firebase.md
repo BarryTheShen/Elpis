@@ -1,227 +1,68 @@
-# Deploy to Firebase
+# Firebase / Cloud Run deployment status
 
-CondenseIt can be deployed to Google's Firebase / Cloud Run platform. The
-frontend SPA is served from Firebase Hosting (global CDN) while the Python
-FastAPI backend runs in Cloud Run.
+## Status: backend target disabled
 
-## Architecture
+Elpis does **not** currently support a durable Firebase / Cloud Run backend
+deployment. The application stores its state in SQLite and opens the database
+in WAL mode. The former deployment mounted that database on Cloud Storage FUSE;
+that storage contract is not safe for SQLite WAL or for Cloud Run revision
+rollouts.
 
-```
-Browser → Firebase Hosting (CDN)
-                │
-                ├── /api/**  → Cloud Run (condenseit-api)
-                │               FastAPI + Uvicorn + SQLite
-                │               GCS bucket for data persistence
-                └── /**      → Preact SPA (frontend/dist)
-```
+`scripts/firebase-deploy.sh` now fails before running any GCP, Docker, or Firebase
+command. This is intentional. Do not bypass the guard with a manual Cloud Run
+deploy.
 
-- **Firebase Hosting** serves `frontend/dist` as a static CDN site.
-- **Cloud Run** runs the containerized Python backend (see `Dockerfile.cloudrun`).
-  - Firebase Hosting rewrites `/api/**` transparently to the Cloud Run service.
-  - You can also reach the Cloud Run service directly at its own URL.
-- **GCS bucket** is mounted as a filesystem volume inside the Cloud Run container
-  via Cloud Storage FUSE, giving the SQLite database persistent storage across
-  container restarts and new deployments.
+The source-of-truth decision is recorded in
+[ADR 0001: Keep SQLite on stable local disk](adr/0001-cloud-run-storage.md).
 
-## Prerequisites
+## Why this target is blocked
 
-### Local machine
+- SQLite WAL requires all database processes to share one host; SQLite documents
+  that WAL does not work over a network filesystem.
+- Cloud Storage FUSE is an object-storage filesystem, not a POSIX database disk.
+- Cloud Run revisions can overlap during deployment. `--max-instances 1` does
+  not fence an old revision from writing while a new revision starts.
+- A local SQLite copy plus an object-storage heartbeat or ad-hoc restore process
+  would not provide commit-level fencing and is not an accepted production
+  design for this application.
 
-| Tool | Purpose | Install |
-|------|---------|---------|
-| `gcloud` CLI | GCP operations | [cloud.google.com/sdk](https://cloud.google.com/sdk/docs/install) |
-| `firebase` CLI | Hosting deploys | `npm install -g firebase-tools` |
-| Docker | Build container image | [docs.docker.com](https://docs.docker.com/get-docker/) |
-| Node.js 18+ | Build frontend | [nodejs.org](https://nodejs.org) |
-| `uv` | Optional, for local dev | `pip install uv` |
+References:
 
-### Google Cloud / Firebase project
+- [SQLite WAL limitations](https://sqlite.org/wal.html)
+- [Cloud Run container filesystem](https://cloud.google.com/run/docs/container-contract#filesystem)
+- [Cloud Storage FUSE considerations](https://cloud.google.com/storage/docs/gcsfuse-considerations)
 
-1. Create a project at [console.firebase.google.com](https://console.firebase.google.com).
-2. Enable **Blaze (pay-as-you-go)** billing plan (required for Cloud Run).
-3. Note your **Project ID** (shown in the console header).
+## Supported deployment
 
-## One-time setup
-
-### 1. Authenticate
+Use the VPS deployment, which keeps SQLite on stable local disk:
 
 ```bash
-gcloud auth login
-gcloud auth application-default login
-firebase login
+./scripts/deploy.sh
 ```
 
-### 2. Set project ID
+See [VPS deployment](deploy-vps.md). Keep the service single-writer and back up
+the database before migrations or updates.
 
-Add to `.env`:
+## Re-enabling a managed cloud backend
 
-```
-FIREBASE_PROJECT_ID=your-project-id
-```
+Before restoring a Firebase / Cloud Run backend, the project needs all of the
+following:
 
-Or export it in your shell:
+1. A transactional managed database adapter for `ContentStore` (for example,
+   Cloud SQL PostgreSQL), including schema migrations and production credentials.
+2. A deployment that has no SQLite database or SQLite WAL files on Cloud Storage
+   FUSE.
+3. An updated `firebase.json` `/api/**` rewrite pointing to the verified
+   transactional backend.
+4. Smoke tests covering restart, revision rollout, concurrent requests, and
+   recovery after an interrupted deployment.
+5. A documented backup and restore procedure tested against a real deployment.
 
-```bash
-export FIREBASE_PROJECT_ID=your-project-id
-```
+Until those conditions are met, `firebase.json` intentionally contains only the
+SPA fallback rewrite and no `/api/**` Cloud Run rewrite. A Firebase Hosting-only
+deploy is therefore not a usable Elpis application: the frontend API client uses
+same-origin `/api/...` requests and cookie authentication. The deployment guard
+prevents that misleading path from being presented as successful.
 
-### 3. Configure secrets and keys
-
-Add your secrets to `.env` (see `.env.example` for the full list):
-
-```
-# Required for cloud LLM (skip if you only want a UI + local Ollama sync)
-OPENROUTER_API_KEY=sk-or-...
-
-# Strongly recommended for any public-facing deployment
-CONDENSEIT_AUTH_PASSWORD=your-strong-password
-
-# Auto-generated on first deploy if not set; set it to avoid session resets
-DIGEST_PWA_SESSION_SECRET=
-
-```
-
-`DIGEST_PWA_AUTH_PASSWORD` is still accepted for older deployments, but new
-installs should use `CONDENSEIT_AUTH_PASSWORD`.
-
-### 4. Copy `.firebaserc`
-
-```bash
-cp .firebaserc.example .firebaserc
-# Edit .firebaserc and replace YOUR_FIREBASE_PROJECT_ID with your project ID
-```
-
-### 5. Deploy
-
-```bash
-./scripts/firebase-deploy.sh
-```
-
-The script will:
-
-1. Enable the required GCP APIs (Cloud Run, Artifact Registry, Cloud Storage).
-2. Create an Artifact Registry repository for the Docker image.
-3. Create a GCS bucket for persistent data.
-4. Build the frontend SPA.
-5. Build and push the Docker image (`Dockerfile.cloudrun`).
-6. Deploy the Cloud Run service with the GCS volume mounted at `/app/data`.
-7. Deploy the SPA to Firebase Hosting.
-8. Print the live URLs.
-
-## Custom domain
-
-1. Open **Firebase Console > Hosting > Add custom domain**.
-2. Follow the DNS verification steps.
-3. Firebase provisions a TLS certificate automatically.
-
-If you use a custom domain, update `firebase.json` to match the Cloud Run
-region for the rewrite (see note in `scripts/firebase-deploy.sh`).
-
-## Deploying updates
-
-Re-run the deploy script after changing code, feeds, or config:
-
-```bash
-./scripts/firebase-deploy.sh
-```
-
-Skip the build steps if only the Cloud Run environment variables changed:
-
-```bash
-./scripts/firebase-deploy.sh --skip-build
-```
-
-## Data persistence
-
-The GCS bucket (`<project>-condenseit-data` by default) is mounted inside the
-Cloud Run container at `/app/data` via Cloud Storage FUSE (requires the `gen2`
-execution environment, which the deploy script enables automatically). The
-SQLite database, digests, and config are stored there.
-
-Note: Cloud Storage FUSE has higher latency than a local disk. For very
-frequent digest runs this is acceptable; for read-heavy workloads consider
-Cloud SQL (requires schema migration).
-
-## Built-in scheduler
-
-The deploy script enables `CONDENSEIT_SCHEDULER_ENABLED=1` by default. The
-service will run digests at the UTC times in `config.schedule.times` (default
-`07:00` and `18:00`). When the scheduler is enabled, the deploy script keeps
-one Cloud Run instance warm so the in-process scheduler can fire on time.
-
-To disable the scheduler:
-
-```
-CONDENSEIT_SCHEDULER_ENABLED=0  # in .env before deploying
-```
-
-## Viewing logs
-
-```bash
-gcloud run services logs read condenseit-api --region us-central1 --limit 100
-```
-
-Or stream live:
-
-```bash
-gcloud beta run services logs tail condenseit-api --region us-central1
-```
-
-## Cost estimate (as of 2026)
-
-Cloud Run and Firebase Hosting have a generous free tier. For a personal
-digest running twice a day with occasional web traffic:
-
-| Service | Typical cost |
-|---------|-------------|
-| Firebase Hosting | Free (10 GB/month transfer included) |
-| Cloud Run | Free tier covers most personal use |
-| Artifact Registry | ~$0.10/GB/month for the image |
-| GCS bucket | Negligible for SQLite (< 50 MB) |
-
-## Tearing down
-
-```bash
-# Delete Cloud Run service
-gcloud run services delete condenseit-api --region us-central1
-
-# Delete Firebase Hosting deploy
-firebase hosting:disable
-
-# Delete GCS bucket (WARNING: deletes all digest data)
-gcloud storage rm --recursive gs://YOUR_PROJECT-condenseit-data
-
-# Delete Artifact Registry repo
-gcloud artifacts repositories delete condenseit --location us-central1
-```
-
-## Troubleshooting
-
-**Firebase Hosting deploy fails with "not logged in"**
-
-```bash
-firebase login
-```
-
-**Cloud Run deploy fails with "gcloud CLI version" error**
-
-Update gcloud:
-
-```bash
-gcloud components update
-```
-
-**Volume mount fails on Cloud Run**
-
-Cloud Storage FUSE requires the **2nd generation execution environment** and
-the Cloud Run API v2. Make sure you ran `gcloud services enable run.googleapis.com`
-and that your `gcloud` CLI is up to date.
-
-**API returns 404 in Firebase Hosting but works on Cloud Run URL directly**
-
-Check that `firebase.json` has the `serviceId` and `region` matching your
-Cloud Run service. The region in `firebase.json` must match `CLOUD_RUN_REGION`.
-
-**Session logs out on every redeploy**
-
-Set a fixed `DIGEST_PWA_SESSION_SECRET` in `.env` and redeploy.
+`Dockerfile.cloudrun` is retained only as a future migration artifact; it is not
+a supported production deployment target today.

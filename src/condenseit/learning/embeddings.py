@@ -2,7 +2,7 @@
 
 Supports local Ollama (nomic-embed-text, free), OpenRouter
 (text-embedding-3-small, ~$0.002 per full digest run), and any
-OpenAI-compatible /v1/embeddings endpoint (llm.openai_base_url).
+OpenAI-compatible /v1/embeddings endpoint configured under Admin > Providers.
 
 Embeddings are cached in the ``article_embeddings`` table keyed by
 (url, model, content_hash) so articles are only re-embedded when their
@@ -19,6 +19,7 @@ from typing import TYPE_CHECKING
 import numpy as np
 
 from condenseit.api_urls import OPENROUTER_EMBEDDINGS_URL
+from condenseit.network import httpx_client, load_network_proxy, safe_network_error
 
 if TYPE_CHECKING:
     from condenseit.providers.budget import BudgetTracker
@@ -54,37 +55,41 @@ class OllamaEmbeddingProvider(EmbeddingProvider):
         return self._model
 
     def embed(self, text: str) -> list[float] | None:
-        import httpx
-
         try:
-            resp = httpx.post(
-                f"{self._host}/api/embed",
-                json={"model": self._model, "input": text[:4000]},
-                timeout=60.0,
-            )
+            with httpx_client() as client:
+                resp = client.post(
+                    f"{self._host}/api/embed",
+                    json={"model": self._model, "input": text[:4000]},
+                    timeout=60.0,
+                )
             resp.raise_for_status()
             data = resp.json()
             embeddings = data.get("embeddings") or []
             if embeddings and isinstance(embeddings[0], list):
                 return embeddings[0]
         except Exception as exc:
-            logger.debug("Ollama /api/embed failed, trying legacy endpoint: %s", exc)
+            logger.debug(
+                "Ollama /api/embed failed, trying legacy endpoint: %s",
+                safe_network_error(exc, load_network_proxy()),
+            )
         # Fallback: older Ollama REST endpoint
         try:
-            import httpx
-
-            resp = httpx.post(
-                f"{self._host}/api/embeddings",
-                json={"model": self._model, "prompt": text[:4000]},
-                timeout=60.0,
-            )
+            with httpx_client() as client:
+                resp = client.post(
+                    f"{self._host}/api/embeddings",
+                    json={"model": self._model, "prompt": text[:4000]},
+                    timeout=60.0,
+                )
             resp.raise_for_status()
             data = resp.json()
             emb = data.get("embedding")
             if isinstance(emb, list):
                 return emb
         except Exception as exc:
-            logger.warning("Ollama embedding failed: %s", exc)
+            logger.warning(
+                "Ollama embedding failed: %s",
+                safe_network_error(exc, load_network_proxy()),
+            )
         return None  # Recovery: ranking falls back without embedding signal.
 
 
@@ -111,19 +116,18 @@ class OpenRouterEmbeddingProvider(EmbeddingProvider):
         return self._model
 
     def embed(self, text: str) -> list[float] | None:
-        import httpx
-
         try:
-            resp = httpx.post(
-                self._ENDPOINT,
-                json={"model": self._model, "input": text[:8000]},
-                headers={
-                    "Authorization": f"Bearer {self._api_key}",
-                    "HTTP-Referer": "https://github.com/condenseit/condenseit",
-                    "X-Title": "CondenseIt",
-                },
-                timeout=30.0,
-            )
+            with httpx_client() as client:
+                resp = client.post(
+                    self._ENDPOINT,
+                    json={"model": self._model, "input": text[:8000]},
+                    headers={
+                        "Authorization": f"Bearer {self._api_key}",
+                        "HTTP-Referer": "https://github.com/BarryTheShen/Elpis",
+                        "X-Title": "Elpis",
+                    },
+                    timeout=30.0,
+                )
             resp.raise_for_status()
             data = resp.json()
             items = data.get("data") or []
@@ -140,7 +144,10 @@ class OpenRouterEmbeddingProvider(EmbeddingProvider):
                         )
                 return items[0]["embedding"]
         except Exception as exc:
-            logger.warning("OpenRouter embedding failed: %s", exc)
+            logger.warning(
+                "OpenRouter embedding failed: %s",
+                safe_network_error(exc, load_network_proxy()),
+            )
         return None  # Recovery: ranking falls back without embedding signal.
 
 
@@ -166,26 +173,28 @@ class OpenAIEmbeddingProvider(EmbeddingProvider):
         return self._model
 
     def embed(self, text: str) -> list[float] | None:
-        import httpx
-
         headers: dict[str, str] = {"Content-Type": "application/json"}
         if self._api_key:
             headers["Authorization"] = f"Bearer {self._api_key}"
 
         try:
-            resp = httpx.post(
-                f"{self._base_url}/embeddings",
-                json={"model": self._model, "input": text[:8000]},
-                headers=headers,
-                timeout=30.0,
-            )
+            with httpx_client() as client:
+                resp = client.post(
+                    f"{self._base_url}/embeddings",
+                    json={"model": self._model, "input": text[:8000]},
+                    headers=headers,
+                    timeout=30.0,
+                )
             resp.raise_for_status()
             data = resp.json()
             items = data.get("data") or []
             if items and isinstance(items[0].get("embedding"), list):
                 return items[0]["embedding"]
         except Exception as exc:
-            logger.warning("OpenAI-compat embedding failed: %s", exc)
+            logger.warning(
+                "OpenAI-compat embedding failed: %s",
+                safe_network_error(exc, load_network_proxy()),
+            )
         return None  # Recovery: ranking falls back without embedding signal.
 
 
@@ -260,11 +269,12 @@ def build_embedding_provider(
         return OpenRouterEmbeddingProvider(
             api_key=openrouter_api_key, model=embedding_model, budget=budget
         )
-    if mode == "openai":
+    if mode in {"openai", "custom"}:
         if not openai_base_url:
             logger.warning(
-                "embedding_provider=openai but llm.openai_base_url is not set; "
-                "embeddings disabled"
+                "embedding_provider=%s but no compatible base URL is set; "
+                "embeddings disabled",
+                mode,
             )
             return None
         return OpenAIEmbeddingProvider(

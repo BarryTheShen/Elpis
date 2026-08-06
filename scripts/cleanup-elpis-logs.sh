@@ -1,10 +1,11 @@
 #!/usr/bin/env bash
-# Trim CondenseIt digest log files so they do not grow without bound.
+# Trim Elpis digest log files so they do not grow without bound.
 #
 # Modes (first argument):
-#   digest-pre-run  Only ~/Library/Logs/condenseit-digest.log. Call this
+#   digest-pre-run  Only ~/Library/Logs/elpis-digest.log. Call this
 #                   before opening that file for append (scheduled-digest.sh).
 #   all-safe        Trim known logs when no other process has them open.
+#
 #                   Safe for: make logs-clean (agent idle or between runs).
 #
 # Environment overrides:
@@ -20,10 +21,9 @@ LOG_DIR="${CONDENSEIT_LOG_DIR:-$HOME/Library/Logs}"
 MAX_BYTES="${CONDENSEIT_LOG_MAX_BYTES:-$((5 * 1024 * 1024))}"
 KEEP_BYTES="${CONDENSEIT_LOG_KEEP_BYTES:-$((2 * 1024 * 1024))}"
 
-DIGEST_LOG="$LOG_DIR/condenseit-digest.log"
-LAUNCHD_LOG="$LOG_DIR/condenseit-digest-launchd.log"
+DIGEST_LOG="$LOG_DIR/elpis-digest.log"
+LAUNCHD_LOG="$LOG_DIR/elpis-digest-launchd.log"
 
-# ---------------------------------------------------------------------------
 # Portable file size in bytes (0 if missing).
 # ---------------------------------------------------------------------------
 file_size_bytes() {

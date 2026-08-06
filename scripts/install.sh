@@ -238,9 +238,9 @@ EOF
   cat <<EOF
   </array>
   <key>StandardOutPath</key>
-  <string>/tmp/condenseit-digest.log</string>
+  <string>/tmp/elpis-digest.log</string>
   <key>StandardErrorPath</key>
-  <string>/tmp/condenseit-digest.err</string>
+  <string>/tmp/elpis-digest.err</string>
 </dict>
 </plist>
 EOF
@@ -280,7 +280,7 @@ maybe_copy_examples() {
 }
 
 main() {
-  printf 'CondenseIt installer (configs + schedule snippets)\n\n'
+  printf 'Elpis installer (configs + schedule snippets)\n\n'
 
   check_python
   check_uv
@@ -338,7 +338,7 @@ main() {
   emit_launchd_snippet "$install_dir" "$uv_path" "${run_times[@]}"
 
   local plist_path
-  plist_path="${HOME}/Library/LaunchAgents/com.condenseit.digest.plist"
+  plist_path="${HOME}/Library/LaunchAgents/com.elpis.digest.plist"
   if [[ "$(uname -s)" == 'Darwin' ]] && confirm 'n' \
     "Write plist to ${plist_path} ?"; then
     if [[ -f "$plist_path" ]]; then

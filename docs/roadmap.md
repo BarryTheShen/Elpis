@@ -1,13 +1,13 @@
 # Roadmap
 
-This document tracks planned features and improvements for CondenseIt.
+This document tracks planned features and improvements for Elpis.
 
 ## YouTube & Podcast Transcription
 
 ### Completed
 
 - **Remote transcription via OpenRouter Whisper**, When YouTube's built-in
-  captions are unavailable or low quality, CondenseIt can download the audio
+  captions are unavailable or low quality, Elpis can download the audio
   track with `yt-dlp` and transcribe it using OpenRouter's
   `/api/v1/audio/transcriptions` endpoint (Whisper Large V3 Turbo by default).
   This is opt-in, budget-tracked, and requires `yt-dlp` on the host/server.

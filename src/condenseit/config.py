@@ -142,7 +142,9 @@ class RelevanceConfig(BaseModel):
     # early ratings from being buried before they have a fair chance.
     category_min_ratings: int = 8
 
-    embedding_provider: Literal["ollama", "openrouter", "openai", "off"] = "off"
+    embedding_provider: Literal[
+        "ollama", "openrouter", "openai", "custom", "off"
+    ] = "off"
     # Embedding model name. For Ollama: "nomic-embed-text". For OpenRouter:
     # "openai/text-embedding-3-small". For OpenAI-compat: model name on that server.
     embedding_model: str = "nomic-embed-text"
@@ -177,8 +179,16 @@ class OutputConfig(BaseModel):
     path: str = "data/digests"
 
 
+class LlmProviderConfig(BaseModel):
+    """Endpoint override for one provider in the admin Providers surface."""
+
+    base_url: str = ""
+
+
 class LlmConfig(BaseModel):
     provider: str = "openrouter"
+    # Endpoint definitions are non-secret. API keys live in SecureKeyStore.
+    providers: dict[str, LlmProviderConfig] = Field(default_factory=dict)
     ollama_host: str = "http://localhost:11434"
     manage_lifecycle: bool = True
     openrouter_api_key: str = ""
@@ -186,11 +196,17 @@ class LlmConfig(BaseModel):
     openrouter_daily_budget_usd: float = 1.0
     openrouter_monthly_budget_usd: float = 10.0
     openrouter_pick_cheapest: bool = False
-    # OpenAI-compatible endpoint (provider: "openai")
+    # Legacy OpenAI-compatible fields are still read for existing config.yaml
+    # files; new settings are stored in llm.providers.openai/custom.
     openai_base_url: str = ""
     openai_api_key: str = ""
     openai_model: str = ""
-
+    # LiteLLM normalizes these controls across providers that support reasoning.
+    reasoning_effort: Literal[
+        "none", "minimal", "low", "medium", "high", "xhigh"
+    ] = "none"
+    thinking_enabled: bool = False
+    thinking_budget_tokens: int = Field(default=0, ge=0, le=100000)
 
 class VpsConfig(BaseModel):
     """When enabled, rsync runs if vps.host is set."""
@@ -316,24 +332,31 @@ def load_config(path: str | Path | None = None) -> AppConfig:
     expanded.pop("email", None)
     expanded.pop("sync", None)
 
+    llm_expanded = expanded.setdefault("llm", {})
+    provider_expanded = llm_expanded.setdefault("providers", {})
+
     if os.environ.get("OLLAMA_HOST"):
-        llm = expanded.setdefault("llm", {})
-        llm["ollama_host"] = os.environ["OLLAMA_HOST"]
-        llm["manage_lifecycle"] = False
+        llm_expanded["ollama_host"] = os.environ["OLLAMA_HOST"]
+        llm_expanded["manage_lifecycle"] = False
+        provider_expanded.setdefault("ollama", {})["base_url"] = os.environ[
+            "OLLAMA_HOST"
+        ]
 
     if os.environ.get("OPENROUTER_API_KEY"):
-        expanded.setdefault("llm", {})["openrouter_api_key"] = os.environ[
-            "OPENROUTER_API_KEY"
-        ]
+        llm_expanded["openrouter_api_key"] = os.environ["OPENROUTER_API_KEY"]
 
     if os.environ.get("OPENAI_API_BASE_URL"):
-        expanded.setdefault("llm", {})["openai_base_url"] = os.environ[
-            "OPENAI_API_BASE_URL"
+        base_url = os.environ["OPENAI_API_BASE_URL"]
+        llm_expanded["openai_base_url"] = base_url
+        provider_expanded.setdefault("openai", {})["base_url"] = base_url
+    if os.environ.get("CUSTOM_OPENAI_BASE_URL"):
+        provider_expanded.setdefault("custom", {})["base_url"] = os.environ[
+            "CUSTOM_OPENAI_BASE_URL"
         ]
     if os.environ.get("OPENAI_API_KEY"):
-        expanded.setdefault("llm", {})["openai_api_key"] = os.environ["OPENAI_API_KEY"]
+        llm_expanded["openai_api_key"] = os.environ["OPENAI_API_KEY"]
     if os.environ.get("OPENAI_MODEL"):
-        expanded.setdefault("llm", {})["openai_model"] = os.environ["OPENAI_MODEL"]
+        llm_expanded["openai_model"] = os.environ["OPENAI_MODEL"]
 
     cap = os.environ.get("CONDENSEIT_MAX_ARTICLES_PER_DIGEST", "").strip()
     if cap:

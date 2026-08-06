@@ -93,7 +93,7 @@ bootstrap:
 # ---------------------------------------------------------------------------
 
 logs-clean:
-	./scripts/cleanup-condenseit-logs.sh all-safe
+	./scripts/cleanup-elpis-logs.sh all-safe
 
 test:
 	pytest -q

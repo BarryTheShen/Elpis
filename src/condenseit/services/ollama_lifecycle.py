@@ -10,6 +10,8 @@ from typing import Any, Self
 
 import httpx
 
+from condenseit.network import httpx_client
+
 logger = logging.getLogger(__name__)
 
 
@@ -51,7 +53,8 @@ class OllamaLifecycle:
 
     def is_running(self) -> bool:
         try:
-            response = httpx.get(self.health_url, timeout=2.0)
+            with httpx_client(timeout=2.0) as client:
+                response = client.get(self.health_url)
             return response.status_code == 200
         except httpx.HTTPError:
             return False

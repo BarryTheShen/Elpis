@@ -47,7 +47,7 @@ def _build_atom(
     feed_el = Element(f"{{{ns}}}feed")
 
     title_el = SubElement(feed_el, f"{{{ns}}}title")
-    title_el.text = "CondenseIt Digest"
+    title_el.text = "Elpis Digest"
 
     link_self = SubElement(feed_el, f"{{{ns}}}link")
     link_self.set("rel", "self")
@@ -86,7 +86,7 @@ def _build_atom(
             link.set("href", url)
 
         entry_id = SubElement(entry, f"{{{ns}}}id")
-        entry_id.text = url or f"condenseit:entry:{item.get('title', '')}"
+        entry_id.text = url or f"elpis:entry:{item.get('title', '')}"
 
         published_raw = str(item.get("published_at") or created_at)
         published = SubElement(entry, f"{{{ns}}}published")

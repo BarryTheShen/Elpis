@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # =============================================================
-# provision-ubuntu.sh - Prepare a fresh Ubuntu 24.04 VPS for CondenseIt
+# provision-ubuntu.sh - Prepare a fresh Ubuntu 24.04 VPS for Elpis
 #
 # Run this script ONCE on the server (not from your local machine).
 # It installs all system dependencies needed by bootstrap-server.sh

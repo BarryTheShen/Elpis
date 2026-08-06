@@ -29,9 +29,11 @@ from condenseit.learning.embeddings import (
 )
 from condenseit.learning.preference_engine import PreferenceEngine
 from condenseit.learning.reranker import build_profile_narrative, rerank
+from condenseit.network import configure_network_proxy
 from condenseit.pipeline.article_balance import select_balanced_digest_articles
 from condenseit.providers.base import SummarizerProvider
 from condenseit.providers.budget import BudgetTracker
+from condenseit.providers.catalog import get_provider_base_url, get_provider_spec
 from condenseit.providers.factory import build_summarizer
 from condenseit.services.deploy import VpsDeployer
 from condenseit.settings_overlay import apply_db_settings
@@ -102,9 +104,15 @@ def _apply_source_rules(
 
 
 class DigestPipeline:
-    def __init__(self, config_path: str | None = None) -> None:
+    def __init__(
+        self,
+        config_path: str | None = None,
+        *,
+        dry_run: bool = False,
+    ) -> None:
         self.config: AppConfig = load_config(config_path)
         self.store = ContentStore()
+        configure_network_proxy(self.store)
         self.config = apply_db_settings(self.config, self.store)
         self.sources = SourceRegistry(self.store)
         self.sources.seed_from_config(self.config)
@@ -113,10 +121,11 @@ class DigestPipeline:
             self.config,
             self.store,
             digest_run_id=self.digest_run_id,
+            allow_unconfigured=dry_run,
         )
-        _keys = SecureKeyStore(self.store)
+        self._keys = SecureKeyStore(self.store)
         self._or_key: str = (
-            _keys.get_key("openrouter") or self.config.llm.openrouter_api_key or ""
+            self._keys.get_key("openrouter") or self.config.llm.openrouter_api_key or ""
         )
         self._ai_budget: BudgetTracker | None = (
             BudgetTracker(
@@ -128,13 +137,21 @@ class DigestPipeline:
             if self._or_key
             else None
         )
+        embedding_mode = self.config.relevance.embedding_provider
+        embedding_service = (
+            "custom" if embedding_mode == "custom" else "openai"
+        )
         self._embed_provider = build_embedding_provider(
-            self.config.relevance.embedding_provider,
+            embedding_mode,
             self.config.relevance.embedding_model,
-            self.config.llm.ollama_host,
+            get_provider_base_url(self.config, "ollama"),
             self._or_key,
-            openai_base_url=self.config.llm.openai_base_url,
-            openai_api_key=self.config.llm.openai_api_key,
+            openai_base_url=get_provider_base_url(self.config, embedding_service),
+            openai_api_key=(
+                self._keys.get_key(embedding_service)
+                or self.config.llm.openai_api_key
+                or ""
+            ),
             budget=self._ai_budget,
         )
         self.preferences = PreferenceEngine(
@@ -365,34 +382,43 @@ class DigestPipeline:
                 _rerank_model = (
                     self.config.relevance.llm_rerank_model or self.summarizer.model_name
                 )
-                _api_key = self._or_key or None
-                # OpenAI-compat reranking: used when no OpenRouter key and
-                # llm.provider is "openai" with a configured base URL.
-                _openai_base_url: str | None = None
-                _openai_api_key: str = ""
-                if (
-                    not _api_key
-                    and self.config.llm.provider == "openai"
-                    and self.config.llm.openai_base_url
-                ):
-                    _openai_base_url = self.config.llm.openai_base_url
-                    _openai_api_key = self.config.llm.openai_api_key
-                _ollama = (
-                    self.config.llm.ollama_host
-                    if not _api_key and not _openai_base_url
-                    else None
-                )
+                _rerank_provider = self.config.llm.provider.strip().lower()
+                if _rerank_provider == "fallback":
+                    _rerank_provider = "openrouter" if self._or_key else "ollama"
+                _provider_spec = get_provider_spec(_rerank_provider)
+                _rerank_key = ""
+                _rerank_base_url = ""
+                if _provider_spec is not None:
+                    _rerank_key = self._keys.get_key(_provider_spec.key_service) or ""
+                    if _rerank_provider == "openrouter":
+                        _rerank_key = _rerank_key or self.config.llm.openrouter_api_key
+                    elif _rerank_provider in {"openai", "custom"}:
+                        _rerank_key = _rerank_key or self.config.llm.openai_api_key
+                    _rerank_base_url = get_provider_base_url(
+                        self.config,
+                        _rerank_provider,
+                    )
+                    if _provider_spec.requires_api_key and not _rerank_key:
+                        _rerank_provider = ""
+                else:
+                    _rerank_provider = ""
                 ranked = rerank(
                     ranked,
                     profile_narrative,
                     model=_rerank_model,
-                    api_key=_api_key,
-                    ollama_host=_ollama,
-                    openai_base_url=_openai_base_url,
-                    openai_api_key=_openai_api_key,
+                    provider=_rerank_provider,
+                    api_key=_rerank_key,
+                    base_url=_rerank_base_url,
+                    reasoning_effort=self.config.llm.reasoning_effort,
+                    thinking_enabled=self.config.llm.thinking_enabled,
+                    thinking_budget_tokens=self.config.llm.thinking_budget_tokens,
                     top_k=self.config.relevance.llm_rerank_top_k,
                     blend=self.config.relevance.llm_rerank_blend,
-                    budget=self._ai_budget,
+                    budget=(
+                        self._ai_budget
+                        if _rerank_provider == "openrouter"
+                        else None
+                    ),
                 )
                 logger.info("LLM reranker applied (model=%s)", _rerank_model)
 
@@ -955,7 +981,7 @@ class DigestPipeline:
         video_count: int,
     ) -> str:
         lines = [
-            f"# CondenseIt Dry Run — {datetime.now(UTC).isoformat()}",
+            f"# Elpis Dry Run — {datetime.now(UTC).isoformat()}",
             "",
             f"Collected **{len(articles)}** articles, **{video_count}** videos.",
             "",
@@ -994,7 +1020,7 @@ class DigestPipeline:
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="theme-color" content="#0d9488">
-  <title>CondenseIt Digest</title>
+<title>Elpis Digest</title>
   <link rel="stylesheet" href="app.css">
 </head>
 <body>

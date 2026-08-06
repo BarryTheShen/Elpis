@@ -5,15 +5,19 @@ import type {
   DigestConfig,
   DigestDetail,
   DigestEntry,
+  DigestRunSummary,
   DigestItem,
   FeedTokenInfo,
   Job,
   LlmConfig,
+  NetworkConfig,
+  NetworkTestResult,
   PasswordInfo,
   PreferenceProfile,
+  ProvidersConfig,
+  ReadLaterItem,
   RatingArticle,
   RankingWeights,
-  ReadLaterItem,
   RunLog,
   RunLogSummary,
   ScheduleConfig,
@@ -68,6 +72,12 @@ export const api = {
       '/api/digest/run',
     ),
   dismissJob: () => request<Job>('POST', '/api/digest/dismiss'),
+  listDigestRuns: (limit = 20) =>
+    request<DigestRunSummary[]>('GET', `/api/digest/runs?limit=${limit}`),
+  getLatestDigestRun: () =>
+    request<DigestRunSummary | null>('GET', '/api/digest/runs/latest'),
+  getDigestRun: (id: number) =>
+    request<DigestRunSummary>('GET', `/api/digest/runs/${id}`),
 
   // Read tracking
   getReadUrls: () => request<{ urls: string[] }>('GET', '/api/read'),
@@ -119,7 +129,15 @@ export const api = {
     request<{ added: number }>('POST', '/api/sources/import-opml', data),
   exportOpmlUrl: () => '/api/sources/export.opml',
 
-  // LLM config
+  // Provider endpoints and active provider
+  getProviders: () => request<ProvidersConfig>('GET', '/api/config/providers'),
+  saveProviders: (data: {
+    active_provider: string;
+    endpoints: Record<string, { base_url: string }>;
+    openrouter_pick_cheapest: boolean;
+  }) => request<void>('PUT', '/api/config/providers', data),
+
+  // LLM model and reasoning settings
   getLlmConfig: () => request<LlmConfig>('GET', '/api/config/llm'),
   saveLlmConfig: (data: Partial<LlmConfig>) =>
     request<void>('PUT', '/api/config/llm', data),
@@ -149,6 +167,26 @@ export const api = {
     request<BudgetLimits>('GET', '/api/config/budget-limits'),
   saveBudgetLimits: (data: BudgetLimits) =>
     request<void>('PUT', '/api/config/budget-limits', data),
+
+  // Advanced network settings
+  getNetworkConfig: () =>
+    request<NetworkConfig>('GET', '/api/config/network'),
+  saveNetworkConfig: (data: {
+    enabled: boolean;
+    proxy_url?: string;
+    bypass_hosts: string;
+  }) =>
+    request<NetworkConfig & { ok: boolean }>(
+      'PUT',
+      '/api/config/network',
+      data,
+    ),
+  testNetwork: (data: {
+    enabled: boolean;
+    proxy_url?: string;
+    bypass_hosts: string;
+  }) =>
+    request<NetworkTestResult>('POST', '/api/config/network/test', data),
 
   // Scheduler
   getSchedulerStatus: () =>

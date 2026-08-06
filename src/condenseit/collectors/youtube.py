@@ -3,7 +3,6 @@
 import base64
 import html
 import logging
-import os
 import re
 import shutil
 import subprocess
@@ -29,6 +28,14 @@ from condenseit.collectors.feed_dates import parse_feed_entry_date
 from condenseit.collectors.health import collect_with_health
 from condenseit.config import YouTubeChannelConfig, YouTubeTranscriptionConfig
 from condenseit.fetch_headers import digest_fetch_headers
+from condenseit.network import (
+    httpx_client,
+    load_network_proxy,
+    network_subprocess_env,
+    requests_session,
+    safe_network_error,
+    sanitize_network_text,
+)
 from condenseit.providers.budget import BudgetTracker
 from condenseit.store.database import ContentStore
 
@@ -38,12 +45,9 @@ _VIDEO_ID_RE = re.compile(r"(?:v=|/shorts/)([a-zA-Z0-9_-]{11})")
 _HTML_TAG_RE = re.compile(r"<[^>]+>")
 _MAX_BODY_CHARS = 12000
 
-# Optional proxy for YouTube feed requests only. YouTube frequently returns
-# 404/500 for datacenter (VPS) IPs even on valid channel feeds; routing just
-# these requests through a proxy restores collection without affecting other
-# sources. Standard HTTP_PROXY/HTTPS_PROXY env vars are also honoured via
-# httpx's trust_env. Example: CONDENSEIT_YOUTUBE_PROXY=http://user:pass@host:port
-_YOUTUBE_PROXY_ENV = "CONDENSEIT_YOUTUBE_PROXY"
+# YouTube feed and transcript requests use the centralized network policy. A
+# YouTube-only override takes precedence for this collector; the global proxy
+# and bypass hosts remain available to other outbound calls.
 # HTTP statuses worth retrying (transient server/rate-limit errors). A 404/403
 # is treated as permanent (blocked IP or removed channel) and is not retried.
 _RETRYABLE_STATUS = frozenset({429, 500, 502, 503, 504})
@@ -90,16 +94,22 @@ class YouTubeCollector:
         self._transcription = transcription_config
         self._or_key = openrouter_api_key
         self._budget = budget
+        self._network_settings = load_network_proxy(store)
         client_kwargs: dict[str, Any] = {
             "timeout": 30.0,
             "follow_redirects": True,
             "headers": digest_fetch_headers(),
         }
-        proxy = os.environ.get(_YOUTUBE_PROXY_ENV, "").strip()
-        if proxy:
-            client_kwargs["proxy"] = proxy
-            logger.info("YouTube collector using proxy from %s", _YOUTUBE_PROXY_ENV)
-        self.client = httpx.Client(**client_kwargs)
+        if self._network_settings.youtube_proxy_override:
+            logger.info("YouTube collector using configured proxy override")
+        self._transcript_api = YouTubeTranscriptApi(
+            http_client=requests_session(self._network_settings, youtube=True),
+        )
+        self.client = httpx_client(
+            settings=self._network_settings,
+            youtube=True,
+            **client_kwargs,
+        )
 
     @property
     def _whisper_enabled(self) -> bool:
@@ -226,14 +236,23 @@ class YouTubeCollector:
             pk="video_id",
         )
 
-    @staticmethod
-    def _fetch_transcript(video_id: str) -> str:
+    def _fetch_transcript(self, video_id: str) -> str:
         try:
-            chunks = YouTubeTranscriptApi.get_transcript(video_id)
-            joined = " ".join(c["text"] for c in chunks)
-            return joined[:_MAX_BODY_CHARS]
-        except Exception:
-            logger.debug("No transcript for %s", video_id, exc_info=True)
+            fetched = self._transcript_api.fetch(video_id)
+            chunks = getattr(fetched, "snippets", fetched)
+            texts = [
+                str(chunk.get("text", ""))
+                if isinstance(chunk, dict)
+                else str(getattr(chunk, "text", ""))
+                for chunk in chunks
+            ]
+            return " ".join(texts)[:_MAX_BODY_CHARS]
+        except Exception as exc:
+            logger.debug(
+                "No transcript for %s: %s",
+                video_id,
+                safe_network_error(exc, self._network_settings),
+            )
             return ""
 
     def _transcribe_via_whisper(self, video_id: str) -> str:
@@ -246,53 +265,60 @@ class YouTubeCollector:
             )
             return ""
 
-        tmp_dir = Path(tempfile.mkdtemp(prefix="condenseit_yt_"))
+        tmp_dir = Path(tempfile.mkdtemp(prefix="elpis_yt_"))
         audio_path = tmp_dir / "audio.m4a"
         try:
             url = youtube_watch_url(video_id)
             max_dur = self._transcription.max_duration_seconds
+            yt_args = [
+                "yt-dlp",
+                "--extract-audio",
+                "--audio-format",
+                "m4a",
+                "--match-filter",
+                f"duration<={max_dur}",
+                "--no-playlist",
+                "--quiet",
+                "--no-warnings",
+                "-o",
+                str(audio_path),
+                url,
+            ]
             result = subprocess.run(
-                [
-                    "yt-dlp",
-                    "--extract-audio",
-                    "--audio-format",
-                    "m4a",
-                    "--match-filter",
-                    f"duration<={max_dur}",
-                    "--no-playlist",
-                    "--quiet",
-                    "--no-warnings",
-                    "-o",
-                    str(audio_path),
-                    url,
-                ],
+                yt_args,
                 capture_output=True,
                 text=True,
                 timeout=120,
+                env=network_subprocess_env(self._network_settings, youtube=True),
             )
             if result.returncode != 0 or not audio_path.exists():
-                logger.debug("yt-dlp failed for %s: %s", video_id, result.stderr[:200])
+                stderr = sanitize_network_text(
+                    result.stderr,
+                    self._network_settings,
+                )[:200]
+                logger.debug("yt-dlp failed for %s: %s", video_id, stderr)
                 return ""
 
             audio_bytes = audio_path.read_bytes()
             audio_b64 = base64.b64encode(audio_bytes).decode("ascii")
 
-            resp = httpx.post(
-                OPENROUTER_TRANSCRIPTIONS_URL,
-                headers={
-                    "Authorization": f"Bearer {self._or_key}",
-                    "Content-Type": "application/json",
-                },
-                json={
-                    "model": self._transcription.model,
-                    "input_audio": {
-                        "data": audio_b64,
-                        "format": "m4a",
+            with httpx_client(settings=self._network_settings) as client:
+                resp = client.post(
+                    OPENROUTER_TRANSCRIPTIONS_URL,
+                    headers={
+                        "Authorization": f"Bearer {self._or_key}",
+                        "Content-Type": "application/json",
                     },
-                    "language": "en",
-                },
-                timeout=300.0,
-            )
+                    json={
+                        "model": self._transcription.model,
+                        "input_audio": {
+                            "data": audio_b64,
+                            "format": "m4a",
+                        },
+                        "language": "en",
+                    },
+                    timeout=300.0,
+                )
             resp.raise_for_status()
             data = resp.json()
             text = str(data.get("text") or "").strip()
@@ -320,8 +346,12 @@ class YouTubeCollector:
         except subprocess.TimeoutExpired:
             logger.warning("yt-dlp timed out for %s", video_id)
             return ""
-        except Exception:
-            logger.debug("Whisper transcription failed for %s", video_id, exc_info=True)
+        except Exception as exc:
+            logger.debug(
+                "Whisper transcription failed for %s: %s",
+                video_id,
+                safe_network_error(exc, self._network_settings),
+            )
             return ""
         finally:
             shutil.rmtree(tmp_dir, ignore_errors=True)

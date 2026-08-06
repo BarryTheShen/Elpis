@@ -39,7 +39,6 @@ def test_health_and_api_endpoints(
     assert latest.json() is None
 
 
-
 def test_health_reports_storage_failure(
     monkeypatch: pytest.MonkeyPatch,
     tmp_path,
@@ -56,6 +55,7 @@ def test_health_reports_storage_failure(
 
     assert response.status_code == 503
     assert response.json() == {"status": "unavailable"}
+
 
 def test_spa_shell_served_for_ui_routes(
     monkeypatch: pytest.MonkeyPatch,
@@ -96,8 +96,6 @@ def test_spa_shell_served_for_ui_routes(
     session_admin = client.get("/admin/sources")
     assert session_admin.status_code == 200
     assert "spa-shell-marker" in session_admin.text
-
-
 
 
 def test_sources_api_updates_source_configuration(
@@ -356,3 +354,138 @@ def test_digest_config_api_persists_age_cutoff(
         json={"max_article_age_hours": -1},
     )
     assert invalid.status_code == 422
+
+
+def test_digest_run_history_api_exposes_outcomes(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path,
+) -> None:
+    """Run history exposes status, structured stats, and linked logs."""
+    monkeypatch.setenv("CONDENSEIT_DATA_DIR", str(tmp_path / "data"))
+    app = create_app()
+    store = app.state.store
+    run_id = store.create_digest_run(
+        started_at="2026-07-13T08:00:00Z",
+        dry_run=True,
+    )
+    store.update_digest_run(
+        run_id,
+        state="completed",
+        message="Done: 3 articles in 2s",
+        finished_at="2026-07-13T08:00:02Z",
+        digest_id=42,
+        stats={"articles_count": 3, "processing_time": "2s"},
+    )
+    log_id = store.save_run_log(42, "run output", run_id=run_id)
+
+    client = TestClient(app)
+    response = client.get("/api/digest/runs", headers=_AUTH)
+
+    assert response.status_code == 200
+    rows = response.json()
+    assert rows[0]["id"] == run_id
+    assert rows[0]["state"] == "completed"
+    assert rows[0]["stats"]["articles_count"] == 3
+    assert rows[0]["dry_run"] is True
+    assert rows[0]["log_id"] == log_id
+
+    latest = client.get("/api/digest/runs/latest", headers=_AUTH)
+    assert latest.status_code == 200
+    assert latest.json()["id"] == run_id
+
+
+def test_create_app_reconciles_interrupted_runs(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path,
+) -> None:
+    """A restart converts orphaned running records into visible failures."""
+    data_dir = tmp_path / "data"
+    monkeypatch.setenv("CONDENSEIT_DATA_DIR", str(data_dir))
+
+    previous_store = ContentStore()
+    run_id = previous_store.create_digest_run(
+        started_at="2026-07-13T08:00:00Z",
+    )
+    previous_store.close()
+
+    app = create_app()
+    run = app.state.store.get_digest_run(run_id)
+    assert run is not None
+    assert run["state"] == "failed"
+    assert run["message"] == "Digest interrupted by server restart."
+    assert run["error"] == "Digest interrupted by server restart."
+    assert run["finished_at"]
+
+    client = TestClient(app)
+    status = client.get("/api/digest/status", headers=_AUTH)
+    assert status.status_code == 200
+    assert status.json()["state"] == "idle"
+
+    latest = client.get("/api/digest/runs/latest", headers=_AUTH)
+    assert latest.json()["state"] == "failed"
+
+
+def test_fresh_install_password_change_uses_default_credential(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path,
+) -> None:
+    """A fresh install can replace the built-in default password."""
+    monkeypatch.setenv("CONDENSEIT_DATA_DIR", str(tmp_path / "data"))
+    monkeypatch.delenv("CONDENSEIT_AUTH_PASSWORD", raising=False)
+    monkeypatch.delenv("DIGEST_PWA_AUTH_PASSWORD", raising=False)
+    app = create_app()
+    client = TestClient(app)
+
+    changed = client.put(
+        "/api/config/password",
+        headers=_AUTH,
+        json={
+            "current_password": "elpis",
+            "new_password": "new-passphrase",
+        },
+    )
+    assert changed.status_code == 200
+
+    old_login = client.post("/api/auth/login", json={"password": "elpis"})
+    assert old_login.status_code == 401
+
+    new_login = client.post(
+        "/api/auth/login",
+        json={"password": "new-passphrase"},
+    )
+    assert new_login.status_code == 200
+
+
+def test_password_change_revokes_other_sessions(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path,
+) -> None:
+    """Changing the password keeps the requester active and revokes peers."""
+    monkeypatch.setenv("CONDENSEIT_DATA_DIR", str(tmp_path / "data"))
+    monkeypatch.delenv("CONDENSEIT_AUTH_PASSWORD", raising=False)
+    monkeypatch.delenv("DIGEST_PWA_AUTH_PASSWORD", raising=False)
+    app = create_app()
+    first = TestClient(app)
+    second = TestClient(app)
+
+    assert first.post("/api/auth/login", json={"password": "elpis"}).status_code == 200
+    assert second.post("/api/auth/login", json={"password": "elpis"}).status_code == 200
+
+    changed = first.put(
+        "/api/config/password",
+        json={
+            "current_password": "elpis",
+            "new_password": "rotated-passphrase",
+        },
+    )
+    assert changed.status_code == 200
+    assert first.get("/api/digest/status").status_code == 200
+    assert second.get("/api/digest/status").status_code == 401
+
+    assert (
+        second.post(
+            "/api/auth/login",
+            json={"password": "rotated-passphrase"},
+        ).status_code
+        == 200
+    )

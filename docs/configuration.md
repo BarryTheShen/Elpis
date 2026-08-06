@@ -84,11 +84,31 @@ Transient `5xx`/`429` responses from the channel feed are retried automatically.
 
 > **YouTube returning 404/500 on a VPS?** YouTube frequently blocks the channel
 > feed (`/feeds/videos.xml`) for datacenter IP ranges, so the same `channel_id`
-> that works from your laptop can 404 from a server. Route only the YouTube
-> requests through a proxy with the `CONDENSEIT_YOUTUBE_PROXY` environment
-> variable (e.g. `CONDENSEIT_YOUTUBE_PROXY=http://user:pass@host:port`). Standard
-> `HTTP_PROXY` / `HTTPS_PROXY` variables are also honoured. Other collectors are
-> unaffected.
+> that works from your laptop can 404 from a server. Configure the global
+> server-side proxy in **Admin > Advanced**. YouTube captions, RSS, article
+> pages, model APIs, embeddings, and `yt-dlp` all consume that policy.
+>
+> `CONDENSEIT_YOUTUBE_PROXY` remains an optional YouTube-only override and takes
+> precedence over the global proxy. Standard `HTTP_PROXY` / `HTTPS_PROXY` /
+> `ALL_PROXY` variables are used when no saved policy exists.
+
+### Outbound proxy and bypass policy
+
+**Admin > Advanced** stores an HTTP(S)/SOCKS5 proxy URL encrypted in Elpis and
+applies it to future Elpis-managed server-side HTTP(S) egress. Shared sync and
+async HTTPX transports route each URL through the proxy or a direct bypass
+mount; standard proxy environment variables are exported only for `urllib`,
+`requests`, and spawned `yt-dlp` processes. **Test form settings** uses the
+unsaved values and never writes the database. **Save settings** persists the
+encrypted policy across restarts and refreshes the running environment; the
+next digest run uses the new policy.
+
+`localhost`, `127.0.0.1`, `::1`, and `host.docker.internal` always bypass the
+global proxy. Add other private hosts to the bypass list when needed. This is
+not a system-wide packet tunnel: browser traffic, SSH/rsync deployment, and
+services running outside Elpis are outside this policy. DNS follows the
+selected transport—`socks5h://` and HTTP CONNECT resolve through the proxy,
+while `socks5://` and bypassed traffic may resolve locally.
 
 #### YouTube transcription
 
@@ -205,37 +225,51 @@ Episode or channel artwork is used when the feed provides it.
 
 ## LLM
 
-- `llm.provider`: `ollama`, `openrouter`, `fallback` (local then cloud), or `openai`.
-- `llm.openrouter_pick_cheapest`: when `true`, the cheapest suitable text model from
-  the public OpenRouter catalog is chosen (cached about one hour). You still need
-  an API key for requests.
-- `llm.openrouter_daily_budget_usd` / `openrouter_monthly_budget_usd`: spend caps.
+Elpis routes every chat completion through [LiteLLM](https://docs.litellm.ai/),
+which normalizes retries, provider-specific request formats, usage, and reasoning
+controls behind one model-calling path.
 
-### OpenAI-compatible endpoint (`provider: "openai"`)
+- `llm.provider`: the active backend. Built-in choices are `openrouter`, `openai`,
+  `anthropic`, `gemini`, `groq`, `mistral`, `deepseek`, `together_ai`, `ollama`,
+  and `custom`; `fallback` tries local Ollama before OpenRouter.
+- `model`: model identifier expected by the active backend. It can be changed
+  live in **Admin > LLM**.
+- `llm.providers.<id>.base_url`: optional endpoint override. Configure these
+  values and encrypted API keys from **Admin > Providers**.
+- `llm.openrouter_pick_cheapest`: when `true`, choose the cheapest suitable text
+  model from OpenRouter's public catalog (cached for about one hour).
+- `llm.openrouter_daily_budget_usd` / `llm.openrouter_monthly_budget_usd`: spend
+  caps for OpenRouter calls.
+- `llm.reasoning_effort`: `none`, `minimal`, `low`, `medium`, `high`, or `xhigh`.
+- `llm.thinking_enabled` and `llm.thinking_budget_tokens`: request extended
+  thinking where the selected model supports it. LiteLLM drops unsupported
+  provider-specific options rather than failing an otherwise valid request.
 
-Point Elpis at any server that implements the `/v1/chat/completions` endpoint.
-This includes Ollama's built-in OpenAI compatibility layer, LM Studio, vLLM,
-llama.cpp server, text-generation-inference, real OpenAI, Azure OpenAI, and many
-others.
+### Custom OpenAI-compatible endpoint
 
-| Setting | Env var | Description |
-|---------|---------|-------------|
-| `llm.openai_base_url` | `OPENAI_API_BASE_URL` | Full base URL, e.g. `http://localhost:11434/v1` or `https://api.openai.com/v1` |
-| `llm.openai_model` | `OPENAI_MODEL` | Model name as the server expects it. Falls back to the top-level `model` field if not set. |
-| `llm.openai_api_key` | `OPENAI_API_KEY` | API key. Can be any non-empty string for local servers that don't authenticate. |
+Select **Custom OpenAI-compatible** under **Admin > Providers** and enter the
+server base URL, normally ending in `/v1`. Elpis supports servers such as
+Ollama's OpenAI compatibility layer, LM Studio, vLLM, llama.cpp,
+text-generation-inference, and private gateways. Add the server's model name
+under **Admin > LLM** and save an API key only when the server requires one.
 
-Example minimal config for a local vLLM or LM Studio server:
+Equivalent YAML:
 
 ```yaml
+model: "my-local-model"
 llm:
-  provider: "openai"
-  openai_base_url: "${OPENAI_API_BASE_URL:-http://localhost:8000/v1}"
-  openai_model: "gemma4-e4b-q4_m"
+  provider: "custom"
+  providers:
+    custom:
+      base_url: "http://localhost:8000/v1"
+  reasoning_effort: "none"
+  thinking_enabled: false
+  thinking_budget_tokens: 0
 ```
 
-Set `OPENAI_API_KEY` in `.env` (required if the server enforces authentication; use any placeholder value for servers that don't).
-
-The `openai_base_url` and `openai_model` can also be changed live in **Admin > LLM** without restarting the server.
+The older `llm.openai_base_url`, `llm.openai_model`, and
+`llm.openai_api_key` fields remain readable for existing deployments. New
+configuration writes use `llm.providers` and the encrypted key store.
 
 ## Digest settings
 
@@ -411,14 +445,15 @@ content hash, and model), so re-running digests does not re-embed known articles
 
 | Setting | Default | Description |
 |---------|---------|-------------|
-| `relevance.embedding_provider` | `"off"` | `"ollama"`, `"openrouter"`, `"openai"`, or `"off"` |
+| `relevance.embedding_provider` | `"off"` | `"ollama"`, `"openrouter"`, `"openai"`, `"custom"`, or `"off"` |
 | `relevance.embedding_model` | `"nomic-embed-text"` | Embedding model name |
 | `relevance.embedding_preference_weight` | `0.5` | Weight of the embedding signal in the final score |
 
 Recommended models:
 - **Ollama (free)**: `nomic-embed-text` - fast, strong quality, requires the model to be pulled once
 - **OpenRouter**: `openai/text-embedding-3-small` - $0.02 per million tokens, high quality; a full digest run typically costs under $0.001
-- **OpenAI-compatible**: set `embedding_provider: "openai"` to use any server that exposes `/v1/embeddings`. Reuses `llm.openai_base_url` and `llm.openai_api_key`, no extra config needed.
+- **OpenAI-compatible/custom**: set `embedding_provider` to `openai` or `custom` and configure the corresponding endpoint and key under **Admin > Providers**.
+  The server must expose `/v1/embeddings`.
 
 ##### Semantic duplicate detection
 
@@ -483,11 +518,9 @@ The reason string is stored in `score_breakdown.llm_reason` and shown in the
 cheap model like `deepseek/deepseek-v3` on OpenRouter costs under $0.005 per run.
 `llm_rerank_blend: 0.3` is a safe starting point; increase it once you are happy
 with the quality.
-
-**Provider selection**: the reranker follows the same priority order as
-summarization, OpenRouter if an API key is present, then OpenAI-compatible
-endpoint if `llm.provider: "openai"` and `llm.openai_base_url` is set, then
-local Ollama. No separate reranker-provider config is needed.
+**Provider selection**: the reranker uses the active summarization provider and
+model through the same LiteLLM adapter. No separate reranker-provider or endpoint
+configuration is needed.
 
 ### Cold-start bootstrap
 

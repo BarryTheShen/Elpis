@@ -8,18 +8,17 @@ For a full **local install** (uv, `config.yaml`, `.env`, first run), see
 Quick path:
 
 1. Copy `config.example.yaml` to `config.yaml` and adjust feeds and channels.
-2. Choose an LLM backend:
-   - **Ollama (local)**: install Ollama on the host (Mac: Metal GPU), pull a model
-     (`ollama pull llama3.2:3b`), and set `llm.provider: "ollama"` in `config.yaml`.
-   - **OpenRouter (cloud)**: set `llm.provider: "openrouter"` and add
-     `OPENROUTER_API_KEY` to `.env`.
-   - **OpenAI-compatible server** (LM Studio, vLLM, llama.cpp, etc.): set
-     `llm.provider: "openai"`, `llm.openai_base_url` to your server's base URL,
-     and `OPENAI_API_KEY` in `.env`.
-3. Install deps: `uv sync` (see [installation.md](installation.md)) or a
+2. Choose an LLM backend in **Admin > Providers**:
+   - **Ollama (local)**: install Ollama and pull a model (`ollama pull llama3.2:3b`).
+   - **Hosted providers**: choose OpenRouter, OpenAI, Anthropic, Gemini, Groq,
+     Mistral, DeepSeek, or Together AI, then save its API key.
+   - **Custom OpenAI-compatible**: enter the server base URL, normally ending in
+     `/v1`, and save a key if the server requires one.
+3. Set the model, reasoning effort, and optional thinking budget in **Admin > LLM**.
+4. Install deps: `uv sync` (see [installation.md](installation.md)) or a
    venv with `pip install -e ".[dev]"`.
-4. Run the complete Elpis app: `elpis serve` (or `make docker-up` for Docker).
-5. Run a digest: use **Run digest** in the header, or `uv run elpis run`
+5. Run the complete Elpis app: `elpis serve` (or `make docker-up` for Docker).
+6. Run a digest: use **Run digest** in the header, or `uv run elpis run`
    (or `elpis run` if your shell uses the project venv).
 
 The web UI gives you the digest reader, rating controls, read-later actions,

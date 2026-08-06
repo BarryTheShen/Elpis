@@ -7,6 +7,11 @@ from typing import Any
 import httpx
 
 from condenseit.api_urls import OPENROUTER_MODELS_URL
+from condenseit.network import (
+    httpx_client,
+    load_network_proxy,
+    safe_network_error,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -29,12 +34,15 @@ def pick_cheapest_text_model(
         return str(_CACHE["model"])
 
     try:
-        with httpx.Client(timeout=60.0) as client:
+        with httpx_client(timeout=60.0) as client:
             resp = client.get(OPENROUTER_MODELS_URL)
             resp.raise_for_status()
             payload = resp.json()
     except httpx.HTTPError as exc:
-        logger.warning("OpenRouter models list failed: %s", exc)
+        logger.warning(
+            "OpenRouter models list failed: %s",
+            safe_network_error(exc, load_network_proxy()),
+        )
         return None
 
     best_id: str | None = None

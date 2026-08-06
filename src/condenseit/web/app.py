@@ -12,7 +12,6 @@ from pathlib import Path
 from typing import Any
 from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
-import httpx
 import markdown
 from fastapi import FastAPI, Query, Request
 from fastapi.responses import (
@@ -27,17 +26,31 @@ from fastapi.staticfiles import StaticFiles
 from starlette.middleware.sessions import SessionMiddleware
 
 from condenseit.api_urls import (
-    OPENROUTER_CHAT_URL,
     OPENROUTER_KEY_URL,
     youtube_channel_feed_url,
     youtube_handle_page_url,
 )
 from condenseit.config import LOCAL_INSTALL_FALLBACK_CREDENTIAL, load_config
 from condenseit.learning.preference_engine import PreferenceEngine
+from condenseit.network import (
+    async_httpx_client,
+    configure_network_proxy,
+    load_network_proxy,
+    network_subprocess_env,
+    safe_network_error,
+    sanitize_network_text,
+)
 from condenseit.providers.base import parse_summary_response
+from condenseit.providers.catalog import (
+    get_provider_base_url,
+    get_provider_model,
+    get_provider_spec,
+)
+from condenseit.providers.litellm_client import call_litellm
 from condenseit.setting_parsers import parse_json_list
 from condenseit.settings_overlay import apply_db_settings
 from condenseit.store.database import ContentStore
+from condenseit.store.secure_keys import SecureKeyStore
 from condenseit.web.admin.routes import create_admin_router
 from condenseit.web.digest_job import DigestJobManager
 from condenseit.web.feed import create_feed_router
@@ -67,9 +80,7 @@ def _is_publication_read_request(request: Request) -> bool:
     if request.method != "GET":
         return False
     path = request.url.path
-    return path in _PUBLICATION_API_PATHS or bool(
-        _DIGEST_DETAIL_PATH.fullmatch(path)
-    )
+    return path in _PUBLICATION_API_PATHS or bool(_DIGEST_DETAIL_PATH.fullmatch(path))
 
 
 def _frontend_dist_dir() -> Path:
@@ -134,6 +145,17 @@ def create_app(config_path: str | None = None) -> FastAPI:
 
     config = load_config(config_path)
     store = ContentStore()
+    configure_network_proxy(store)
+    # Cloud Run is deployed with one instance because SQLite is the shared
+    # store. A running row at startup therefore belongs to a dead process.
+    interrupted_runs = store.reconcile_running_digest_runs()
+    if interrupted_runs:
+        logging.warning(
+            "Marked %d digest run(s) interrupted by server restart",
+            interrupted_runs,
+        )
+    if not store.get_setting("auth_generation"):
+        store.set_setting("auth_generation", secrets.token_hex(16))
     config = apply_db_settings(config, store)
     job_manager = DigestJobManager(config_path, store=store)
     spa_dist = _frontend_dist_dir()
@@ -196,7 +218,7 @@ def create_app(config_path: str | None = None) -> FastAPI:
             except asyncio.CancelledError:
                 pass
 
-    app = FastAPI(title="CondenseIt", docs_url="/docs", lifespan=lifespan)
+    app = FastAPI(title="Elpis", docs_url="/docs", lifespan=lifespan)
     app.state.job_manager = job_manager
     app.state.store = store
     templates.env.globals["digest_job"] = job_manager.snapshot
@@ -224,10 +246,24 @@ def create_app(config_path: str | None = None) -> FastAPI:
             return db_pw
         return _env_auth_password if _env_auth_password else default_auth_password
 
+    def _get_auth_generation() -> str:
+        return store.get_setting("auth_generation", "")
+
+    def _session_is_authenticated(request: Request) -> bool:
+        session: dict[str, Any] = getattr(request, "session", {})
+        generation = str(session.get("auth_generation", ""))
+        return (
+            bool(session.get("authenticated"))
+            and bool(generation)
+            and secrets.compare_digest(
+                generation,
+                _get_auth_generation(),
+            )
+        )
+
     def _has_admin_access(request: Request) -> bool:
         """Return whether a request supplied a valid admin credential."""
-        session: dict[str, Any] = getattr(request, "session", {})
-        if session.get("authenticated"):
+        if _session_is_authenticated(request):
             return True
         auth_header = request.headers.get("Authorization", "")
         return auth_header.startswith("Bearer ") and secrets.compare_digest(
@@ -237,8 +273,7 @@ def create_app(config_path: str | None = None) -> FastAPI:
 
     @app.get("/api/auth/check", response_model=None)
     async def api_auth_check(request: Request) -> JSONResponse:
-        session: dict[str, Any] = getattr(request, "session", {})
-        if session.get("authenticated"):
+        if _session_is_authenticated(request):
             return JSONResponse({"authenticated": True})
         return JSONResponse({"authenticated": False}, status_code=401)
 
@@ -251,6 +286,7 @@ def create_app(config_path: str | None = None) -> FastAPI:
         if not pw or not secrets.compare_digest(pw, _get_auth_password()):
             return JSONResponse({"error": "Invalid password"}, status_code=401)
         request.session["authenticated"] = True
+        request.session["auth_generation"] = _get_auth_generation()
         return JSONResponse({"ok": True})
 
     @app.post("/api/auth/logout", response_model=None)
@@ -305,7 +341,6 @@ def create_app(config_path: str | None = None) -> FastAPI:
         same_site="lax",
     )
 
-
     if _STATIC.is_dir():
         app.mount("/static", StaticFiles(directory=str(_STATIC)), name="static")
 
@@ -333,9 +368,7 @@ def create_app(config_path: str | None = None) -> FastAPI:
         )
 
     @app.get("/api/digests/{digest_id}", response_model=None)
-    async def api_get_digest(
-        request: Request, digest_id: int
-    ) -> JSONResponse:
+    async def api_get_digest(request: Request, digest_id: int) -> JSONResponse:
         rows = list(store.db.query("SELECT * FROM digests WHERE id = ?", [digest_id]))
         if not rows:
             return JSONResponse(None, status_code=404)
@@ -350,6 +383,24 @@ def create_app(config_path: str | None = None) -> FastAPI:
     @app.get("/api/digest/status")
     async def api_digest_status() -> dict[str, Any]:
         return job_manager.snapshot()
+
+    @app.get("/api/digest/runs", response_model=None)
+    async def api_digest_runs(
+        limit: int = Query(20, ge=1, le=100),
+    ) -> JSONResponse:
+        return JSONResponse(store.list_digest_runs(limit=limit))
+
+    @app.get("/api/digest/runs/latest", response_model=None)
+    async def api_latest_digest_run() -> JSONResponse:
+        run = store.latest_digest_run()
+        return JSONResponse(run)
+
+    @app.get("/api/digest/runs/{run_id}", response_model=None)
+    async def api_get_digest_run(run_id: int) -> JSONResponse:
+        run = store.get_digest_run(run_id)
+        if not run:
+            return JSONResponse(None, status_code=404)
+        return JSONResponse(run)
 
     @app.post("/api/digest/run")
     async def api_digest_run(
@@ -436,14 +487,12 @@ def create_app(config_path: str | None = None) -> FastAPI:
         merged = apply_db_settings(load_config(config_path), store)
         or_key = merged.llm.openrouter_api_key
         if not or_key:
-            from condenseit.store.secure_keys import SecureKeyStore
-
             or_key = SecureKeyStore(store).get_key("openrouter") or ""
 
         openrouter_data: dict[str, Any] | None = None
         if or_key:
             try:
-                async with httpx.AsyncClient(timeout=10.0) as client:
+                async with async_httpx_client(timeout=10.0) as client:
                     resp = await client.get(
                         OPENROUTER_KEY_URL,
                         headers={"Authorization": f"Bearer {or_key}"},
@@ -701,13 +750,28 @@ def create_app(config_path: str | None = None) -> FastAPI:
             interests = interests[:2000]
 
         merged = apply_db_settings(load_config(config_path), store)
-        or_key = merged.llm.openrouter_api_key
-        if not or_key:
-            from condenseit.store.secure_keys import SecureKeyStore
-
-            or_key = SecureKeyStore(store).get_key("openrouter") or ""
-        ollama_host = merged.llm.ollama_host
-        model = merged.llm.openrouter_model if or_key else merged.model
+        provider = merged.llm.provider.strip().lower()
+        key_store = SecureKeyStore(store)
+        if provider == "fallback":
+            openrouter_key = (
+                key_store.get_key("openrouter") or merged.llm.openrouter_api_key
+            )
+            provider = "openrouter" if openrouter_key else "ollama"
+        spec = get_provider_spec(provider)
+        if spec is None:
+            return JSONResponse({"error": "Unknown model provider"}, status_code=422)
+        api_key = key_store.get_key(spec.key_service) or ""
+        if provider == "openrouter":
+            api_key = api_key or merged.llm.openrouter_api_key
+        elif provider in {"openai", "custom"}:
+            api_key = api_key or merged.llm.openai_api_key
+        if spec.requires_api_key and not api_key:
+            return JSONResponse(
+                {"error": f"{spec.label} API key is not configured"},
+                status_code=422,
+            )
+        model = get_provider_model(merged, store)
+        base_url = get_provider_base_url(merged, provider)
 
         prompt = (
             "A user described their reading interests:\n"
@@ -723,55 +787,44 @@ def create_app(config_path: str | None = None) -> FastAPI:
 
         raw = ""
         try:
-            if or_key:
-                import httpx
-
-                resp = httpx.post(
-                    OPENROUTER_CHAT_URL,
-                    json={
-                        "model": model,
-                        "messages": [
-                            {
-                                "role": "system",
-                                "content": (
-                                    "You are a reading preference analyst. "
-                                    "Respond ONLY with a JSON object, no markdown."
-                                ),
-                            },
-                            {"role": "user", "content": prompt},
-                        ],
-                        "temperature": 0.2,
-                        "max_tokens": 600,
+            headers = (
+                {
+                    "HTTP-Referer": "https://github.com/BarryTheShen/Elpis",
+                    "X-Title": "Elpis",
+                }
+                if provider == "openrouter"
+                else None
+            )
+            result = call_litellm(
+                provider=provider,
+                model=model,
+                messages=[
+                    {
+                        "role": "system",
+                        "content": (
+                            "You are a reading preference analyst. "
+                            "Respond ONLY with a JSON object, no markdown."
+                        ),
                     },
-                    headers={
-                        "Authorization": f"Bearer {or_key}",
-                        "HTTP-Referer": "https://github.com/condenseit/condenseit",
-                        "X-Title": "CondenseIt",
-                    },
-                    timeout=60.0,
-                )
-                resp.raise_for_status()
-                data = resp.json()
-                choices = data.get("choices") or []
-                raw = str(choices[0]["message"]["content"]).strip() if choices else ""
-            elif ollama_host:
-                import httpx
-
-                resp = httpx.post(
-                    f"{ollama_host.rstrip('/')}/api/generate",
-                    json={
-                        "model": model,
-                        "prompt": prompt,
-                        "stream": False,
-                        "options": {"temperature": 0.2, "num_predict": 600},
-                    },
-                    timeout=120.0,
-                )
-                resp.raise_for_status()
-                raw = str(resp.json().get("response", "")).strip()
+                    {"role": "user", "content": prompt},
+                ],
+                api_key=api_key,
+                base_url=base_url,
+                temperature=0.2,
+                max_tokens=600,
+                reasoning_effort=merged.llm.reasoning_effort,
+                thinking_enabled=merged.llm.thinking_enabled,
+                thinking_budget_tokens=merged.llm.thinking_budget_tokens,
+                extra_headers=headers,
+                timeout=120.0,
+            )
+            raw = result.content
         except Exception as exc:
             return JSONResponse(
-                {"error": f"LLM call failed: {exc}"},
+                {
+                    "error": "LLM call failed: "
+                    + safe_network_error(exc, load_network_proxy(store)),
+                },
                 status_code=502,
             )
 
@@ -947,9 +1000,7 @@ def create_app(config_path: str | None = None) -> FastAPI:
                     store.set_setting(key, val)
         # Reader profile narrative for the LLM reranker (free text).
         if "profile_summary" in body:
-            store.set_setting(
-                "bootstrap_profile_summary", str(body["profile_summary"])
-            )
+            store.set_setting("bootstrap_profile_summary", str(body["profile_summary"]))
         # Preset label (off / balanced / aggressive / custom) — persisted for
         # UI state only; the actual numeric weights are what the engine uses.
         if "personalization_mode" in body:
@@ -994,28 +1045,33 @@ def create_app(config_path: str | None = None) -> FastAPI:
         if not url.endswith("/videos"):
             url = url.rstrip("/") + "/videos"
 
+        network_settings = load_network_proxy(store)
         try:
+            yt_args = [
+                "yt-dlp",
+                "--no-warnings",
+                "--flat-playlist",
+                "--dump-single-json",
+                "--playlist-end",
+                "1",
+                url,
+            ]
             result = subprocess.run(
-                [
-                    "yt-dlp",
-                    "--no-warnings",
-                    "--flat-playlist",
-                    "--dump-single-json",
-                    "--playlist-end",
-                    "1",
-                    url,
-                ],
+                yt_args,
                 capture_output=True,
                 text=True,
                 timeout=30,
+                env=network_subprocess_env(network_settings, youtube=True),
             )
         except subprocess.TimeoutExpired:
             return JSONResponse({"error": "yt-dlp timed out"}, status_code=504)
         except Exception as exc:
-            return JSONResponse({"error": str(exc)}, status_code=500)
+            safe_error = sanitize_network_text(str(exc), network_settings)
+            return JSONResponse({"error": safe_error}, status_code=500)
 
         if result.returncode != 0 or not result.stdout.strip():
-            err = result.stderr.strip()[:300] if result.stderr else "no output"
+            raw_error = result.stderr if result.stderr else "no output"
+            err = sanitize_network_text(raw_error, network_settings).strip()[:300]
             return JSONResponse({"error": f"yt-dlp failed: {err}"}, status_code=422)
 
         try:

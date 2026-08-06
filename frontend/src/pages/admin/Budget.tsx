@@ -169,7 +169,7 @@ export function BudgetPage() {
           <CardHeader title="OpenRouter account" />
           <p class="text-sm text-slate-500 dark:text-slate-400">
             No OpenRouter API key configured. Add one in{' '}
-            <a href="/admin/keys" class="text-blue-600 dark:text-blue-400 hover:underline">API Keys</a>.
+            <a href="/admin/providers" class="text-blue-600 dark:text-blue-400 hover:underline">Providers</a>.
           </p>
         </Card>
       )}

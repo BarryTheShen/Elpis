@@ -10,13 +10,13 @@ from datetime import UTC, datetime
 from urllib.parse import quote_plus
 
 import feedparser
-import httpx
 
 from condenseit.collectors.article_text import fetch_article_text
 from condenseit.collectors.feed_dates import parse_feed_entry_date
 from condenseit.collectors.health import collect_with_health
 from condenseit.config import GoogleNewsSearchConfig
 from condenseit.fetch_headers import digest_fetch_headers
+from condenseit.network import httpx_client
 from condenseit.store.database import ContentStore
 
 logger = logging.getLogger(__name__)
@@ -41,7 +41,7 @@ class GoogleNewsCollector:
     def __init__(self, sources: list[GoogleNewsSearchConfig]) -> None:
         self.sources = sources
         self._headers = digest_fetch_headers()
-        self._client = httpx.Client(
+        self._client = httpx_client(
             timeout=30.0,
             follow_redirects=True,
             headers=self._headers,

@@ -27,7 +27,7 @@ def execute_digest(
     cfg: AppConfig = load_config(config_path)
     needs_ollama = not dry_run and cfg.llm.provider in ("ollama", "fallback")
 
-    with DigestPipeline(config_path) as pipeline:
+    with DigestPipeline(config_path, dry_run=dry_run) as pipeline:
         if dry_run:
             stats = pipeline.run(dry_run=True)
         elif needs_ollama:

@@ -1,4 +1,4 @@
-model: "llama3.2:3b"
+model: "qwen/qwen3.5-flash-02-23"
 # Maximum articles per digest run. Override with CONDENSEIT_MAX_ARTICLES_PER_DIGEST.
 max_articles_per_digest: 50
 # Language for digest output. ISO 639-1 code (e.g. "en", "fr", "de") or "source"
@@ -147,11 +147,12 @@ relevance:
   # Requires embedding_provider to be set to "ollama", "openrouter", or "openai".
   # When enabled, articles covering the same story across different sources are
   # collapsed to the highest-ranked version using cosine similarity on embeddings.
-  # embedding_provider: "ollama"       # "ollama", "openrouter", "openai", or "off"
-  # embedding_model: "nomic-embed-text" # For "openai": any model the server supports
+  # embedding_provider: "ollama"       # "ollama", "openrouter", "openai", "custom", or "off"
+  # embedding_model: "nomic-embed-text" # For OpenAI-compatible providers: model name on the server
   # semantic_dedup_enabled: true
   # semantic_dedup_threshold: 0.85  # practical range: 0.80 (aggressive) - 0.90 (conservative)
-  # Note: "openai" reuses llm.openai_base_url and llm.openai_api_key.
+  # Endpoint and key are selected in Admin > Providers; `custom` can be used for
+  # any OpenAI-compatible `/v1/embeddings` server.
 
   initial_keywords:
     high: ["kubernetes", "CVE", "security", "breaking change", "cursor", "llm"]
@@ -172,37 +173,43 @@ output:
 # ---------------------------------------------------------------------------
 # LLM configuration
 #
-# Three modes:
-#   Local:    provider: "ollama"     - runs on your Mac/server with Ollama
-#   Remote:   provider: "openrouter" - uses OpenRouter cloud API
-#   Both:     provider: "fallback"   - tries Ollama first, falls back to OpenRouter
-#   OpenAI-compat: provider: "openai" - any /v1/chat/completions server
+# LiteLLM provides one model-calling backend for OpenRouter, OpenAI, Anthropic,
+# Gemini, Groq, Mistral, DeepSeek, Together AI, Ollama, and custom
+# OpenAI-compatible servers.
+#
+# ``provider`` selects the active backend. ``model`` above is the active model
+# identifier. Endpoint overrides are managed live in Admin > Providers.
 # ---------------------------------------------------------------------------
 llm:
   provider: "openrouter"
+  providers:
+    openrouter:
+      base_url: "https://openrouter.ai/api/v1"
+    openai:
+      base_url: "https://api.openai.com/v1"
+    custom:
+      # Set this to any server exposing /v1/chat/completions.
+      base_url: ""
 
-  # Local Ollama (used when provider is "ollama" or "fallback")
-  ollama_host: "${OLLAMA_HOST:-http://localhost:11434}"
-  # Set to false when connecting to a remote Ollama instance.
-  manage_lifecycle: true
-
-  # OpenRouter (used when provider is "openrouter" or "fallback")
-  # API key comes from OPENROUTER_API_KEY env var (required by default).
-  openrouter_model: "qwen/qwen3.5-flash-02-23"
-  # Hard limits to prevent runaway costs. Pipeline stops if exceeded.
+  # OpenRouter budget controls. The key comes from Admin > Providers or
+  # OPENROUTER_API_KEY.
   openrouter_daily_budget_usd: 1.0
   openrouter_monthly_budget_usd: 10.0
-  # When true, picks the cheapest available model (re-checked hourly).
   openrouter_pick_cheapest: false
 
-  # OpenAI-compatible endpoint (used when provider is "openai")
-  # Works with any server that exposes /v1/chat/completions:
-  #   Ollama compat layer, LM Studio, vLLM, llama.cpp, text-generation-inference,
-  #   real OpenAI (https://api.openai.com/v1), Azure OpenAI, etc.
-  # Base URL comes from OPENAI_API_BASE_URL env var; API key from OPENAI_API_KEY;
-  # model from OPENAI_MODEL (falls back to top-level "model" if not set).
-  # openai_base_url: "${OPENAI_API_BASE_URL:-http://localhost:11434/v1}"
-  # openai_model: "gemma4-e4b-q4_m"
+  # Provider-neutral reasoning controls. Unsupported providers safely ignore
+  # optional controls through LiteLLM.
+  reasoning_effort: "none"  # none, minimal, low, medium, high, xhigh
+  thinking_enabled: false
+  thinking_budget_tokens: 0
+
+  # Local Ollama lifecycle. The endpoint can also be edited under Providers.
+  ollama_host: "${OLLAMA_HOST:-http://localhost:11434}"
+  manage_lifecycle: true
+
+# Existing ``openrouter_model``, ``openai_base_url``, and ``openai_model`` keys
+# remain readable for older config files and are migrated into the unified
+# provider/model settings when the application starts.
 
 # VPS deployment (used by scripts/deploy.sh)
 # Leave host empty until you have a real SSH target.

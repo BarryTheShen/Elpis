@@ -5,7 +5,7 @@
 
 **Instructional header — source of truth for implementation**
 
-This page is the canonical architecture and requirements document for the new AI daily-debrief product built from the CondenseIt codebase. Any AI coding agent must read this page completely before planning or editing code.
+This page is the canonical architecture and requirements document for the new AI daily-debrief product. Any AI coding agent must read this page completely before planning or editing code.
 
 **Locked requirements:** one Docker-hosted product, one externally accessible port/origin, desktop and mobile support, authenticated desktop admin panel, no mobile admin interface, read-focused mobile publication, source-grounded AI chat, clean minimal visual design, no “AI slop” aesthetics, deployment-provider independence, regular coherent Git commits, and complete shipping-ready repository documentation.
 
@@ -17,7 +17,7 @@ Use the **Taste / artifact-design skill** before every visible UI change. Do not
 
 This product is a self-hostable daily publication for general users. Each deployment turns the user’s selected information sources and interests into a coherent debrief of what matters to that user that day. It must work as a real distributable project, not as a one-off setup tied to Barry’s personal infrastructure.
 
-It is a **new independent product built from CondenseIt**, not merely a CondenseIt skin. CondenseIt supplies the existing ingestion, ranking, scheduling, storage, and LLM plumbing. The new product replaces the identity and user experience, then adds dual editions, grounded chat, podcasts, and later an advisory discovery scout.
+It is a **new independent product**, not merely a visual skin. The inherited ingestion, ranking, scheduling, storage, and LLM plumbing remain available while the new product replaces the identity and user experience, then adds dual editions, grounded chat, podcasts, and later an advisory discovery scout.
 
 ### Core promise
 
@@ -130,7 +130,7 @@ Mobile web app ───┘                 │
                                     ▼
                     ┌──────────────────────────────┐
                     │ Docker: application gateway │
-                    │ + CondenseIt Python server  │
+                    │ + Elpis Python server       │
                     │ + built Preact frontend     │
                     └──────────────┬───────────────┘
                                    │
@@ -146,8 +146,8 @@ Mobile web app ───┘                 │
 
 ### Initial deployment shape
 
-- Prefer one application image/process initially because CondenseIt already serves its built frontend and backend together.
-- Publish one configurable host port, defaulting to CondenseIt’s `8899` unless the project intentionally changes it.
+- Prefer one application image/process initially because Elpis already serves its built frontend and backend together.
+- Publish one configurable host port, defaulting to Elpis’s `8899` unless the project intentionally changes it.
 - Run without Tailscale. Users may access the port directly over [localhost/LAN](http://localhost/LAN), place it behind a standard HTTPS reverse proxy or tunnel, or optionally use Tailscale; none of those access methods may be required by application code.
 - Store SQLite, generated issues, podcast audio, and backups in named volumes or bind mounts.
 - Reach a user-configured OpenAI-compatible LLM endpoint through outbound network access; do not expose the model endpoint through the product’s published port.
@@ -194,7 +194,7 @@ services:
 
   worker: # optional later; no published ports
     build: .
-    command: ["condenseit", "worker"]
+    command: ["elpis", "worker"]
     env_file:
       - .env
     volumes:
@@ -207,7 +207,9 @@ volumes:
   app-backups:
 ```
 
-This is an architectural contract, not a claim that CondenseIt currently provides a `worker` command. Do not add a worker container until the code has an explicit safe worker entry point and SQLite concurrency has been reviewed.
+This is an architectural contract, not a claim that the application currently provides a
+`worker` command. Do not add a worker container until the code has an explicit safe worker
+entry point and SQLite concurrency has been reviewed.
 
 ---
 
@@ -231,7 +233,7 @@ A daily issue is the central product object.
 
 ### Story
 
-- Existing CondenseIt article/source identity
+- Existing article/source identity
 - Canonical URL
 - Headline and publisher
 - Publication timestamp
@@ -259,7 +261,7 @@ A daily issue is the central product object.
 - Duration
 - Generation status and error
 
-The first implementation should avoid unnecessary schema complexity. Extend existing CondenseIt storage where practical, but do not force the new product model into ambiguous legacy fields.
+The first implementation should avoid unnecessary schema complexity. Extend existing storage where practical, but do not force the new product model into ambiguous legacy fields.
 
 ---
 
@@ -458,7 +460,7 @@ AI coding agents must commit work regularly rather than accumulating one large f
 The AI is responsible for creating and maintaining every ordinary project artifact needed to install, understand, operate, contribute to, and release the product. At minimum, keep current:
 
 - `README.md`: product purpose, screenshots, features, architecture summary, quick start, configuration, access model, and links to deeper docs
-- Original CondenseIt `LICENSE` plus clear attribution for the derived product
+- Original upstream `LICENSE` plus clear attribution for the derived product
 - `CHANGELOG.md` using a consistent release format
 - `CONTRIBUTING.md` with development, testing, design-review, and commit expectations
 - `SECURITY.md` with supported versions and vulnerability-reporting instructions
@@ -484,10 +486,10 @@ A release is not complete merely because it works on the developer’s machine. 
 
 ### Phase 0 — Independent repository and untouched baseline
 
-- Copy CondenseIt with full Git history.
-- Point `origin` to the independent Elpis repository and `upstream` to CondenseIt.
+- Copy the upstream baseline with full Git history.
+- Point `origin` to the independent Elpis repository and `upstream` to the source repository.
 - Retain MIT license/attribution.
-- Confirm upstream application works unchanged in Docker.
+- Confirm the upstream application works unchanged in Docker.
 - Tag the untouched baseline.
 
 ### Phase 1 — One-port Docker and responsive product shell
@@ -567,7 +569,7 @@ A release is not complete merely because it works on the developer’s machine. 
 When receiving this page as context:
 
 1. Read the complete document before proposing code.
-2. Inspect the current repository and verify the existing CondenseIt behavior before changing it.
+2. Inspect the current repository and verify the existing application behavior before changing it.
 3. Diagnose current architecture from code; do not guess framework APIs, routes, commands, or data models.
 4. Preserve working upstream behavior unless a requirement explicitly replaces it.
 5. Present a scoped implementation plan tied to the build phases above.
@@ -595,4 +597,4 @@ When receiving this page as context:
 - iPhone Home Screen web apps: [Apple Support](https://support.apple.com/guide/iphone/open-as-web-app-iphea86e5236/ios)
 - Podcast implementation reference: [Podcastfy](https://github.com/souzatharsis/podcastfy)
 
-*Architecture created: 2026-07-12. Product name approved as Elpis; it is an independent product built from CondenseIt history.*
+*Architecture created: 2026-07-12. Product name approved as Elpis; it is an independent product with preserved upstream history.*

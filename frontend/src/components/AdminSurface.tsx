@@ -3,9 +3,11 @@ import { Link, Redirect, Route, Switch } from 'wouter';
 
 import { AppLayout } from '../layouts/AppLayout';
 import { LoginPage } from '../pages/Login';
-import { ApiKeysPage } from '../pages/admin/ApiKeys';
+import { ProvidersPage } from '../pages/admin/Providers';
 import { DigestPage } from '../pages/Digest';
+import { OverviewPage } from '../pages/admin/Overview';
 import { BudgetPage } from '../pages/admin/Budget';
+import { AdvancedPage } from '../pages/admin/Advanced';
 import { ReadLaterPage } from '../pages/ReadLater';
 import { LlmConfigPage } from '../pages/admin/LlmConfig';
 import { StarredPage } from '../pages/Starred';
@@ -41,16 +43,19 @@ function AdminRoutes() {
   return (
     <Switch>
       <Route path="/admin">
-        <Redirect to="/admin/sources" />
+        <Redirect to="/admin/overview" />
       </Route>
+      <Route path="/admin/overview"><OverviewPage /></Route>
       <Route path="/admin/digest"><DigestPage /></Route>
       <Route path="/admin/sources"><SourcesPage /></Route>
       <Route path="/admin/llm"><LlmConfigPage /></Route>
-      <Route path="/admin/keys"><ApiKeysPage /></Route>
+      <Route path="/admin/providers"><ProvidersPage /></Route>
+      <Route path="/admin/keys"><Redirect to="/admin/providers" /></Route>
       <Route path="/admin/budget"><BudgetPage /></Route>
       <Route path="/admin/read-later"><ReadLaterPage /></Route>
       <Route path="/admin/starred"><StarredPage /></Route>
       <Route path="/admin/schedule"><SchedulePage /></Route>
+      <Route path="/admin/advanced"><AdvancedPage /></Route>
       <Route path="/admin/logs"><LogsPage /></Route>
       <Route path="/admin/digest-settings"><SettingsPage /></Route>
       <Route path="/admin/profile"><PreferencesPage /></Route>
@@ -120,7 +125,7 @@ export function AdminSurface({ loginOnly = false }: AdminSurfaceProps) {
 
   useEffect(() => {
     if (loginOnly && authState === 'authenticated') {
-      window.location.replace('/admin/sources');
+      window.location.replace('/admin/overview');
     }
   }, [authState, loginOnly]);
 
@@ -144,7 +149,7 @@ export function AdminSurface({ loginOnly = false }: AdminSurfaceProps) {
       <LoginPage
         onLogin={() => {
           if (loginOnly) {
-            window.location.assign('/admin/sources');
+            window.location.assign('/admin/overview');
           } else {
             setAuthState('authenticated');
           }

@@ -28,7 +28,7 @@ def parse_opml_outlines(body: str) -> list[dict[str, str]]:
     return out
 
 
-def build_opml(sources: list[dict[str, Any]], title: str = "CondenseIt") -> str:
+def build_opml(sources: list[dict[str, Any]], title: str = "Elpis") -> str:
     """Build OPML 2.0 body from DB source rows (RSS only)."""
     esc_title = html.escape(title, quote=True)
     lines = [

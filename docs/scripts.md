@@ -43,18 +43,19 @@ for the full step-by-step guide.
 
 ### `scripts/firebase-deploy.sh`
 
-Deploy the full stack to Firebase Hosting + Cloud Run. Enables GCP APIs,
-creates the Artifact Registry repo and GCS bucket on first run, builds the
-frontend, builds and pushes the Docker image, deploys the Cloud Run service,
-and deploys the SPA to Firebase Hosting.
+This script is intentionally disabled. Elpis currently uses SQLite WAL, which
+cannot safely use Cloud Storage FUSE, and Cloud Run revision rollouts do not
+provide a SQLite writer fence. The script fails before invoking any cloud,
+Docker, or Firebase command.
+
+Use the stable local-disk VPS deployment instead:
 
 ```bash
-./scripts/firebase-deploy.sh
-./scripts/firebase-deploy.sh --skip-build  # re-deploy without rebuilding
+./scripts/deploy.sh
 ```
 
-Requires `FIREBASE_PROJECT_ID` in `.env` and local `gcloud`, `firebase`, and
-`docker` CLIs. See [deploy-firebase.md](deploy-firebase.md) for full setup.
+See [deploy-firebase.md](deploy-firebase.md) for the blocked-target rationale
+and the prerequisites for a future transactional database migration.
 
 ## Docker scripts
 
@@ -149,12 +150,12 @@ INSTALLER_NONINTERACTIVE=1 bash scripts/install.sh
 
 ## Maintenance
 
-### `scripts/cleanup-condenseit-logs.sh`
+### `scripts/cleanup-elpis-logs.sh`
 
 Trim old log files.
 
 ```bash
-./scripts/cleanup-condenseit-logs.sh all-safe
+./scripts/cleanup-elpis-logs.sh all-safe
 ```
 
 ### `scripts/export-config.sh`

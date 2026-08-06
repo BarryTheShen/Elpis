@@ -9,14 +9,13 @@ import logging
 from datetime import UTC, datetime
 from typing import Any
 
-import httpx
-
 from condenseit.api_urls import REDDIT_WEB_BASE
 from condenseit.collectors.article_text import fetch_article_text
 from condenseit.collectors.feed_dates import unix_timestamp_to_iso
 from condenseit.collectors.health import collect_with_health
 from condenseit.config import RedditConfig
 from condenseit.fetch_headers import digest_fetch_headers
+from condenseit.network import httpx_client
 from condenseit.store.database import ContentStore
 
 logger = logging.getLogger(__name__)
@@ -30,7 +29,7 @@ class RedditCollector:
 
     def __init__(self, sources: list[RedditConfig]) -> None:
         self.sources = sources
-        self._client = httpx.Client(
+        self._client = httpx_client(
             timeout=30.0,
             follow_redirects=True,
             headers=digest_fetch_headers(),

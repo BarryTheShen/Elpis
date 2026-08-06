@@ -1,10 +1,9 @@
 # Elpis
 
-> An independent, self-hosted daily publication built on CondenseIt. Elpis
-> retains CondenseIt's mature ingestion, ranking, scheduling, storage, and LLM
-> provider foundation while replacing its identity and publication experience.
-> The project preserves the upstream Git history and MIT attribution, but has
-> its own roadmap and release process.
+> Elpis is an independent, self-hosted daily publication. It combines mature
+> ingestion, ranking, scheduling, storage, and LLM provider capabilities with
+> a focused publication experience. The project has its own roadmap and release
+> process; upstream provenance and MIT attribution are documented below.
 
 ![Python 3.11+](https://img.shields.io/badge/python-3.11%2B-blue)
 ![License MIT](https://img.shields.io/badge/license-MIT-green)
@@ -19,18 +18,17 @@
 
 ## Modes
 
-| | Local | Remote | OpenAI-compatible |
+| | Local | Hosted | OpenAI-compatible |
 |-|-------|--------|-------------------|
-| **LLM** | Ollama on your Mac (Metal) | OpenRouter (cloud) | Any `/v1/chat/completions` server |
-| **Scheduling** | `elpis run` from CLI, or `CONDENSEIT_SCHEDULER_ENABLED=1` | Built-in scheduler (`CONDENSEIT_SCHEDULER_ENABLED=1`) | Same as local or remote |
-| **Setup** | `uv sync` + `elpis serve` | `bootstrap-server.sh` + `deploy.sh` | Set `OPENAI_API_BASE_URL` + `OPENAI_API_KEY` |
-| **Cost** | Free (local hardware) | Pay-per-token via OpenRouter | Depends on server |
+| **LLM** | Ollama | OpenRouter, OpenAI, Anthropic, Gemini, Groq, Mistral, DeepSeek, Together AI | Any `/v1/chat/completions` server |
+| **Setup** | Select Ollama in **Admin > Providers** | Select a provider and save its key in **Admin > Providers** | Select **Custom OpenAI-compatible** and enter its base URL |
+| **Cost** | Free (local hardware) | Provider pricing; OpenRouter budgets are enforced | Depends on server |
 
-Both modes use the same unified web UI: digest reader and admin panel.
+All modes use the same LiteLLM-backed model-calling path, unified web UI,
+digest reader, and admin panel.
 
-The public distribution and CLI are **Elpis**. The `src/condenseit` Python
-namespace and `CONDENSEIT_*` environment variables remain inherited internal
-configuration seams; they are not the product name.
+The public distribution and CLI are **Elpis**. Legacy `CONDENSEIT_*` environment
+variable names remain supported for existing deployments.
 
 ---
 
@@ -71,12 +69,11 @@ here?" breakdown so you can see exactly what drove its position.
 | **Podcasts** | New episodes from podcast RSS feeds, with iTunes search to find feed URLs |
 
 ### Admin panel
-
 | Page | What it does |
 |------|-------------|
 | **Sources** | Add/remove all source types; per-source keyword filters (show only, hide, highlight); filter by category; set priority; import/export OPML |
-| **LLM** | Provider (Ollama / OpenRouter / OpenAI-compatible), model, OpenRouter cheapest-model option, OpenAI-compatible base URL, Ollama pull/delete |
-| **API keys** | OpenRouter key storage, encrypted at rest in SQLite |
+| **Providers** | Select the active backend, configure provider endpoints, save encrypted API keys, and manage Ollama models |
+| **LLM** | Set the active model plus reasoning effort and extended-thinking budget |
 | **Schedule** | Enable/disable automatic digest runs, set daily run times, and view the next scheduled run |
 | **Settings** | Article limits, category balance, article age cutoff, language filter, summary format, and **ranking weights** |
 | **Preferences** | Learning profile: rating distribution, liked/disliked terms and phrases, category and source scores, implicit signal counts, and time-decay info |
@@ -112,11 +109,8 @@ cd frontend && npm ci && npm run build && cd ..
 # Copy and edit config
 cp config.example.yaml config.yaml
 cp .env.example .env
-# Edit config.yaml: add your feeds under the feeds/youtube_channels sections.
-# The example defaults to llm.provider: "openrouter" (requires OPENROUTER_API_KEY in .env).
-# Change llm.provider to "ollama" if you installed Ollama above, or set it to
-# "openai" and configure llm.openai_base_url + OPENAI_API_KEY for any
-# OpenAI-compatible server (LM Studio, vLLM, llama.cpp, etc.).
+# Add feeds under feeds/youtube_channels, then choose the backend in Admin > Providers.
+# Enter the model and reasoning controls in Admin > LLM.
 
 # Start the web UI
 elpis serve --port 8899
@@ -141,7 +135,7 @@ effect immediately without a restart.
 ### Docker
 
 Elpis builds its own single-port application image by default; it does not pull
-an upstream CondenseIt image. Digest runs and Ollama stay on the host.
+an unrelated upstream image. Digest runs and Ollama stay on the host.
 
 ```bash
 git clone git@github.com:BarryTheShen/Elpis.git
@@ -212,12 +206,12 @@ Detailed setup guides:
 
 - [Local deployment](docs/deploy-local.md)
 - [VPS deployment](docs/deploy-vps.md)
-- [Firebase / Cloud Run deployment](docs/deploy-firebase.md)
+- [Firebase / Cloud Run deployment (disabled: transactional DB required)](docs/deploy-firebase.md)
 - [Add to home screen (iOS and Android)](docs/add-to-home-screen.md)
 
 Key `config.yaml` sections:
 
-- `llm` - provider (`ollama` / `openrouter` / `fallback` / `openai`), model, budget limits, OpenAI-compatible base URL
+- `llm` - active provider, model, endpoint overrides, OpenRouter budgets, and reasoning controls. Provider credentials are managed in **Admin > Providers**.
 - `feeds` / `youtube_channels` / `watch_urls` - legacy YAML-seeded sources (still supported)
 - `schedule.times` - default daily run times (overridden by Admin > Schedule)
 - `vps` - SSH target for `scripts/deploy.sh`
@@ -234,9 +228,11 @@ Settings also editable live in the admin panel (stored in SQLite, no restart nee
   `source_preference_weight`, `implicit_signal_weight`,
   `rating_decay_half_life_days`, `min_ratings_for_learning`,
   `embedding_preference_weight`, `topic_score_weight`
-- **LLM** - provider, model, OpenRouter model, cheapest-model selection, OpenAI-compatible base URL and model
+- **Providers** - active backend, endpoint overrides, encrypted API keys, and Ollama model management
+- **LLM** - model, reasoning effort, extended-thinking toggle, and thinking token budget
 - **Budget** - OpenRouter daily and monthly budget limits
 - **Security** - admin password
+- **Advanced** - encrypted server-side HTTP(S)/SOCKS5 proxy and bypass hosts
 
 ---
 

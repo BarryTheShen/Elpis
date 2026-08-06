@@ -39,7 +39,7 @@ docker compose build
 docker compose push
 ```
 
-Never substitute an upstream CondenseIt image for an Elpis deployment.
+Never substitute an upstream image for an Elpis deployment.
 
 ## Health and persistent data
 
@@ -54,6 +54,6 @@ Back up `./data/` before upgrades or migrations.
 
 ## Attribution
 
-Elpis is independently released and retains CondenseIt's upstream history and
-original MIT license. Keep CondenseIt configured as `upstream`; publish only
+Elpis is independently released and retains upstream history and the original
+MIT license. Keep the source repository configured as `upstream`; publish only
 Elpis-owned image tags and releases.

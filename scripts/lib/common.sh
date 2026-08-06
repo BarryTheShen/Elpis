@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Shared helpers for CondenseIt scripts.
+# Shared helpers for Elpis scripts.
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"

@@ -1,7 +1,7 @@
 export type Theme = 'dark' | 'light';
 
 const DEFAULT_THEME: Theme = 'light';
-const THEME_STORAGE_KEY = 'condenseit:theme';
+const THEME_STORAGE_KEY = 'elpis:theme';
 
 /** Check that a persisted value is one of the supported themes. */
 function isTheme(value: string | null): value is Theme {

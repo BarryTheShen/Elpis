@@ -166,16 +166,45 @@ class ContentStore:
             }
             if "title" not in existing_cols:
                 self.db.execute("ALTER TABLE read_articles ADD COLUMN title TEXT")
+        if "digest_runs" not in self.db.table_names():
+            self.db["digest_runs"].create(
+                {
+                    "id": int,
+                    "state": str,
+                    "message": str,
+                    "started_at": str,
+                    "finished_at": str,
+                    "digest_id": int,
+                    "stats_json": str,
+                    "error": str,
+                    "dry_run": int,
+                    "skip_deploy": int,
+                },
+                pk="id",
+            )
+
         if "digest_run_logs" not in self.db.table_names():
             self.db["digest_run_logs"].create(
                 {
                     "id": int,
+                    "run_id": int,
                     "digest_id": int,
                     "log_text": str,
                     "created_at": str,
                 },
                 pk="id",
             )
+        else:
+            existing_cols = {
+                row[1]
+                for row in self.db.execute(
+                    "PRAGMA table_info(digest_run_logs)",
+                ).fetchall()
+            }
+            if "run_id" not in existing_cols:
+                self.db.execute(
+                    "ALTER TABLE digest_run_logs ADD COLUMN run_id INTEGER",
+                )
         if "read_later" not in self.db.table_names():
             self.db["read_later"].create(
                 {
@@ -702,9 +731,128 @@ class ContentStore:
             self.db.conn.commit()
         return updated
 
-    def save_run_log(self, digest_id: int | None, log_text: str) -> int:
+    def _decode_digest_run(self, row: dict[str, Any]) -> dict[str, Any]:
+        """Convert a stored digest-run row into the API representation."""
+        out = dict(row)
+        raw_stats = out.pop("stats_json", "{}")
+        try:
+            stats = json.loads(raw_stats) if isinstance(raw_stats, str) else raw_stats
+        except (json.JSONDecodeError, TypeError):
+            stats = {}
+        out["stats"] = stats if isinstance(stats, dict) else {}
+        out["dry_run"] = bool(out.get("dry_run", 0))
+        out["skip_deploy"] = bool(out.get("skip_deploy", 0))
+        return out
+
+    def create_digest_run(
+        self,
+        *,
+        started_at: str,
+        dry_run: bool = False,
+        skip_deploy: bool = False,
+    ) -> int:
+        """Create a running digest record and return its ID."""
+        self.db["digest_runs"].insert(
+            {
+                "state": "running",
+                "message": "Running...",
+                "started_at": started_at,
+                "finished_at": None,
+                "digest_id": None,
+                "stats_json": "{}",
+                "error": "",
+                "dry_run": 1 if dry_run else 0,
+                "skip_deploy": 1 if skip_deploy else 0,
+            },
+        )
+        return int(self.db.execute("SELECT last_insert_rowid()").fetchone()[0])
+
+    def update_digest_run(
+        self,
+        run_id: int,
+        *,
+        state: str,
+        message: str,
+        finished_at: str,
+        digest_id: int | None = None,
+        stats: dict[str, Any] | None = None,
+        error: str | None = None,
+    ) -> None:
+        """Store the terminal result for a digest run."""
+        self.db["digest_runs"].update(
+            run_id,
+            {
+                "state": state,
+                "message": message,
+                "finished_at": finished_at,
+                "digest_id": digest_id,
+                "stats_json": json.dumps(stats or {}),
+                "error": error or "",
+            },
+        )
+
+    def reconcile_running_digest_runs(self, *, finished_at: str | None = None) -> int:
+        """Mark runs left active by the single previous server process
+        as interrupted."""
+        completed_at = finished_at or datetime.now(UTC).strftime(
+            "%Y-%m-%dT%H:%M:%SZ",
+        )
+        message = "Digest interrupted by server restart."
+        cursor = self.db.execute(
+            "UPDATE digest_runs"
+            " SET state = 'failed', message = ?, finished_at = ?, error = ?"
+            " WHERE state = 'running'",
+            [message, completed_at, message],
+        )
+        self.db.conn.commit()
+        return int(cursor.rowcount)
+
+    def list_digest_runs(self, limit: int = 20) -> list[dict[str, Any]]:
+        """Return recent structured digest-run records."""
+        rows = self.db.query(
+            "SELECT r.*,"
+            " (SELECT l.id FROM digest_run_logs l"
+            "  WHERE l.run_id = r.id ORDER BY l.id DESC LIMIT 1) AS log_id"
+            " FROM digest_runs r ORDER BY r.id DESC LIMIT ?",
+            [limit],
+        )
+        return [self._decode_digest_run(dict(row)) for row in rows]
+
+    def get_digest_run(self, run_id: int) -> dict[str, Any] | None:
+        """Return one structured digest-run record."""
+        rows = list(
+            self.db.query(
+                "SELECT r.*,"
+                " (SELECT l.id FROM digest_run_logs l"
+                "  WHERE l.run_id = r.id ORDER BY l.id DESC LIMIT 1) AS log_id"
+                " FROM digest_runs r WHERE r.id = ?",
+                [run_id],
+            ),
+        )
+        return self._decode_digest_run(dict(rows[0])) if rows else None
+
+    def latest_digest_run(self) -> dict[str, Any] | None:
+        """Return the most recent structured digest-run record."""
+        rows = list(
+            self.db.query(
+                "SELECT r.*,"
+                " (SELECT l.id FROM digest_run_logs l"
+                "  WHERE l.run_id = r.id ORDER BY l.id DESC LIMIT 1) AS log_id"
+                " FROM digest_runs r ORDER BY r.id DESC LIMIT 1",
+            ),
+        )
+        return self._decode_digest_run(dict(rows[0])) if rows else None
+
+    def save_run_log(
+        self,
+        digest_id: int | None,
+        log_text: str,
+        *,
+        run_id: int | None = None,
+    ) -> int:
         """Persist the captured log from a digest run."""
         row = {
+            "run_id": run_id,
             "digest_id": digest_id,
             "log_text": log_text,
             "created_at": datetime.now(UTC).isoformat(),
@@ -716,20 +864,26 @@ class ContentStore:
         """Return recent run log summaries (no full text)."""
         return list(
             self.db.query(
-                "SELECT id, digest_id, created_at,"
-                " substr(log_text, 1, 200) AS log_preview"
-                " FROM digest_run_logs ORDER BY id DESC LIMIT ?",
+                "SELECT l.id, l.run_id, l.digest_id, l.created_at,"
+                " substr(l.log_text, 1, 200) AS log_preview,"
+                " r.state AS status"
+                " FROM digest_run_logs l"
+                " LEFT JOIN digest_runs r ON r.id = l.run_id"
+                " ORDER BY l.id DESC LIMIT ?",
                 [limit],
-            )
+            ),
         )
 
     def get_run_log(self, log_id: int) -> dict[str, Any] | None:
         """Return a single run log by id."""
         rows = list(
             self.db.query(
-                "SELECT * FROM digest_run_logs WHERE id = ?",
+                "SELECT l.*, r.state AS status"
+                " FROM digest_run_logs l"
+                " LEFT JOIN digest_runs r ON r.id = l.run_id"
+                " WHERE l.id = ?",
                 [log_id],
-            )
+            ),
         )
         return dict(rows[0]) if rows else None
 
@@ -737,8 +891,11 @@ class ContentStore:
         """Return the most recent run log."""
         rows = list(
             self.db.query(
-                "SELECT * FROM digest_run_logs ORDER BY id DESC LIMIT 1",
-            )
+                "SELECT l.*, r.state AS status"
+                " FROM digest_run_logs l"
+                " LEFT JOIN digest_runs r ON r.id = l.run_id"
+                " ORDER BY l.id DESC LIMIT 1",
+            ),
         )
         return dict(rows[0]) if rows else None
 

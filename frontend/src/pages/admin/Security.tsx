@@ -241,11 +241,11 @@ export function SecurityPage() {
               {info.source === 'db'
                 ? 'set via admin panel'
                 : info.source === 'env'
-                  ? 'CONDENSEIT_AUTH_PASSWORD env var'
+                  ? 'environment variable'
                   : 'built-in default'}
             </code>
             {'. '}
-            Passwords set via admin panel take priority over the env var.
+            Passwords set via admin panel take priority over the environment variable.
           </p>
         </Card>
       )}

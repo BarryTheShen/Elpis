@@ -2,7 +2,30 @@
 
 from __future__ import annotations
 
+from types import SimpleNamespace
+
 from condenseit.collectors.youtube import YouTubeCollector
+from condenseit.network import NetworkProxySettings
+
+
+def test_fetch_transcript_joins_snippet_text() -> None:
+    class FakeTranscriptApi:
+        def fetch(self, video_id: str) -> SimpleNamespace:
+            assert video_id == "video-123"
+            return SimpleNamespace(
+                snippets=[
+                    SimpleNamespace(text="First sentence."),
+                    {"text": "Second sentence."},
+                ],
+            )
+
+    collector = object.__new__(YouTubeCollector)
+    collector._transcript_api = FakeTranscriptApi()
+    collector._network_settings = NetworkProxySettings()
+
+    assert collector._fetch_transcript("video-123") == (
+        "First sentence. Second sentence."
+    )
 
 
 def test_entry_plain_text_from_summary_detail_strips_html() -> None:

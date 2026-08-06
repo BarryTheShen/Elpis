@@ -1,12 +1,12 @@
 /**
  * Client-side digest item filters (localhost UI and static PWA).
- * Expects JSON in #condenseit-digest-items-data and DOM hooks in #digest-browse-root.
+ * Expects JSON in #elpis-digest-items-data and DOM hooks in #digest-browse-root.
  */
 (function () {
   'use strict';
 
   const root = document.getElementById('digest-browse-root');
-  const dataEl = document.getElementById('condenseit-digest-items-data');
+  const dataEl = document.getElementById('elpis-digest-items-data');
   const listEl = document.getElementById('digest-item-list');
   const emptyEl = document.getElementById('digest-filter-empty');
   const countEl = document.getElementById('digest-filter-count');

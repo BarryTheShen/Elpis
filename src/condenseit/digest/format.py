@@ -12,7 +12,7 @@ def build_digest_markdown(
     """Build digest markdown; every article/video includes a clickable link."""
     stamp = datetime.now(UTC).strftime("%Y-%m-%d %H:%M UTC")
     lines: list[str] = [
-        "# CondenseIt Digest",
+        "# Elpis Digest",
         "",
         f"_{stamp}_",
         "",

@@ -2,8 +2,17 @@ import { useState, useEffect } from 'preact/hooks';
 import { api } from '../../lib/api';
 import type { RunLog, RunLogSummary } from '../../lib/types';
 import { Card } from '../../components/Card';
+import { Badge } from '../../components/Badge';
 import { Spinner } from '../../components/Spinner';
 import { formatDigestLabel } from '../../lib/dates';
+
+function statusVariant(
+  status: RunLogSummary['status'],
+): 'ok' | 'error' | 'default' {
+  if (status === 'completed') return 'ok';
+  if (status === 'failed') return 'error';
+  return 'default';
+}
 
 export function LogsPage() {
   const [logs, setLogs] = useState<RunLogSummary[]>([]);
@@ -83,6 +92,11 @@ export function LogsPage() {
                 <span class="text-sm font-semibold text-slate-800 dark:text-slate-200">
                   Run #{log.id}
                 </span>
+                {log.status && (
+                  <Badge variant={statusVariant(log.status)}>
+                    {log.status}
+                  </Badge>
+                )}
                 {log.digest_id != null && (
                   <span class="text-xs text-slate-400 dark:text-slate-500">
                     Digest #{log.digest_id}

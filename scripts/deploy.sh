@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # =============================================================
-# deploy.sh - Build and deploy CondenseIt to your VPS
+# deploy.sh - Build and deploy Elpis to your VPS
 #
 # Builds the frontend SPA, packages a wheel, rsyncs everything
 # to the VPS, runs database migrations, and restarts the service.
@@ -303,7 +303,7 @@ fi
 # Smoke test
 # ---------------------------------------------------------------------------
 info "Smoke check..."
-_COOKIE_JAR="$(mktemp /tmp/condenseit_smoke_XXXXXX.txt)"
+_COOKIE_JAR="$(mktemp /tmp/elpis_smoke_XXXXXX.txt)"
 _AUTH_PW="${CONDENSEIT_AUTH_PASSWORD:-${DIGEST_PWA_AUTH_PASSWORD:-}}"
 
 if [[ -n "$_AUTH_PW" ]]; then

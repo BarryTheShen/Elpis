@@ -3,8 +3,8 @@
 ## Scope
 
 Deliver Elpis’s one-port, responsive publication shell without changing the
-inherited CondenseIt collection, ranking, generation, storage, scheduling, or
-provider behavior.
+inherited collection, ranking, generation, storage, scheduling, or provider
+behavior.
 
 ## Reuse map
 

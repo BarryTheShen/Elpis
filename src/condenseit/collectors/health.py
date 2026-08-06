@@ -4,6 +4,8 @@ import logging
 from collections.abc import Callable
 from typing import TypeVar
 
+from condenseit.network import load_network_proxy, sanitize_network_text
+
 logger = logging.getLogger(__name__)
 
 T = TypeVar("T")
@@ -20,6 +22,7 @@ def collect_with_health(
     try:
         items = collect_fn()
     except Exception as exc:
-        logger.exception("%s", log_label)
-        return [], (url, str(exc), 0)
+        error = sanitize_network_text(str(exc), load_network_proxy())
+        logger.error("%s: %s", log_label, error)
+        return [], (url, error, 0)
     return items, (url, None, len(items))
