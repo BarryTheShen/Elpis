@@ -43,15 +43,15 @@ function BootstrapPanel({
           description="Your initial preferences have been saved. Run a digest to see them in action."
         />
         {result.profile_summary && (
-          <p class="text-sm text-slate-600 dark:text-slate-400 italic mb-3">
+          <p className="text-sm text-slate-600 dark:text-slate-400 italic mb-3">
             "{result.profile_summary}"
           </p>
         )}
-        <div class="flex flex-wrap gap-1.5">
+        <div className="flex flex-wrap gap-1.5">
           {result.high_keywords.map((k) => (
             <span
               key={k}
-              class="text-xs px-2 py-0.5 rounded-full bg-blue-50 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 font-medium"
+              className="text-xs px-2 py-0.5 rounded-full bg-blue-50 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 font-medium"
             >
               {k}
             </span>
@@ -59,7 +59,7 @@ function BootstrapPanel({
           {result.medium_keywords.map((k) => (
             <span
               key={k}
-              class="text-xs px-2 py-0.5 rounded-full bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400"
+              className="text-xs px-2 py-0.5 rounded-full bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400"
             >
               {k}
             </span>
@@ -75,7 +75,7 @@ function BootstrapPanel({
         title="Personalise from scratch"
         description="Tell the AI what you care about and it will configure your initial ranking preferences."
       />
-      <form onSubmit={handleSubmit} class="space-y-3">
+      <form onSubmit={handleSubmit} className="space-y-3">
         <textarea
           value={text}
           onInput={(e) => setText((e.target as HTMLTextAreaElement).value)}
@@ -84,7 +84,7 @@ function BootstrapPanel({
             ' Not interested in crypto, sports, or celebrity news."'
           }
           rows={4}
-          class={[
+          className={[
             'w-full text-sm rounded-lg px-3 py-2 resize-none',
             'border border-slate-200 dark:border-slate-700',
             'bg-white dark:bg-slate-900',
@@ -94,12 +94,12 @@ function BootstrapPanel({
           ].join(' ')}
         />
         {error && (
-          <p class="text-xs text-rose-500 dark:text-rose-400">{error}</p>
+          <p className="text-xs text-rose-500 dark:text-rose-400">{error}</p>
         )}
         <button
           type="submit"
           disabled={loading || !text.trim()}
-          class={[
+          className={[
             'flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium',
             'bg-blue-600 dark:bg-blue-500 text-white',
             'hover:bg-blue-700 dark:hover:bg-blue-400',
@@ -124,6 +124,14 @@ const scoreColor = (score: number) =>
       : 'text-slate-400 dark:text-slate-500';
 
 const scorePrefix = (score: number) => (score > 0 ? '+' : '');
+const RATING_STARS = ['1', '2', '3', '4', '5'];
+const RATING_BAR_COLORS: Record<string, string> = {
+  '1': 'bg-rose-400 dark:bg-rose-500',
+  '2': 'bg-orange-400 dark:bg-orange-500',
+  '3': 'bg-amber-400 dark:bg-amber-500',
+  '4': 'bg-blue-400 dark:bg-blue-500',
+  '5': 'bg-emerald-500 dark:bg-emerald-400',
+};
 
 /** Bar representing a signed score clamped to [-2, 2]. */
 function ScoreBar({ score, maxAbs = 2 }: { score: number; maxAbs?: number }) {
@@ -131,23 +139,23 @@ function ScoreBar({ score, maxAbs = 2 }: { score: number; maxAbs?: number }) {
   const pct = Math.abs(clamped) / maxAbs;
   const isPos = clamped >= 0;
   return (
-    <div class="flex items-center gap-1.5 flex-1 min-w-0">
+    <div className="flex items-center gap-1.5 flex-1 min-w-0">
       {/* Negative side */}
-      <div class="flex-1 flex justify-end">
+      <div className="flex-1 flex justify-end">
         {!isPos && (
           <div
-            class="h-2 rounded-full bg-rose-400 dark:bg-rose-500"
+            className="h-2 rounded-full bg-rose-400 dark:bg-rose-500"
             style={{ width: `${pct * 100}%` }}
           />
         )}
       </div>
       {/* Centre mark */}
-      <div class="w-px h-3 bg-slate-300 dark:bg-slate-600 flex-shrink-0" />
+      <div className="w-px h-3 bg-slate-300 dark:bg-slate-600 flex-shrink-0" />
       {/* Positive side */}
-      <div class="flex-1">
+      <div className="flex-1">
         {isPos && (
           <div
-            class="h-2 rounded-full bg-blue-400 dark:bg-blue-500"
+            className="h-2 rounded-full bg-blue-400 dark:bg-blue-500"
             style={{ width: `${pct * 100}%` }}
           />
         )}
@@ -162,33 +170,28 @@ function RatingDistribution({
 }: {
   distribution: Record<string, number>;
 }) {
-  const stars = ['1', '2', '3', '4', '5'];
-  const max = Math.max(...stars.map((s) => distribution[s] ?? 0), 1);
-  const total = stars.reduce((acc, s) => acc + (distribution[s] ?? 0), 0);
-  const barColors: Record<string, string> = {
-    '1': 'bg-rose-400 dark:bg-rose-500',
-    '2': 'bg-orange-400 dark:bg-orange-500',
-    '3': 'bg-amber-400 dark:bg-amber-500',
-    '4': 'bg-blue-400 dark:bg-blue-500',
-    '5': 'bg-emerald-500 dark:bg-emerald-400',
-  };
+  const max = Math.max(...RATING_STARS.map((s) => distribution[s] ?? 0), 1);
+  const total = RATING_STARS.reduce(
+    (acc, s) => acc + (distribution[s] ?? 0),
+    0,
+  );
   return (
-    <div class="space-y-1.5">
-      {stars.map((s) => {
+    <div className="space-y-1.5">
+      {RATING_STARS.map((s) => {
         const count = distribution[s] ?? 0;
         const pct = total > 0 ? (count / max) * 100 : 0;
         return (
-          <div key={s} class="flex items-center gap-2">
-            <span class="w-4 text-right text-xs text-slate-500 dark:text-slate-400 font-mono flex-shrink-0">
+          <div key={s} className="flex items-center gap-2">
+            <span className="w-4 text-right text-xs text-slate-500 dark:text-slate-400 font-mono flex-shrink-0">
               {s}
             </span>
-            <div class="flex-1 bg-slate-100 dark:bg-slate-800 rounded-full h-2 overflow-hidden">
+            <div className="flex-1 bg-slate-100 dark:bg-slate-800 rounded-full h-2 overflow-hidden">
               <div
-                class={`h-2 rounded-full transition-all ${barColors[s]}`}
+                className={`h-2 rounded-full transition-all ${RATING_BAR_COLORS[s]}`}
                 style={{ width: `${pct}%` }}
               />
             </div>
-            <span class="w-6 text-right text-xs text-slate-400 dark:text-slate-500 font-mono flex-shrink-0">
+            <span className="w-6 text-right text-xs text-slate-400 dark:text-slate-500 font-mono flex-shrink-0">
               {count}
             </span>
           </div>
@@ -218,7 +221,7 @@ function TermBadge({
       : 'bg-rose-50 dark:bg-rose-900/30 text-rose-600 dark:text-rose-400';
   return (
     <span
-      class={`px-2 py-0.5 rounded-full font-medium ${baseClass}`}
+      className={`px-2 py-0.5 rounded-full font-medium ${baseClass}`}
       style={{ fontSize: `${fontSize}px` }}
       title={`Score: ${score.toFixed(2)}`}
     >
@@ -246,26 +249,26 @@ export function PreferencesPage() {
 
   if (loading) {
     return (
-      <div class="flex items-center justify-center py-20">
+      <div className="flex items-center justify-center py-20">
         <Spinner size="lg" className="text-blue-600 dark:text-blue-400" />
       </div>
     );
   }
 
   return (
-    <div class="space-y-5">
+    <div className="space-y-5">
       <div>
-        <h1 class="text-2xl font-bold tracking-tight text-slate-900 dark:text-slate-100">
+        <h1 className="text-2xl font-bold tracking-tight text-slate-900 dark:text-slate-100">
           Learning profile
         </h1>
-        <p class="mt-1 text-sm text-slate-500 dark:text-slate-400">
+        <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">
           What the ranking engine has learned from your star ratings and
           engagement signals.
         </p>
       </div>
 
       {error && (
-        <div class="px-4 py-3 text-sm rounded-lg bg-red-50 dark:bg-red-900/20 text-red-700 dark:text-red-300 border border-red-200 dark:border-red-800">
+        <div className="px-4 py-3 text-sm rounded-lg bg-red-50 dark:bg-red-900/20 text-red-700 dark:text-red-300 border border-red-200 dark:border-red-800">
           {error}
         </div>
       )}
@@ -274,9 +277,9 @@ export function PreferencesPage() {
         <>
           {/* Learning status */}
           <Card>
-            <div class="flex items-center gap-3 flex-wrap">
+            <div className="flex items-center gap-3 flex-wrap">
               <span
-                class={[
+                className={[
                   'inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium',
                   profile.learning_active
                     ? 'bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300'
@@ -284,7 +287,7 @@ export function PreferencesPage() {
                 ].join(' ')}
               >
                 <span
-                  class={[
+                  className={[
                     'w-1.5 h-1.5 rounded-full',
                     profile.learning_active ? 'bg-blue-500' : 'bg-slate-400',
                   ].join(' ')}
@@ -293,22 +296,22 @@ export function PreferencesPage() {
                   ? 'Learning active'
                   : 'Not enough ratings yet'}
               </span>
-              <span class="text-sm text-slate-500 dark:text-slate-400">
+              <span className="text-sm text-slate-500 dark:text-slate-400">
                 {profile.rating_count} explicit rating
                 {profile.rating_count !== 1 ? 's' : ''}
                 {!profile.learning_active &&
                   ` — need at least ${profile.min_ratings_threshold} to activate`}
               </span>
               {profile.embedding_active && (
-                <span class="inline-flex items-center gap-1 text-xs px-2 py-0.5 rounded-full bg-violet-50 dark:bg-violet-900/20 text-violet-600 dark:text-violet-400 font-medium">
-                  <span class="w-1.5 h-1.5 rounded-full bg-violet-500" />
+                <span className="inline-flex items-center gap-1 text-xs px-2 py-0.5 rounded-full bg-violet-50 dark:bg-violet-900/20 text-violet-600 dark:text-violet-400 font-medium">
+                  <span className="w-1.5 h-1.5 rounded-full bg-violet-500" />
                   Semantic profile active
                 </span>
               )}
               <button
                 type="button"
                 onClick={() => setShowBootstrap((v) => !v)}
-                class="ml-auto text-xs text-blue-600 dark:text-blue-400 hover:underline"
+                className="ml-auto text-xs text-blue-600 dark:text-blue-400 hover:underline"
               >
                 {showBootstrap
                   ? 'Hide'
@@ -318,7 +321,7 @@ export function PreferencesPage() {
               </button>
             </div>
             {!profile.learning_active && (
-              <p class="mt-3 text-xs text-slate-400 dark:text-slate-500">
+              <p className="mt-3 text-xs text-slate-400 dark:text-slate-500">
                 Star articles on the digest cards to train your ranking
                 preferences.
               </p>
@@ -353,43 +356,43 @@ export function PreferencesPage() {
               title="Engagement signals"
               description="Implicit learning from how you interact with articles, beyond star ratings."
             />
-            <div class="grid grid-cols-3 gap-3 text-center">
-              <div class="space-y-1">
-                <p class="text-2xl font-bold text-blue-600 dark:text-blue-400">
+            <div className="grid grid-cols-3 gap-3 text-center">
+              <div className="space-y-1">
+                <p className="text-2xl font-bold text-blue-600 dark:text-blue-400">
                   {profile.implicit_read_count}
                 </p>
-                <p class="text-xs text-slate-500 dark:text-slate-400">
+                <p className="text-xs text-slate-500 dark:text-slate-400">
                   Read
-                  <span class="block text-slate-400 dark:text-slate-500">
+                  <span className="block text-slate-400 dark:text-slate-500">
                     mild positive
                   </span>
                 </p>
               </div>
-              <div class="space-y-1">
-                <p class="text-2xl font-bold text-amber-500 dark:text-amber-400">
+              <div className="space-y-1">
+                <p className="text-2xl font-bold text-amber-500 dark:text-amber-400">
                   {profile.implicit_saved_count}
                 </p>
-                <p class="text-xs text-slate-500 dark:text-slate-400">
+                <p className="text-xs text-slate-500 dark:text-slate-400">
                   Saved for later
-                  <span class="block text-slate-400 dark:text-slate-500">
+                  <span className="block text-slate-400 dark:text-slate-500">
                     strong positive
                   </span>
                 </p>
               </div>
-              <div class="space-y-1">
-                <p class="text-2xl font-bold text-rose-500 dark:text-rose-400">
+              <div className="space-y-1">
+                <p className="text-2xl font-bold text-rose-500 dark:text-rose-400">
                   {profile.implicit_dismissed_count}
                 </p>
-                <p class="text-xs text-slate-500 dark:text-slate-400">
+                <p className="text-xs text-slate-500 dark:text-slate-400">
                   Dismissed
-                  <span class="block text-slate-400 dark:text-slate-500">
+                  <span className="block text-slate-400 dark:text-slate-500">
                     mild negative
                   </span>
                 </p>
               </div>
             </div>
             {!profile.implicit_learning_active && (
-              <p class="mt-3 text-xs text-slate-400 dark:text-slate-500">
+              <p className="mt-3 text-xs text-slate-400 dark:text-slate-500">
                 Implicit learning is disabled (implicit_signal_weight = 0).
                 Enable it under Ranking Weights.
               </p>
@@ -403,13 +406,13 @@ export function PreferencesPage() {
                 title="Time decay"
                 description={`Half-life: ${profile.decay_half_life_days} days. Recent ratings carry more weight.`}
               />
-              <p class="text-sm text-slate-600 dark:text-slate-400">
+              <p className="text-sm text-slate-600 dark:text-slate-400">
                 Your oldest rating (
-                <span class="font-mono text-xs">
+                <span className="font-mono text-xs">
                   {formatDateOnly(profile.earliest_rating, { year: true })}
                 </span>
                 ) now carries{' '}
-                <span class="font-semibold">
+                <span className="font-semibold">
                   {Math.round((profile.oldest_rating_decay ?? 1) * 100)}%
                 </span>{' '}
                 of its original weight after decay.
@@ -424,18 +427,18 @@ export function PreferencesPage() {
                 title="Categories"
                 description="Score = mean star rating minus 3 (neutral). Positive = liked, negative = disliked."
               />
-              <ul class="space-y-2">
+              <ul className="space-y-2">
                 {profile.category_preferences.map((c) => (
                   <li
                     key={c.category}
-                    class="flex items-center gap-3 py-1 border-b border-slate-50 dark:border-slate-800 last:border-0"
+                    className="flex items-center gap-3 py-1 border-b border-slate-50 dark:border-slate-800 last:border-0"
                   >
-                    <span class="text-sm text-slate-700 dark:text-slate-300 w-32 flex-shrink-0 truncate">
+                    <span className="text-sm text-slate-700 dark:text-slate-300 w-32 flex-shrink-0 truncate">
                       {c.category}
                     </span>
                     <ScoreBar score={c.score} />
                     <span
-                      class={`font-mono text-xs tabular-nums flex-shrink-0 w-12 text-right ${scoreColor(c.score)}`}
+                      className={`font-mono text-xs tabular-nums flex-shrink-0 w-12 text-right ${scoreColor(c.score)}`}
                     >
                       {scorePrefix(c.score)}
                       {c.score.toFixed(2)}
@@ -453,18 +456,18 @@ export function PreferencesPage() {
                 title="Sources"
                 description="How each feed has performed on average against your ratings."
               />
-              <ul class="space-y-2">
+              <ul className="space-y-2">
                 {profile.source_preferences.map((s) => (
                   <li
                     key={s.source}
-                    class="flex items-center gap-3 py-1 border-b border-slate-50 dark:border-slate-800 last:border-0"
+                    className="flex items-center gap-3 py-1 border-b border-slate-50 dark:border-slate-800 last:border-0"
                   >
-                    <span class="text-sm text-slate-600 dark:text-slate-300 w-32 flex-shrink-0 truncate">
+                    <span className="text-sm text-slate-600 dark:text-slate-300 w-32 flex-shrink-0 truncate">
                       {s.source}
                     </span>
                     <ScoreBar score={s.score} />
                     <span
-                      class={`font-mono text-xs tabular-nums flex-shrink-0 w-12 text-right ${scoreColor(s.score)}`}
+                      className={`font-mono text-xs tabular-nums flex-shrink-0 w-12 text-right ${scoreColor(s.score)}`}
                     >
                       {scorePrefix(s.score)}
                       {s.score.toFixed(2)}
@@ -483,13 +486,13 @@ export function PreferencesPage() {
                 title="Content terms"
                 description="Keywords and terms extracted from articles you rated. Badge size reflects strength of preference. High-frequency disliked terms are automatically added to the ranking penalty — you can also manage them manually under Digest settings › Show me less of this."
               />
-              <div class="space-y-4">
+              <div className="space-y-4">
                 {profile.top_liked_terms.length > 0 && (
                   <div>
-                    <p class="text-xs font-semibold uppercase tracking-wide text-slate-400 dark:text-slate-500 mb-2">
+                    <p className="text-xs font-semibold uppercase tracking-wide text-slate-400 dark:text-slate-500 mb-2">
                       Liked topics
                     </p>
-                    <div class="flex flex-wrap gap-1.5">
+                    <div className="flex flex-wrap gap-1.5">
                       {(() => {
                         const maxScore = profile.top_liked_terms[0]?.score ?? 1;
                         return profile.top_liked_terms.map((t) => (
@@ -507,10 +510,10 @@ export function PreferencesPage() {
                 )}
                 {profile.top_disliked_terms.length > 0 && (
                   <div>
-                    <p class="text-xs font-semibold uppercase tracking-wide text-slate-400 dark:text-slate-500 mb-2">
+                    <p className="text-xs font-semibold uppercase tracking-wide text-slate-400 dark:text-slate-500 mb-2">
                       Disliked topics
                     </p>
-                    <div class="flex flex-wrap gap-1.5">
+                    <div className="flex flex-wrap gap-1.5">
                       {(() => {
                         const maxScore =
                           profile.top_disliked_terms[0]?.score ?? 1;
@@ -539,17 +542,17 @@ export function PreferencesPage() {
                 title="Keyword phrases"
                 description="Two-word phrases from article titles that most influenced ranking. Disliked phrases above a certain frequency are automatically used as a hard ranking penalty alongside your explicit list in Digest settings."
               />
-              <div class="space-y-4">
+              <div className="space-y-4">
                 {profile.top_liked_bigrams?.length > 0 && (
                   <div>
-                    <p class="text-xs font-semibold uppercase tracking-wide text-slate-400 dark:text-slate-500 mb-2">
+                    <p className="text-xs font-semibold uppercase tracking-wide text-slate-400 dark:text-slate-500 mb-2">
                       Liked phrases
                     </p>
-                    <div class="flex flex-wrap gap-1.5">
+                    <div className="flex flex-wrap gap-1.5">
                       {profile.top_liked_bigrams.map((t) => (
                         <span
                           key={t.term}
-                          class="px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-50 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300"
+                          className="px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-50 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300"
                           title={`Score: ${t.score.toFixed(2)}`}
                         >
                           {t.term}
@@ -560,14 +563,14 @@ export function PreferencesPage() {
                 )}
                 {profile.top_disliked_bigrams?.length > 0 && (
                   <div>
-                    <p class="text-xs font-semibold uppercase tracking-wide text-slate-400 dark:text-slate-500 mb-2">
+                    <p className="text-xs font-semibold uppercase tracking-wide text-slate-400 dark:text-slate-500 mb-2">
                       Disliked phrases
                     </p>
-                    <div class="flex flex-wrap gap-1.5">
+                    <div className="flex flex-wrap gap-1.5">
                       {profile.top_disliked_bigrams.map((t) => (
                         <span
                           key={t.term}
-                          class="px-2.5 py-0.5 rounded-full text-xs font-medium bg-rose-50 dark:bg-rose-900/30 text-rose-600 dark:text-rose-400"
+                          className="px-2.5 py-0.5 rounded-full text-xs font-medium bg-rose-50 dark:bg-rose-900/30 text-rose-600 dark:text-rose-400"
                           title={`Score: ${t.score.toFixed(2)}`}
                         >
                           {t.term}
@@ -588,17 +591,17 @@ export function PreferencesPage() {
                 title="AI-extracted topics"
                 description="Semantic topics the LLM identified in articles you liked or disliked."
               />
-              <div class="space-y-4">
+              <div className="space-y-4">
                 {(profile.top_liked_topics?.length ?? 0) > 0 && (
                   <div>
-                    <p class="text-xs font-semibold uppercase tracking-wide text-slate-400 dark:text-slate-500 mb-2">
+                    <p className="text-xs font-semibold uppercase tracking-wide text-slate-400 dark:text-slate-500 mb-2">
                       Liked topics
                     </p>
-                    <div class="flex flex-wrap gap-1.5">
+                    <div className="flex flex-wrap gap-1.5">
                       {profile.top_liked_topics!.map((t) => (
                         <span
                           key={t.term}
-                          class="px-2 py-0.5 rounded-full text-xs font-medium bg-violet-50 dark:bg-violet-900/20 text-violet-700 dark:text-violet-300"
+                          className="px-2 py-0.5 rounded-full text-xs font-medium bg-violet-50 dark:bg-violet-900/20 text-violet-700 dark:text-violet-300"
                           title={`Score: ${t.score.toFixed(2)}`}
                         >
                           {t.term}
@@ -609,14 +612,14 @@ export function PreferencesPage() {
                 )}
                 {(profile.top_disliked_topics?.length ?? 0) > 0 && (
                   <div>
-                    <p class="text-xs font-semibold uppercase tracking-wide text-slate-400 dark:text-slate-500 mb-2">
+                    <p className="text-xs font-semibold uppercase tracking-wide text-slate-400 dark:text-slate-500 mb-2">
                       Disliked topics
                     </p>
-                    <div class="flex flex-wrap gap-1.5">
+                    <div className="flex flex-wrap gap-1.5">
                       {profile.top_disliked_topics!.map((t) => (
                         <span
                           key={t.term}
-                          class="px-2 py-0.5 rounded-full text-xs font-medium bg-rose-50 dark:bg-rose-900/30 text-rose-600 dark:text-rose-400"
+                          className="px-2 py-0.5 rounded-full text-xs font-medium bg-rose-50 dark:bg-rose-900/30 text-rose-600 dark:text-rose-400"
                           title={`Score: ${t.score.toFixed(2)}`}
                         >
                           {t.term}
@@ -637,7 +640,7 @@ export function PreferencesPage() {
             profile.implicit_saved_count === 0 &&
             profile.implicit_dismissed_count === 0 && (
               <Card>
-                <p class="text-sm text-slate-500 dark:text-slate-400 py-2">
+                <p className="text-sm text-slate-500 dark:text-slate-400 py-2">
                   No preference data yet. Star articles on digest cards or
                   interact with them to start training the ranking engine.
                 </p>

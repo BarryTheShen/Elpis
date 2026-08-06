@@ -39,17 +39,17 @@ function UsageBar({ used, limit, label }: BarProps) {
           : 'bg-blue-500';
 
   return (
-    <div class="space-y-1">
-      <div class="flex justify-between text-xs text-slate-500 dark:text-slate-400">
+    <div className="space-y-1">
+      <div className="flex justify-between text-xs text-slate-500 dark:text-slate-400">
         <span>{label}</span>
         <span>
           {fmt(used)}{limit != null ? ` / ${fmt(limit)}` : ''}
         </span>
       </div>
       {pct != null && (
-        <div class="h-2 rounded-full bg-slate-200 dark:bg-slate-700 overflow-hidden">
+        <div className="h-2 rounded-full bg-slate-200 dark:bg-slate-700 overflow-hidden">
           <div
-            class={`h-full rounded-full transition-all ${color}`}
+            className={`h-full rounded-full transition-all ${color}`}
             style={{ width: `${pct}%` }}
           />
         </div>
@@ -98,7 +98,7 @@ export function BudgetPage() {
 
   if (loading) {
     return (
-      <div class="flex items-center justify-center py-20">
+      <div className="flex items-center justify-center py-20">
         <Spinner size="lg" className="text-blue-600 dark:text-blue-400" />
       </div>
     );
@@ -106,7 +106,7 @@ export function BudgetPage() {
 
   if (error || !budget) {
     return (
-      <p class="text-sm text-red-600 dark:text-red-400 p-4">
+      <p className="text-sm text-red-600 dark:text-red-400 p-4">
         {error ?? 'Unknown error'}
       </p>
     );
@@ -115,12 +115,12 @@ export function BudgetPage() {
   const { openrouter, local } = budget;
 
   return (
-    <div class="space-y-5">
+    <div className="space-y-5">
       <div>
-        <h1 class="text-2xl font-bold tracking-tight text-slate-900 dark:text-slate-100">
+        <h1 className="text-2xl font-bold tracking-tight text-slate-900 dark:text-slate-100">
           Budget
         </h1>
-        <p class="mt-1 text-sm text-slate-500 dark:text-slate-400">
+        <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">
           OpenRouter spending and local pipeline cost tracking.
         </p>
       </div>
@@ -129,25 +129,25 @@ export function BudgetPage() {
       {openrouter ? (
         <Card>
           <CardHeader title="OpenRouter account" />
-          <div class="space-y-4">
-            <div class="grid grid-cols-3 gap-4 text-center">
+          <div className="space-y-4">
+            <div className="grid grid-cols-3 gap-4 text-center">
               <div>
-                <p class="text-lg font-bold text-slate-900 dark:text-slate-100">
+                <p className="text-lg font-bold text-slate-900 dark:text-slate-100">
                   {fmtCredits(openrouter.usage_daily)}
                 </p>
-                <p class="text-xs text-slate-500 dark:text-slate-400">Today</p>
+                <p className="text-xs text-slate-500 dark:text-slate-400">Today</p>
               </div>
               <div>
-                <p class="text-lg font-bold text-slate-900 dark:text-slate-100">
+                <p className="text-lg font-bold text-slate-900 dark:text-slate-100">
                   {fmtCredits(openrouter.usage_weekly)}
                 </p>
-                <p class="text-xs text-slate-500 dark:text-slate-400">This week</p>
+                <p className="text-xs text-slate-500 dark:text-slate-400">This week</p>
               </div>
               <div>
-                <p class="text-lg font-bold text-slate-900 dark:text-slate-100">
+                <p className="text-lg font-bold text-slate-900 dark:text-slate-100">
                   {fmtCredits(openrouter.usage_monthly)}
                 </p>
-                <p class="text-xs text-slate-500 dark:text-slate-400">This month</p>
+                <p className="text-xs text-slate-500 dark:text-slate-400">This month</p>
               </div>
             </div>
             {openrouter.limit != null && (
@@ -158,7 +158,7 @@ export function BudgetPage() {
               />
             )}
             {openrouter.is_free_tier && (
-              <p class="text-xs text-amber-600 dark:text-amber-400">
+              <p className="text-xs text-amber-600 dark:text-amber-400">
                 Free tier key detected. Add credits at openrouter.ai for higher rate limits.
               </p>
             )}
@@ -167,9 +167,9 @@ export function BudgetPage() {
       ) : (
         <Card>
           <CardHeader title="OpenRouter account" />
-          <p class="text-sm text-slate-500 dark:text-slate-400">
+          <p className="text-sm text-slate-500 dark:text-slate-400">
             No OpenRouter API key configured. Add one in{' '}
-            <a href="/admin/providers" class="text-blue-600 dark:text-blue-400 hover:underline">Providers</a>.
+            <a href="/admin/providers" className="text-blue-600 dark:text-blue-400 hover:underline">Providers</a>.
           </p>
         </Card>
       )}
@@ -177,7 +177,7 @@ export function BudgetPage() {
       {/* Local budget limits - usage + editable caps */}
       <Card>
         <CardHeader title="Pipeline budget limits" />
-        <div class="space-y-3">
+        <div className="space-y-3">
           <UsageBar
             used={local.today_usd}
             limit={local.daily_limit_usd}
@@ -189,11 +189,11 @@ export function BudgetPage() {
             label="Monthly"
           />
           {local.avg_cost_per_digest_usd > 0 && (
-            <div class="flex items-center justify-between pt-1 border-t border-slate-100 dark:border-slate-800">
-              <span class="text-xs text-slate-500 dark:text-slate-400">
+            <div className="flex items-center justify-between pt-1 border-t border-slate-100 dark:border-slate-800">
+              <span className="text-xs text-slate-500 dark:text-slate-400">
                 Avg cost per digest (all time)
               </span>
-              <span class="text-sm font-semibold text-slate-700 dark:text-slate-200">
+              <span className="text-sm font-semibold text-slate-700 dark:text-slate-200">
                 {fmt(local.avg_cost_per_digest_usd)}
               </span>
             </div>
@@ -201,15 +201,15 @@ export function BudgetPage() {
         </div>
 
         {limits && (
-          <form onSubmit={handleSaveLimits} class="mt-4 space-y-3">
-            <div class="grid grid-cols-2 gap-3">
-              <label class="flex flex-col gap-1">
-                <span class="text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">
+          <form onSubmit={handleSaveLimits} className="mt-4 space-y-3">
+            <div className="grid grid-cols-2 gap-3">
+              <label className="flex flex-col gap-1">
+                <span className="text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">
                   Daily limit (USD)
                 </span>
                 <input
                   type="number"
-                  class={INPUT}
+                  className={INPUT}
                   min={0}
                   step={0.01}
                   required
@@ -228,13 +228,13 @@ export function BudgetPage() {
                   }
                 />
               </label>
-              <label class="flex flex-col gap-1">
-                <span class="text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">
+              <label className="flex flex-col gap-1">
+                <span className="text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">
                   Monthly limit (USD)
                 </span>
                 <input
                   type="number"
-                  class={INPUT}
+                  className={INPUT}
                   min={0}
                   step={0.01}
                   required
@@ -254,13 +254,13 @@ export function BudgetPage() {
                 />
               </label>
             </div>
-            <div class="flex items-center gap-3">
+            <div className="flex items-center gap-3">
               <Button type="submit" size="sm" loading={savingLimits}>
                 Save limits
               </Button>
               {limitsFlash && (
                 <span
-                  class={`text-xs ${limitsFlash.ok ? 'text-blue-600 dark:text-blue-400' : 'text-red-600 dark:text-red-400'}`}
+                  className={`text-xs ${limitsFlash.ok ? 'text-blue-600 dark:text-blue-400' : 'text-red-600 dark:text-red-400'}`}
                 >
                   {limitsFlash.text}
                 </span>
@@ -274,25 +274,25 @@ export function BudgetPage() {
       {local.by_model.length > 0 && (
         <Card>
           <CardHeader title="Spend by model (all time)" />
-          <div class="overflow-x-auto">
-            <table class="w-full text-sm">
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm">
               <thead>
-                <tr class="text-left text-xs text-slate-400 dark:text-slate-500 border-b border-slate-100 dark:border-slate-800">
-                  <th class="pb-2 pr-4 font-semibold">Model</th>
-                  <th class="pb-2 pr-4 font-semibold text-right">Requests</th>
-                  <th class="pb-2 font-semibold text-right">Total cost</th>
+                <tr className="text-left text-xs text-slate-400 dark:text-slate-500 border-b border-slate-100 dark:border-slate-800">
+                  <th className="pb-2 pr-4 font-semibold">Model</th>
+                  <th className="pb-2 pr-4 font-semibold text-right">Requests</th>
+                  <th className="pb-2 font-semibold text-right">Total cost</th>
                 </tr>
               </thead>
-              <tbody class="divide-y divide-slate-100 dark:divide-slate-800">
+              <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
                 {local.by_model.map((row) => (
                   <tr key={row.model}>
-                    <td class="py-2 pr-4 font-mono text-xs text-slate-600 dark:text-slate-300">
+                    <td className="py-2 pr-4 font-mono text-xs text-slate-600 dark:text-slate-300">
                       {row.model || '(unknown)'}
                     </td>
-                    <td class="py-2 pr-4 text-right text-slate-500 dark:text-slate-400">
+                    <td className="py-2 pr-4 text-right text-slate-500 dark:text-slate-400">
                       {row.requests}
                     </td>
-                    <td class="py-2 text-right font-medium text-slate-700 dark:text-slate-200">
+                    <td className="py-2 text-right font-medium text-slate-700 dark:text-slate-200">
                       {fmt(row.total_usd)}
                     </td>
                   </tr>
@@ -307,29 +307,29 @@ export function BudgetPage() {
       {local.recent_digests.length > 0 && (
         <Card>
           <CardHeader title="Recent digest costs" />
-          <div class="overflow-x-auto">
-            <table class="w-full text-sm">
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm">
               <thead>
-                <tr class="text-left text-xs text-slate-400 dark:text-slate-500 border-b border-slate-100 dark:border-slate-800">
-                  <th class="pb-2 pr-4 font-semibold">Digest</th>
-                  <th class="pb-2 pr-4 font-semibold">Date</th>
-                  <th class="pb-2 pr-4 font-semibold text-right">Articles</th>
-                  <th class="pb-2 font-semibold text-right">Cost</th>
+                <tr className="text-left text-xs text-slate-400 dark:text-slate-500 border-b border-slate-100 dark:border-slate-800">
+                  <th className="pb-2 pr-4 font-semibold">Digest</th>
+                  <th className="pb-2 pr-4 font-semibold">Date</th>
+                  <th className="pb-2 pr-4 font-semibold text-right">Articles</th>
+                  <th className="pb-2 font-semibold text-right">Cost</th>
                 </tr>
               </thead>
-              <tbody class="divide-y divide-slate-100 dark:divide-slate-800">
+              <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
                 {local.recent_digests.map((d) => (
                   <tr key={d.digest_id}>
-                    <td class="py-2 pr-4 text-slate-600 dark:text-slate-300">
+                    <td className="py-2 pr-4 text-slate-600 dark:text-slate-300">
                       #{d.digest_id}
                     </td>
-                    <td class="py-2 pr-4 text-slate-500 dark:text-slate-400 text-xs">
+                    <td className="py-2 pr-4 text-slate-500 dark:text-slate-400 text-xs">
                       {formatDigestLabel(d.created_at)}
                     </td>
-                    <td class="py-2 pr-4 text-right text-slate-500 dark:text-slate-400">
+                    <td className="py-2 pr-4 text-right text-slate-500 dark:text-slate-400">
                       {d.articles}
                     </td>
-                    <td class="py-2 text-right font-medium text-slate-700 dark:text-slate-200">
+                    <td className="py-2 text-right font-medium text-slate-700 dark:text-slate-200">
                       {d.cost_usd > 0 ? fmt(d.cost_usd) : '-'}
                     </td>
                   </tr>
@@ -342,7 +342,7 @@ export function BudgetPage() {
 
       {local.by_model.length === 0 && local.recent_digests.length === 0 && (
         <Card>
-          <p class="text-sm text-slate-500 dark:text-slate-400 py-2">
+          <p className="text-sm text-slate-500 dark:text-slate-400 py-2">
             No spending data yet. Run a digest with the OpenRouter provider to start tracking costs.
           </p>
         </Card>

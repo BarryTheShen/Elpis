@@ -39,6 +39,57 @@ def test_health_and_api_endpoints(
     assert latest.json() is None
 
 
+def test_digest_list_api_paginates_and_validates_queries(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path,
+) -> None:
+    """Digest history is exposed as ordered, validated pages."""
+    data_root = tmp_path / "appdata"
+    data_root.mkdir()
+    monkeypatch.setenv("CONDENSEIT_DATA_DIR", str(data_root))
+
+    store = ContentStore()
+    for _ in range(25):
+        store.save_digest("# Digest", "<p>Digest</p>", "{}")
+    store.close()
+
+    client = TestClient(create_app())
+
+    newest = client.get("/api/digests", params={"limit": 2})
+    assert newest.status_code == 200
+    assert [row["id"] for row in newest.json()] == [25, 24]
+    assert set(newest.json()[0]) == {"id", "created_at"}
+
+    default_page = client.get("/api/digests")
+    assert default_page.status_code == 200
+    assert [row["id"] for row in default_page.json()] == list(range(25, 5, -1))
+
+    older = client.get(
+        "/api/digests",
+        params={"limit": 2, "before_id": 24},
+    )
+    assert older.status_code == 200
+    assert [row["id"] for row in older.json()] == [23, 22]
+
+    empty = client.get(
+        "/api/digests",
+        params={"limit": 2, "before_id": 1},
+    )
+    assert empty.status_code == 200
+    assert empty.json() == []
+
+    for invalid_limit in (0, 101, "not-an-integer"):
+        response = client.get("/api/digests", params={"limit": invalid_limit})
+        assert response.status_code == 422
+
+    for invalid_cursor in ("not-an-integer", "1 OR 1=1"):
+        response = client.get(
+            "/api/digests",
+            params={"before_id": invalid_cursor},
+        )
+        assert response.status_code == 422
+
+
 def test_health_reports_storage_failure(
     monkeypatch: pytest.MonkeyPatch,
     tmp_path,
@@ -131,6 +182,7 @@ def test_sources_api_updates_source_configuration(
             "query": "AI safety",
             "language": "en",
             "country": "GB",
+            "max_items": 75,
             "category": "Research",
             "priority": 1,
         },
@@ -145,7 +197,33 @@ def test_sources_api_updates_source_configuration(
     assert row["category"] == "Research"
     assert row["priority"] == 1
     assert "AI+safety" in row["url"]
-    assert extra == {"query": "AI safety", "language": "en", "country": "GB"}
+    assert extra == {
+        "query": "AI safety",
+        "language": "en",
+        "country": "GB",
+        "max_items": 75,
+    }
+
+def test_sources_api_rejects_out_of_range_candidate_limit(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path,
+) -> None:
+    monkeypatch.setenv("CONDENSEIT_DATA_DIR", str(tmp_path / "data"))
+    client = TestClient(create_app())
+
+    response = client.post(
+        "/api/sources",
+        headers=_AUTH,
+        json={
+            "source_type": "rss",
+            "name": "Too Large",
+            "url": "https://example.com/feed.xml",
+            "max_items": 201,
+        },
+    )
+
+    assert response.status_code == 422
+    assert "max_items" in response.json()["error"]
 
 
 def test_digest_api_returns_items(
@@ -172,6 +250,10 @@ def test_digest_api_returns_items(
                 "category": "News",
                 "published_at": "2026-01-15T12:00:00+00:00",
                 "kind": "article",
+                "highlighted": True,
+                "preference_score": 4.2,
+                "relevance_to_you": "Matches your interests.",
+                "score_breakdown": {"keyword_high": 2.0},
             },
         ],
     }
@@ -192,6 +274,13 @@ def test_digest_api_returns_items(
     assert len(data["items"]) == 1
     item = data["items"][0]
     assert item["title"] == "Hello"
+    for personal_field in (
+        "highlighted",
+        "preference_score",
+        "relevance_to_you",
+        "score_breakdown",
+    ):
+        assert personal_field not in item
     # Summary should have LLM prefix stripped
     assert not item["summary"].startswith("Here is")
     assert "Summary text" in item["summary"]
@@ -203,6 +292,202 @@ def test_digest_api_returns_items(
     assert "html" not in detail.json()
     assert "rating" not in detail.json()["items"][0]
 
+def test_digest_api_orders_items_by_preference_score(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path,
+) -> None:
+    """Stored legacy digests are normalized to descending score order."""
+    data_root = tmp_path / "appdata"
+    data_root.mkdir()
+    monkeypatch.setenv("CONDENSEIT_DATA_DIR", str(data_root))
+
+    store = ContentStore()
+    store.save_digest(
+        "# Ranking",
+        "<p>Ranking</p>",
+        json.dumps(
+            {
+                "digest_items": [
+                    {
+                        "title": "Lower score",
+                        "url": "https://example.com/low",
+                        "summary": "",
+                        "preference_score": 2.0,
+                        "score_breakdown": {},
+                    },
+                    {
+                        "title": "Higher score",
+                        "url": "https://example.com/high",
+                        "summary": "",
+                        "preference_score": 8.0,
+                        "score_breakdown": {},
+                    },
+                ]
+            }
+        ),
+    )
+
+    response = TestClient(create_app()).get("/api/digests/latest")
+
+    assert response.status_code == 200
+    assert [item["title"] for item in response.json()["items"]] == [
+        "Higher score",
+        "Lower score",
+    ]
+
+
+def test_article_content_api_returns_stored_reader_text(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path,
+) -> None:
+    """The reader endpoint returns stored text and rejects unknown URLs."""
+    data_root = tmp_path / "appdata"
+    data_root.mkdir()
+    monkeypatch.setenv("CONDENSEIT_DATA_DIR", str(data_root))
+
+    url = "https://example.com/reader"
+    store = ContentStore()
+    store.save_article(
+        {
+            "url": url,
+            "title": "Reader article",
+            "content": "First paragraph.\n\nSecond paragraph.",
+            "source": "Example Feed",
+            "category": "News",
+            "published_at": "2026-01-15T12:00:00+00:00",
+        }
+    )
+    store.save_digest(
+        "# Reader",
+        "<p>Reader</p>",
+        json.dumps({"digest_items": [{"url": url}]}),
+    )
+    private_url = "https://example.com/not-published"
+    store.save_article(
+        {
+            "url": private_url,
+            "title": "Unpublished article",
+            "content": "Should not be exposed.",
+        }
+    )
+    client = TestClient(create_app())
+
+    response = client.get("/api/articles/content", params={"url": url})
+    assert response.status_code == 200
+    assert response.json() == {
+        "url": url,
+        "title": "Reader article",
+        "content": "First paragraph.\n\nSecond paragraph.",
+        "source": "Example Feed",
+        "category": "News",
+        "published_at": "2026-01-15T12:00:00+00:00",
+    }
+
+    missing = client.get(
+        "/api/articles/content",
+        params={"url": "https://example.com/missing"},
+    )
+    assert missing.status_code == 404
+
+    unpublished = client.get(
+        "/api/articles/content",
+        params={"url": private_url},
+    )
+    assert unpublished.status_code == 404
+
+def test_summary_normalization_hides_reasoning_in_digest_and_saved_items(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path,
+) -> None:
+    """Private provider reasoning never reaches publication or saved lists."""
+    monkeypatch.setenv("CONDENSEIT_DATA_DIR", str(tmp_path / "data"))
+    store = ContentStore()
+    url = "https://example.com/reasoning"
+    raw = (
+        "<think>private chain of thought with { distracting braces }</think>"
+        '{"tldr":"Visible take","summary":"Visible summary.",'
+        '"key_takeaways":["Visible point"]}'
+    )
+    store.save_digest(
+        "# Reasoning",
+        "<p>Reasoning</p>",
+        json.dumps({"digest_items": [{"url": url, "title": "Visible", "summary": raw}]}),
+    )
+    client = TestClient(create_app())
+
+    digest_item = client.get("/api/digests/latest").json()["items"][0]
+    assert digest_item["tldr"] == "Visible take"
+    assert digest_item["summary"] == "Visible summary."
+    assert digest_item["key_takeaways"] == ["Visible point"]
+    assert "private" not in json.dumps(digest_item).lower()
+
+    saved = dict(digest_item)
+    saved["summary"] = raw
+    saved["tldr"] = ""
+    saved["key_takeaways"] = []
+    assert client.post("/api/read-later", headers=_AUTH, json=saved).status_code == 200
+
+    saved_item = client.get("/api/read-later", headers=_AUTH).json()["items"][0]
+    assert saved_item["summary"] == "Visible summary."
+    assert saved_item["tldr"] == "Visible take"
+    assert saved_item["key_takeaways"] == ["Visible point"]
+    assert "private" not in json.dumps(saved_item).lower()
+
+def test_summary_normalization_discards_plain_thinking_transcript(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path,
+) -> None:
+    """A plain model self-talk transcript never reaches publication."""
+    monkeypatch.setenv("CONDENSEIT_DATA_DIR", str(tmp_path / "data"))
+    store = ContentStore()
+    raw = (
+        "Thinking Process:\n\n"
+        "1. **Analyze the Request:** draft a JSON response.\n"
+        "2. **Refine and Validate:** check the required fields.\n"
+        "I will output the final JSON next."
+    )
+    store.save_digest(
+        "# Plain reasoning",
+        "<p>Plain reasoning</p>",
+        json.dumps(
+            {
+                "digest_items": [
+                    {
+                        "url": "https://example.com/plain-reasoning",
+                        "title": "Visible title",
+                        "summary": raw,
+                    }
+                ]
+            }
+        ),
+    )
+    client = TestClient(create_app())
+
+    item = client.get("/api/digests/latest").json()["items"][0]
+
+    assert item["summary"] == ""
+    assert "thinking process" not in json.dumps(item).lower()
+
+
+
+
+def test_spa_catchall_does_not_serve_files_outside_dist(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path,
+) -> None:
+    """The SPA fallback never serves paths outside the frontend directory."""
+    data_root = tmp_path / "data"
+    dist = tmp_path / "frontend-dist"
+    dist.mkdir()
+    (dist / "index.html").write_text("<app-shell>", encoding="utf-8")
+    (tmp_path / "secret.txt").write_text("not public", encoding="utf-8")
+    monkeypatch.setenv("CONDENSEIT_DATA_DIR", str(data_root))
+    monkeypatch.setenv("CONDENSEIT_FRONTEND_DIST", str(dist))
+
+    response = TestClient(create_app()).get("/%2e%2e/secret.txt")
+
+    assert response.status_code == 200
+    assert response.text == "<app-shell>"
 
 def test_digest_cost_uses_explicit_spending_link(tmp_path) -> None:
     """Digest-linked spend rows should be preferred over timestamp inference."""
@@ -336,18 +621,18 @@ def test_digest_config_api_persists_age_cutoff(
     initial = client.get("/api/config/digest", headers=_AUTH)
     assert initial.status_code == 200
     assert initial.json()["max_article_age_hours"] == 36
-
+    assert initial.json()["digest_history_limit"] == 100
     saved = client.put(
         "/api/config/digest",
         headers=_AUTH,
-        json={"max_article_age_hours": 72},
+        json={"max_article_age_hours": 72, "digest_history_limit": 2},
     )
     assert saved.status_code == 200
 
     updated = client.get("/api/config/digest", headers=_AUTH)
     assert updated.status_code == 200
     assert updated.json()["max_article_age_hours"] == 72
-
+    assert updated.json()["digest_history_limit"] == 2
     invalid = client.put(
         "/api/config/digest",
         headers=_AUTH,

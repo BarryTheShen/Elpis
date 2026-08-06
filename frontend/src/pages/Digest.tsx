@@ -21,25 +21,25 @@ function fmtProcessingTime(raw: string): string {
 }
 function DigestSkeleton() {
   return (
-    <div class="animate-pulse space-y-8" aria-label="Loading digest">
-      <div class="space-y-3">
-        <div class="h-3 w-24 rounded bg-[#e6e5e3] dark:bg-[#3b3a37]" />
-        <div class="h-9 w-64 rounded bg-[#e6e5e3] dark:bg-[#3b3a37]" />
-        <div class="h-4 w-80 max-w-full rounded bg-[#f0efed] dark:bg-[#2a2927]" />
+    <div className="animate-pulse space-y-8" aria-label="Loading digest">
+      <div className="space-y-3">
+        <div className="h-3 w-24 rounded bg-[#e6e5e3] dark:bg-[#3b3a37]" />
+        <div className="h-9 w-64 rounded bg-[#e6e5e3] dark:bg-[#3b3a37]" />
+        <div className="h-4 w-80 max-w-full rounded bg-[#f0efed] dark:bg-[#2a2927]" />
       </div>
-      <div class="border-y border-[#e6e5e3] py-4 dark:border-[#3b3a37]">
-        <div class="h-10 w-full rounded bg-[#f0efed] dark:bg-[#2a2927]" />
+      <div className="border-y border-[#e6e5e3] py-4 dark:border-[#3b3a37]">
+        <div className="h-10 w-full rounded bg-[#f0efed] dark:bg-[#2a2927]" />
       </div>
-      <div class="grid gap-5 md:grid-cols-2">
+      <div className="grid gap-5 md:grid-cols-2">
         {[0, 1, 2, 3].map((key) => (
           <div
             key={key}
-            class="space-y-4 rounded-lg border border-[#e6e5e3] p-5 dark:border-[#3b3a37]"
+            className="space-y-4 rounded-lg border border-[#e6e5e3] p-5 dark:border-[#3b3a37]"
           >
-            <div class="h-3 w-24 rounded bg-[#e6e5e3] dark:bg-[#3b3a37]" />
-            <div class="h-5 w-4/5 rounded bg-[#e6e5e3] dark:bg-[#3b3a37]" />
-            <div class="h-4 w-full rounded bg-[#f0efed] dark:bg-[#2a2927]" />
-            <div class="h-4 w-11/12 rounded bg-[#f0efed] dark:bg-[#2a2927]" />
+            <div className="h-3 w-24 rounded bg-[#e6e5e3] dark:bg-[#3b3a37]" />
+            <div className="h-5 w-4/5 rounded bg-[#e6e5e3] dark:bg-[#3b3a37]" />
+            <div className="h-4 w-full rounded bg-[#f0efed] dark:bg-[#2a2927]" />
+            <div className="h-4 w-11/12 rounded bg-[#f0efed] dark:bg-[#2a2927]" />
           </div>
         ))}
       </div>
@@ -60,7 +60,10 @@ interface DigestPageProps {
 export function DigestPage({ onDigestLoaded, readOnly = false }: DigestPageProps) {
   const search = useSearch();
   const params = new URLSearchParams(search);
-  const requestedId = params.get('id') ? Number(params.get('id')) : null;
+  const requestedIdValue = params.get('id');
+  const parsedId = requestedIdValue ? Number(requestedIdValue) : NaN;
+  const requestedId =
+    Number.isInteger(parsedId) && parsedId > 0 ? parsedId : null;
 
   const [detail, setDetail] = useState<DigestDetail | null>(null);
   const [loading, setLoading] = useState(true);
@@ -155,15 +158,16 @@ export function DigestPage({ onDigestLoaded, readOnly = false }: DigestPageProps
    * the user has already read. If the request fails, the optimistic
    * update is rolled back so the UI stays consistent with the DB.
    */
-  const handleMarkRead = useCallback((url: string) => {
-    setReadUrls((prev) => {
-      const nowRead = !prev.has(url);
-      const next = new Set(prev);
+  const handleMarkRead = useCallback(
+    (url: string) => {
+      const nowRead = !readUrls.has(url);
+      const next = new Set(readUrls);
       if (nowRead) {
         next.add(url);
       } else {
         next.delete(url);
       }
+      setReadUrls(next);
       api.markRead(url, nowRead).catch(() => {
         // Roll back the optimistic update if the server call fails.
         setReadUrls((current) => {
@@ -176,45 +180,49 @@ export function DigestPage({ onDigestLoaded, readOnly = false }: DigestPageProps
           return rolled;
         });
       });
-      return next;
-    });
-  }, []);
+    },
+    [readUrls],
+  );
 
   /**
    * Toggle the read-later state for an item.
    * When saving, the full item payload is sent so the backend can persist it
    * without needing to look it up from a digest row.
    */
-  const handleReadLater = useCallback((item: DigestItem) => {
-    const url = item.url;
-    setReadLaterUrls((prev) => {
-      const next = new Set(prev);
-      if (next.has(url)) {
+  const handleReadLater = useCallback(
+    (item: DigestItem) => {
+      const url = item.url;
+      const saved = readLaterUrls.has(url);
+      const next = new Set(readLaterUrls);
+      if (saved) {
         next.delete(url);
         api.removeReadLater(url).catch(() => undefined);
       } else {
         next.add(url);
         api.saveReadLater(item).catch(() => undefined);
       }
-      return next;
-    });
-  }, []);
+      setReadLaterUrls(next);
+    },
+    [readLaterUrls],
+  );
 
   /** Toggle the starred state for an item. */
-  const handleToggleStar = useCallback((item: DigestItem) => {
-    const url = item.url;
-    setStarredUrls((prev) => {
-      const next = new Set(prev);
-      if (next.has(url)) {
+  const handleToggleStar = useCallback(
+    (item: DigestItem) => {
+      const url = item.url;
+      const starred = starredUrls.has(url);
+      const next = new Set(starredUrls);
+      if (starred) {
         next.delete(url);
         api.unstarItem(url).catch(() => undefined);
       } else {
         next.add(url);
         api.starItem(item).catch(() => undefined);
       }
-      return next;
-    });
-  }, []);
+      setStarredUrls(next);
+    },
+    [starredUrls],
+  );
 
   /**
    * Dismiss an article: records a mild negative implicit signal on the
@@ -261,7 +269,7 @@ export function DigestPage({ onDigestLoaded, readOnly = false }: DigestPageProps
           <Button onClick={() => window.location.reload()}>Retry</Button>
         }
         icon={
-          <svg class="w-10 h-10" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5">
+          <svg className="w-10 h-10" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5">
             <path stroke-linecap="round" stroke-linejoin="round" d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126zM12 15.75h.007v.008H12v-.008z" />
           </svg>
         }
@@ -276,17 +284,17 @@ export function DigestPage({ onDigestLoaded, readOnly = false }: DigestPageProps
         description={
           readOnly
             ? 'A daily briefing will appear here once it is published.'
-            : 'Click Run digest in the header to generate one, or configure your sources first.'
+            : 'A daily briefing will appear here after an admin runs the digest.'
         }
         action={
           readOnly ? undefined : (
-            <a href="/admin/sources" class="inline-flex items-center rounded-md bg-[#2783de] px-4 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-[#1f6fbe] active:scale-[0.98] focus-visible:ring-2 focus-visible:ring-[#2783de] dark:bg-[#63aaf0] dark:text-[#171716] dark:hover:bg-[#83bdf5]">
-              Configure sources
+            <a href="/admin/overview" className="inline-flex items-center rounded-md bg-[#2783de] px-4 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-[#1f6fbe] active:scale-[0.98] focus-visible:ring-2 focus-visible:ring-[#2783de] dark:bg-[#63aaf0] dark:text-[#171716] dark:hover:bg-[#83bdf5]">
+              Open admin
             </a>
           )
         }
         icon={
-          <svg class="w-10 h-10" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5">
+          <svg className="w-10 h-10" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5">
             <path stroke-linecap="round" stroke-linejoin="round" d="M19.5 14.25v-2.625a3.375 3.375 0 00-3.375-3.375h-1.5A1.125 1.125 0 0113.5 7.125v-1.5a3.375 3.375 0 00-3.375-3.375H8.25m0 12.75h7.5m-7.5 3H12M10.5 2.25H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 00-9-9z" />
           </svg>
         }
@@ -306,34 +314,38 @@ export function DigestPage({ onDigestLoaded, readOnly = false }: DigestPageProps
       : filtered;
 
   return (
-    <div class="space-y-10">
+    <div className="space-y-10">
       {/* Page header */}
-      <header class="space-y-4">
-        <div class="flex flex-wrap items-end justify-between gap-4">
+      <header className="space-y-4">
+        <div className="flex flex-wrap items-end justify-between gap-4">
           <div>
-            <p class="text-sm font-medium text-[#1d5f9f] dark:text-[#a6d2f8]">
+            <p className="text-sm font-medium text-[#1d5f9f] dark:text-[#a6d2f8]">
               Daily briefing
             </p>
-            <h1 class="mt-2 text-4xl font-semibold tracking-[-0.035em] text-[#2c2c2b] dark:text-[#f4f3f1]">
+            <h1 className="mt-2 text-4xl font-semibold tracking-[-0.035em] text-[#2c2c2b] dark:text-[#f4f3f1]">
               Today&apos;s reading
             </h1>
-            <p class="mt-2 max-w-prose text-base leading-7 text-[#7d7a75] dark:text-[#b4b1ab]">
+            <p className="mt-2 max-w-prose text-base leading-7 text-[#7d7a75] dark:text-[#b4b1ab]">
               A focused selection of stories, ranked for your attention.
             </p>
           </div>
-          <p class="text-sm text-[#7d7a75] dark:text-[#b4b1ab]">
+          <p className="text-sm text-[#7d7a75] dark:text-[#b4b1ab]">
             Issue #{meta.id}
           </p>
         </div>
-        <p class="text-sm text-[#7d7a75] dark:text-[#b4b1ab]">
+        <p className="text-sm text-[#7d7a75] dark:text-[#b4b1ab]">
           {meta.created_at && formatDigestSubtitle(meta.created_at)}
-          {meta.articles_count != null && ` · ${meta.articles_count} articles`}
+          {meta.articles_count != null && ` · ${meta.articles_count} selected`}
+          {meta.candidate_count != null &&
+            ` · ${meta.candidate_count} ranked candidates`}
+          {meta.collected_articles_count != null &&
+            ` · ${meta.collected_articles_count} collected`}
           {meta.model && ` · ${meta.model}`}
           {meta.processing_time && ` · ${fmtProcessingTime(meta.processing_time)}`}
         </p>
       </header>
       {!hasItems && (
-        <div class="border-y border-[#e6e5e3] dark:border-[#3b3a37]">
+        <div className="border-y border-[#e6e5e3] dark:border-[#3b3a37]">
           <EmptyState
             title="This issue is empty"
             description="The publication has not received any readable items yet."
@@ -343,7 +355,7 @@ export function DigestPage({ onDigestLoaded, readOnly = false }: DigestPageProps
 
       {/* Card browser */}
       {hasItems && (
-        <div class="overflow-hidden">
+        <div className="overflow-hidden">
           <FilterPanel
             items={items}
             onFiltered={handleFiltered}
@@ -354,8 +366,8 @@ export function DigestPage({ onDigestLoaded, readOnly = false }: DigestPageProps
             }
           />
 
-          <div class="flex items-center justify-between gap-4 border-b border-[#e6e5e3] py-3 dark:border-[#3b3a37]">
-            <p class="text-sm text-[#7d7a75] dark:text-[#b4b1ab]">
+          <div className="flex items-center justify-between gap-4 border-b border-[#e6e5e3] py-3 dark:border-[#3b3a37]">
+            <p className="text-sm text-[#7d7a75] dark:text-[#b4b1ab]">
               {visibleItems.length === items.length
                 ? `${items.length} item${items.length !== 1 ? 's' : ''}`
                 : `${visibleItems.length} of ${items.length} item${items.length !== 1 ? 's' : ''}`}
@@ -363,13 +375,13 @@ export function DigestPage({ onDigestLoaded, readOnly = false }: DigestPageProps
           </div>
 
           {visibleItems.length === 0 ? (
-            <div class="py-16 text-center text-base text-[#7d7a75] dark:text-[#b4b1ab]">
+            <div className="py-16 text-center text-base text-[#7d7a75] dark:text-[#b4b1ab]">
               {readCount > 0 && hideRead
                 ? 'All matching items are marked as read.'
                 : 'No items match these filters.'}
             </div>
           ) : (
-            <div class="grid grid-cols-1 gap-5 py-5 md:grid-cols-2">
+            <div className="grid grid-cols-1 gap-5 py-5 md:grid-cols-2">
               {visibleItems.map((raw) => {
                 const item = normalizeItem({
                   ...raw,
@@ -383,7 +395,7 @@ export function DigestPage({ onDigestLoaded, readOnly = false }: DigestPageProps
                     onRate={readOnly ? undefined : handleRate}
                     onMarkRead={readOnly ? undefined : handleMarkRead}
                     isRead={readUrls.has(item.url)}
-                    onSelect={readOnly ? undefined : setSelectedItem}
+                    onSelect={setSelectedItem}
                     onReadLater={readOnly ? undefined : handleReadLater}
                     isReadLater={readLaterUrls.has(item.url)}
                     onDismiss={readOnly ? undefined : handleDismiss}
@@ -398,7 +410,7 @@ export function DigestPage({ onDigestLoaded, readOnly = false }: DigestPageProps
       )}
 
       {/* Item detail panel (slide-over) */}
-      {!readOnly && selectedItem && (
+      {selectedItem && (
         <ItemDetailPanel
           item={normalizeItem({
             ...selectedItem,
@@ -407,12 +419,12 @@ export function DigestPage({ onDigestLoaded, readOnly = false }: DigestPageProps
           isRead={readUrls.has(selectedItem.url)}
           rating={ratings[selectedItem.url] ?? selectedItem.rating}
           onClose={() => setSelectedItem(null)}
-          onRate={handleRate}
-          onMarkRead={handleMarkRead}
-          onReadLater={handleReadLater}
+          onRate={readOnly ? undefined : handleRate}
+          onMarkRead={readOnly ? undefined : handleMarkRead}
+          onReadLater={readOnly ? undefined : handleReadLater}
           isReadLater={readLaterUrls.has(selectedItem.url)}
-          onDismiss={handleDismiss}
-          onToggleStar={handleToggleStar}
+          onDismiss={readOnly ? undefined : handleDismiss}
+          onToggleStar={readOnly ? undefined : handleToggleStar}
           isStarred={starredUrls.has(selectedItem.url)}
         />
       )}

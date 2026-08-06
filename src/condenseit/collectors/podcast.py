@@ -16,7 +16,6 @@ from condenseit.store.database import ContentStore
 
 logger = logging.getLogger(__name__)
 
-_MAX_ENTRIES = 10
 
 
 def _strip_html(raw: str) -> str:
@@ -62,7 +61,7 @@ class PodcastCollector:
         channel_image = self._channel_image(feed)
 
         items: list[dict[str, str]] = []
-        for entry in feed.entries[:_MAX_ENTRIES]:
+        for entry in feed.entries[: cfg.max_items]:
             url = self._episode_url(entry)
             if not url:
                 continue

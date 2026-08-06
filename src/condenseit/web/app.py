@@ -31,6 +31,7 @@ from condenseit.api_urls import (
     youtube_handle_page_url,
 )
 from condenseit.config import LOCAL_INSTALL_FALLBACK_CREDENTIAL, load_config
+from condenseit.digest.format import order_digest_items
 from condenseit.learning.preference_engine import PreferenceEngine
 from condenseit.network import (
     async_httpx_client,
@@ -70,9 +71,22 @@ _PUBLICATION_API_PATHS = frozenset(
     {
         "/api/digests",
         "/api/digests/latest",
+        "/api/articles/content",
     }
 )
 _DIGEST_DETAIL_PATH = re.compile(r"^/api/digests/\d+$")
+_MAX_READER_CONTENT_CHARS = 200_000
+_MAX_READER_METADATA_CHARS = 2_048
+# Learned ranking signals and actions are private to the authenticated reader.
+_PUBLIC_PERSONAL_ITEM_FIELDS = frozenset(
+    {
+        "highlighted",
+        "preference_score",
+        "relevance_to_you",
+        "score_breakdown",
+        "rating",
+    }
+)
 
 
 def _is_publication_read_request(request: Request) -> bool:
@@ -104,10 +118,43 @@ _SUMMARY_PREFIX = re.compile(
     re.IGNORECASE,
 )
 _NOTE_SUFFIX = re.compile(r"\n+\s*note:\s.*$", re.IGNORECASE | re.DOTALL)
+_REASONING_BLOCK = re.compile(
+    r"<(?:think|thinking|analysis|reasoning)\b[^>]*>.*?"
+    r"(?:</(?:think|thinking|analysis|reasoning)\s*>|$)",
+    re.IGNORECASE | re.DOTALL,
+)
+_PLAIN_REASONING_PREFIX = re.compile(
+    r"^\s*(?:thinking\s+process|chain\s+of\s+thought|scratchpad)\s*:\s*",
+    re.IGNORECASE,
+)
+
+
+def _looks_like_plain_reasoning(value: str) -> bool:
+    return bool(_PLAIN_REASONING_PREFIX.match(value))
+
+
+
+def _strip_reasoning(raw: str) -> str:
+    """Remove provider-private reasoning before it reaches a reader."""
+    return _REASONING_BLOCK.sub("", raw or "").strip()
+
+
+def _clean_takeaways(raw: Any) -> list[str]:
+    if not isinstance(raw, list):
+        return []
+    return [
+        cleaned
+        for value in raw
+        if (cleaned := _clean_summary(str(value or "")))
+    ]
 
 
 def _clean_summary(raw: str) -> str:
-    s = (raw or "").strip()
+    s = _strip_reasoning(raw)
+    if not s or not s.strip(" .…\t\r\n"):
+        return ""
+    if _looks_like_plain_reasoning(s):
+        return ""
     s = _SUMMARY_PREFIX.sub("", s)
     s = _NOTE_SUFFIX.sub("", s)
     return s.strip()
@@ -115,20 +162,26 @@ def _clean_summary(raw: str) -> str:
 
 def _normalize_item(row: dict[str, Any]) -> dict[str, Any]:
     row = dict(row)
-    if not (row.get("tldr") or row.get("key_takeaways")):
-        parsed = parse_summary_response(str(row.get("summary") or ""))
-        row["tldr"] = parsed["tldr"]
-        row["key_takeaways"] = parsed["key_takeaways"]
-        row["summary"] = parsed["summary"]
-    elif str(row.get("summary") or "").strip().startswith("{"):
-        parsed = parse_summary_response(str(row["summary"]))
-        row["summary"] = parsed["summary"] or parsed["tldr"] or row["summary"]
+    raw_summary = str(row.get("summary") or "")
+    visible_summary = _strip_reasoning(raw_summary)
+    structured = visible_summary.lstrip().startswith(("{", "```"))
+    plain_reasoning = _looks_like_plain_reasoning(visible_summary)
+    if structured or plain_reasoning or not (row.get("tldr") or row.get("key_takeaways")):
+        parsed = parse_summary_response(visible_summary)
+
+        if structured or plain_reasoning:
+            row["summary"] = parsed["summary"] or parsed["tldr"] or ""
+        if not row.get("tldr"):
+            row["tldr"] = parsed["tldr"]
+        if not row.get("key_takeaways"):
+            row["key_takeaways"] = parsed["key_takeaways"]
     row["summary"] = _clean_summary(str(row.get("summary") or ""))
     if row.get("tldr"):
         row["tldr"] = _clean_summary(str(row["tldr"]))
-    if not isinstance(row.get("key_takeaways"), list):
-        row["key_takeaways"] = []
+    row["key_takeaways"] = _clean_takeaways(row.get("key_takeaways"))
     return row
+
+
 
 
 def _clean_items(items: list[dict[str, Any]]) -> list[dict[str, Any]]:
@@ -157,6 +210,13 @@ def create_app(config_path: str | None = None) -> FastAPI:
     if not store.get_setting("auth_generation"):
         store.set_setting("auth_generation", secrets.token_hex(16))
     config = apply_db_settings(config, store)
+    pruned_digests = store.prune_digests(config.digest_history_limit)
+    if pruned_digests:
+        logging.info(
+            "Pruned %d digest issue(s); retaining the newest %d",
+            pruned_digests,
+            config.digest_history_limit,
+        )
     job_manager = DigestJobManager(config_path, store=store)
     spa_dist = _frontend_dist_dir()
     relevance = config.relevance
@@ -348,8 +408,11 @@ def create_app(config_path: str | None = None) -> FastAPI:
     app.include_router(create_feed_router(store))
 
     @app.get("/api/digests", response_model=None)
-    async def api_list_digests() -> JSONResponse:
-        rows = store.list_digests(limit=20)
+    async def api_list_digests(
+        limit: int = Query(20, ge=1, le=100),
+        before_id: int | None = Query(None, ge=1),
+    ) -> JSONResponse:
+        rows = store.list_digests(limit=limit, before_id=before_id)
         return JSONResponse(
             [{"id": r["id"], "created_at": r.get("created_at", "")} for r in rows]
         )
@@ -366,6 +429,42 @@ def create_app(config_path: str | None = None) -> FastAPI:
                 include_personal_state=_has_admin_access(request),
             )
         )
+    @app.get("/api/articles/content", response_model=None)
+    async def api_article_content(
+        url: str = Query(..., min_length=1, max_length=2048),
+    ) -> JSONResponse:
+        """Return stored text for an article already published in a digest."""
+        requested_url = url.strip()
+        if not requested_url or not _is_digest_article_url(store, requested_url):
+            return JSONResponse({"error": "Article not found"}, status_code=404)
+        article = store.get_article(requested_url)
+        snapshot = None if article is not None else store.get_snapshot(requested_url)
+        record = article or snapshot
+        if record is None:
+            return JSONResponse({"error": "Article not found"}, status_code=404)
+        content = str(record.get("content") or "")
+        if len(content) > _MAX_READER_CONTENT_CHARS:
+            content = (
+                content[:_MAX_READER_CONTENT_CHARS]
+                + "\n\n[Article text truncated for reader safety.]"
+            )
+        title = str(record.get("title") or "")[:_MAX_READER_METADATA_CHARS]
+        source = str(record.get("source") or "")[:_MAX_READER_METADATA_CHARS]
+        category = str(record.get("category") or "")[:_MAX_READER_METADATA_CHARS]
+        published_at = str(record.get("published_at") or "")[
+            :_MAX_READER_METADATA_CHARS
+        ]
+        return JSONResponse(
+            {
+                "url": str(record.get("url") or requested_url)[:2048],
+                "title": title,
+                "content": content,
+                "source": source,
+                "category": category,
+                "published_at": published_at,
+            }
+        )
+
 
     @app.get("/api/digests/{digest_id}", response_model=None)
     async def api_get_digest(request: Request, digest_id: int) -> JSONResponse:
@@ -659,9 +758,8 @@ def create_app(config_path: str | None = None) -> FastAPI:
     @app.get("/api/read-later", response_model=None)
     async def api_get_read_later() -> JSONResponse:
         """Return all items saved for later, newest first."""
-        items = store.list_read_later()
-        # Attach current ratings so the UI can show stars.
-        items = _attach_ratings(store, items)
+        items = _clean_items(_attach_ratings(store, store.list_read_later()))
+
         return JSONResponse({"items": items})
 
     @app.post("/api/read-later", response_model=None)
@@ -696,8 +794,7 @@ def create_app(config_path: str | None = None) -> FastAPI:
     @app.get("/api/starred", response_model=None)
     async def api_get_starred() -> JSONResponse:
         """Return all starred items, newest first."""
-        items = store.list_starred()
-        items = _attach_ratings(store, items)
+        items = _clean_items(_attach_ratings(store, store.list_starred()))
         return JSONResponse({"items": items})
 
     @app.post("/api/starred", response_model=None)
@@ -1155,10 +1252,11 @@ def create_app(config_path: str | None = None) -> FastAPI:
 
         @app.get("/{full_path:path}", response_model=None, include_in_schema=False)
         async def spa_catchall(full_path: str) -> Response:
-            candidate = spa_dist / full_path
-            if candidate.is_file():
+            spa_root = spa_dist.resolve()
+            candidate = (spa_root / full_path).resolve()
+            if candidate.is_relative_to(spa_root) and candidate.is_file():
                 return FileResponse(str(candidate))
-            return FileResponse(str(spa_dist / "index.html"))
+            return FileResponse(str(spa_root / "index.html"))
 
     return app
 
@@ -1283,16 +1381,38 @@ def _build_digest_detail(
     items: list[dict[str, Any]] = raw_items if isinstance(raw_items, list) else []
     meta["created_at"] = row.get("created_at", "")
     meta["id"] = row.get("id")
-    cleaned = _clean_items(items)
+    cleaned = order_digest_items(_clean_items(items))
     if include_personal_state:
         cleaned = _attach_ratings(store, cleaned)
     else:
         for item in cleaned:
-            item.pop("rating", None)
+            for field in _PUBLIC_PERSONAL_ITEM_FIELDS:
+                item.pop(field, None)
     return {
         "meta": meta,
         "items": cleaned,
     }
+
+def _is_digest_article_url(store: ContentStore, url: str) -> bool:
+    """Return whether ``url`` belongs to any intentionally published digest."""
+    query = """
+        SELECT 1
+        FROM digests
+        CROSS JOIN json_each(
+            CASE
+                WHEN json_valid(stats_json)
+                THEN json_extract(stats_json, '$.digest_items')
+                ELSE '[]'
+            END
+        )
+        WHERE json_extract(json_each.value, '$.url') = ?
+        LIMIT 1
+    """
+    try:
+        return next(store.db.query(query, [url]), None) is not None
+    except Exception:
+        logging.exception("Unable to check digest publication for article URL")
+        return False
 
 
 def _parse_stats(raw: str) -> dict[str, Any]:

@@ -7,6 +7,7 @@ from typing import Any
 from condenseit.api_urls import youtube_channel_feed_url
 from condenseit.config import (
     AppConfig,
+    DEFAULT_SOURCE_MAX_ITEMS,
     FeedConfig,
     GitHubReleasesConfig,
     GoogleNewsSearchConfig,
@@ -98,7 +99,14 @@ class SourceRegistry:
             existing_urls.add(url)
 
         for feed in config.feeds:
-            _add_if_new("rss", feed.url, feed.category, feed.priority, feed.url)
+            _add_if_new(
+                "rss",
+                feed.url,
+                feed.category,
+                feed.priority,
+                feed.url,
+                extra={"max_items": feed.max_items},
+            )
         for ch in config.youtube_channels:
             rss = youtube_channel_feed_url(ch.channel_id)
             _add_if_new(
@@ -196,6 +204,9 @@ class SourceRegistry:
             if r["type"] == "rss":
                 out.append(
                     FeedConfig(
+                        max_items=int(
+                            extra.get("max_items", DEFAULT_SOURCE_MAX_ITEMS),
+                        ),
                         url=r["url"],
                         category=r["category"],
                         priority=int(r["priority"]),
@@ -208,6 +219,9 @@ class SourceRegistry:
                 if extra.get("converted_from"):
                     out.append(
                         FeedConfig(
+                            max_items=int(
+                                extra.get("max_items", DEFAULT_SOURCE_MAX_ITEMS),
+                            ),
                             url=r["url"],
                             category=r["category"],
                             priority=int(r["priority"]),
@@ -257,6 +271,9 @@ class SourceRegistry:
             extra = json.loads(r.get("extra_json") or "{}")
             out.append(
                 GoogleNewsSearchConfig(
+                    max_items=int(
+                        extra.get("max_items", DEFAULT_SOURCE_MAX_ITEMS),
+                    ),
                     query=extra.get("query", ""),
                     language=extra.get("language", "en"),
                     country=extra.get("country", "US"),
@@ -323,6 +340,9 @@ class SourceRegistry:
             extra = json.loads(r.get("extra_json") or "{}")
             out.append(
                 GitHubReleasesConfig(
+                    max_items=int(
+                        extra.get("max_items", DEFAULT_SOURCE_MAX_ITEMS),
+                    ),
                     repo=extra.get("repo", ""),
                     category=r["category"],
                     priority=int(r["priority"]),
@@ -341,6 +361,9 @@ class SourceRegistry:
             extra = json.loads(r.get("extra_json") or "{}")
             out.append(
                 PodcastConfig(
+                    max_items=int(
+                        extra.get("max_items", DEFAULT_SOURCE_MAX_ITEMS),
+                    ),
                     feed_url=extra.get("feed_url", r.get("url", "")),
                     name=extra.get("name", r.get("name", "")),
                     category=r["category"],

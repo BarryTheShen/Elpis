@@ -1,5 +1,6 @@
 import type {
   ApiKey,
+  ArticleContent,
   BudgetData,
   BudgetLimits,
   DigestConfig,
@@ -26,11 +27,21 @@ import type {
   StarredItem,
 } from './types';
 
+interface RequestOptions {
+  /**
+   * Publication reads are intentionally public. A 401 from one of these
+   * endpoints must not make the rest of the application treat the session as
+   * expired.
+   */
+  dispatchAuthExpired?: boolean;
+}
+
 /** Generic HTTP helper. Throws on non-2xx responses. */
 async function request<T>(
   method: string,
   path: string,
   body?: unknown,
+  options: RequestOptions = {},
 ): Promise<T> {
   const init: RequestInit = { method, credentials: 'include' };
   if (body != null) {
@@ -43,7 +54,7 @@ async function request<T>(
   }
   const res = await fetch(path, init);
   if (!res.ok) {
-    if (res.status === 401) {
+    if (res.status === 401 && options.dispatchAuthExpired !== false) {
       window.dispatchEvent(new CustomEvent('auth:expired'));
     }
     const text = await res.text().catch(() => res.statusText);
@@ -58,11 +69,40 @@ async function request<T>(
 
 export const api = {
   // Digests
-  listDigests: () => request<DigestEntry[]>('GET', '/api/digests'),
+  listDigests: (limit?: number, beforeId?: number) => {
+    const query = new URLSearchParams();
+    if (limit != null) query.set('limit', String(limit));
+    if (beforeId != null) query.set('before_id', String(beforeId));
+    const suffix = query.toString() ? `?${query.toString()}` : '';
+    return request<DigestEntry[]>(
+      'GET',
+      `/api/digests${suffix}`,
+      undefined,
+      { dispatchAuthExpired: false },
+    );
+  },
   getLatestDigest: () =>
-    request<DigestDetail | null>('GET', '/api/digests/latest'),
+    request<DigestDetail | null>(
+      'GET',
+      '/api/digests/latest',
+      undefined,
+      { dispatchAuthExpired: false },
+    ),
   getDigest: (id: number) =>
-    request<DigestDetail>('GET', `/api/digests/${id}`),
+    request<DigestDetail>(
+      'GET',
+      `/api/digests/${id}`,
+      undefined,
+      { dispatchAuthExpired: false },
+    ),
+
+  getArticleContent: (url: string) =>
+    request<ArticleContent>(
+      'GET',
+      `/api/articles/content?url=${encodeURIComponent(url)}`,
+      undefined,
+      { dispatchAuthExpired: false },
+    ),
 
   // Job
   getJobStatus: () => request<Job>('GET', '/api/digest/status'),

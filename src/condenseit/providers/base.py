@@ -138,6 +138,11 @@ _BRACE_RE = re.compile(r"\{.*\}", re.DOTALL)
 # Strips an opening code fence (e.g. ```json\n or ```\n) so we can work on
 # the raw JSON content even when the closing fence was never emitted.
 _FENCE_OPEN_RE = re.compile(r"^```(?:json)?\s*", re.IGNORECASE)
+_PLAIN_REASONING_PREFIX_RE = re.compile(
+    r"^\s*(?:thinking\s+process|chain\s+of\s+thought|scratchpad)\s*:\s*",
+    re.IGNORECASE,
+)
+
 
 # Detects the start of a Chinese LLM refusal phrase that some multilingual
 # models append mid-response (e.g. "作为一个人工智能语言模型...").
@@ -145,6 +150,92 @@ _FENCE_OPEN_RE = re.compile(r"^```(?:json)?\s*", re.IGNORECASE)
 # run comprises the majority of the remaining text, so we don't accidentally
 # truncate article titles that legitimately contain a single CJK character.
 _CJK_BLOCK_RE = re.compile(r"[\u4e00-\u9fff\u3040-\u30ff\uac00-\ud7af]{4,}")
+# Reasoning-model delimiters that providers commonly emit around private
+# chain-of-thought.  Keep this allowlist deliberately narrow: arbitrary XML or
+# angle-bracket text in an article must remain visible.
+_REASONING_TAG_NAMES = (
+    "chain-of-thought",
+    "chain_of_thought",
+    "deliberation",
+    "reasoning_content",
+    "redacted_thinking",
+    "reasoning",
+    "reflection",
+    "scratchpad",
+    "thinking",
+    "analysis",
+    "thought",
+    "think",
+    "cot",
+    "internal",
+    "private",
+)
+_REASONING_TAG_RE = re.compile(
+    r"<\s*(?P<closing>/)?\s*(?P<tag>"
+    + "|".join(re.escape(tag) for tag in _REASONING_TAG_NAMES)
+    + r")(?=\s|/?>)[^<>]*?(?P<self_closing>/?)>",
+    re.IGNORECASE,
+)
+
+
+def sanitize_reasoning_content(value: str) -> str:
+    """Remove provider reasoning blocks while preserving ordinary text.
+
+    Reasoning models do not agree on one delimiter: common responses use
+    ``<think>``, ``<analysis>``, ``<reasoning>``, or similar tags, and some
+    stop emitting before a closing tag.  This scanner removes only tags from
+    the explicit allowlist above.  A matching block may be nested; an
+    unclosed opening tag discards the remainder because it cannot be safely
+    classified as visible prose.
+    """
+    if not isinstance(value, str) or not value:
+        return ""
+
+    visible: list[str] = []
+    open_tags: list[str] = []
+    cursor = 0
+    for match in _REASONING_TAG_RE.finditer(value):
+        tag = match.group("tag").casefold()
+        closing = bool(match.group("closing"))
+        self_closing = bool(match.group("self_closing"))
+
+        if not open_tags:
+            visible.append(value[cursor : match.start()])
+            cursor = match.end()
+            if not closing and not self_closing:
+                open_tags.append(tag)
+            continue
+
+        if closing:
+            # A malformed nested block should not make any private text
+            # visible.  Close the nearest matching opener, if one exists.
+            for index in range(len(open_tags) - 1, -1, -1):
+                if open_tags[index] == tag:
+                    del open_tags[index:]
+                    break
+            if not open_tags:
+                cursor = match.end()
+        elif not self_closing:
+            open_tags.append(tag)
+
+    if not open_tags:
+        visible.append(value[cursor:])
+    return "".join(visible).strip()
+
+
+def _looks_like_plain_reasoning(value: str) -> bool:
+    return bool(_PLAIN_REASONING_PREFIX_RE.match(value))
+
+
+def _clean_summary_text(value: Any) -> str:
+    """Normalize one user-visible prose value from a model response."""
+    cleaned = sanitize_reasoning_content(str(value or "")).strip()
+    if not cleaned or not cleaned.strip(" .…\t\r\n"):
+        return ""
+    if _looks_like_plain_reasoning(cleaned):
+        return ""
+    return _strip_non_latin_tail(cleaned)
+
 
 # Regex patterns for partial-field extraction from truncated JSON.
 # These only match *complete* string values (closed quote, then comma/newline).
@@ -164,6 +255,13 @@ _PARTIAL_ARRAY_FIELD_RE = {
     for field in ("key_takeaways", "topics", "entities")
 }
 _PARTIAL_INT_FIELD_RE = re.compile(r'"novelty"\s*:\s*(\d+)')
+# Some reasoning-capable models prepend a plain-text thinking transcript before
+# starting the JSON object. Search for the last real payload object so a
+# truncated response can still yield completed fields.
+_PARTIAL_OBJECT_START_RE = re.compile(
+    r'\{\s*"tldr"\s*:',
+    re.IGNORECASE | re.DOTALL,
+)
 
 
 def _strip_non_latin_tail(value: str) -> str:
@@ -192,11 +290,14 @@ def _extract_partial_fields(text: str) -> ArticleSummary | None:
     Returns an :class:`ArticleSummary` if at least ``tldr`` was found,
     otherwise returns ``None`` so the caller can keep trying other strategies.
     """
-    # Strip opening code fence if present.
+    # Strip opening code fence if present. Reasoning models may prepend a
+    # plain-text transcript, so recover the last object-shaped payload too.
     body = _FENCE_OPEN_RE.sub("", text).strip()
-    # Only attempt on text that looks like it started as a JSON object.
     if not body.startswith("{"):
-        return None
+        matches = list(_PARTIAL_OBJECT_START_RE.finditer(body))
+        if not matches:
+            return None
+        body = body[matches[-1].start() :]
 
     result: dict[str, Any] = {}
 
@@ -224,39 +325,51 @@ def _extract_partial_fields(text: str) -> ArticleSummary | None:
         except (TypeError, ValueError):
             logger.debug("Could not parse novelty score from partial JSON")
 
-    # Require at least tldr to have been found; otherwise not useful.
-    if not result.get("tldr"):
-        return None
-
     takeaways = result.get("key_takeaways", [])
     if isinstance(takeaways, str):
         takeaways = [t.strip() for t in takeaways.splitlines() if t.strip()]
     elif not isinstance(takeaways, list):
         takeaways = []
 
+    # Sanitize extracted values as well as the source text.  This protects
+    # against tags that occur inside a quoted JSON field.
+    tldr = _clean_summary_text(result.get("tldr"))
+    if not tldr:
+        return None
+
+    clean_takeaways: list[str] = []
+    for takeaway in takeaways:
+        cleaned = _clean_summary_text(takeaway)
+        if cleaned:
+            clean_takeaways.append(cleaned)
+    takeaways = clean_takeaways
+
     raw_topics = result.get("topics", [])
-    topics = (
-        [str(t).lower().strip() for t in raw_topics if t]
-        if isinstance(raw_topics, list)
-        else []
-    )
+    topics: list[str] = []
+    if isinstance(raw_topics, list):
+        for topic in raw_topics:
+            cleaned = sanitize_reasoning_content(str(topic)).lower().strip()
+            if cleaned:
+                topics.append(cleaned)
+
     raw_entities = result.get("entities", [])
-    entities = (
-        [str(e).strip() for e in raw_entities if e]
-        if isinstance(raw_entities, list)
-        else []
-    )
+    entities: list[str] = []
+    if isinstance(raw_entities, list):
+        for entity in raw_entities:
+            cleaned = sanitize_reasoning_content(str(entity)).strip()
+            if cleaned:
+                entities.append(cleaned)
+    summary = _clean_summary_text(result.get("summary"))
+    relevance = _clean_summary_text(result.get("relevance_to_you"))
 
     return ArticleSummary(
-        tldr=_strip_non_latin_tail(str(result.get("tldr", "") or "").strip()),
-        key_takeaways=[_strip_non_latin_tail(str(t)) for t in takeaways if t],
-        summary=_strip_non_latin_tail(str(result.get("summary", "") or "").strip()),
+        tldr=tldr,
+        key_takeaways=takeaways,
+        summary=summary,
         topics=topics,
         entities=entities[:10],
         novelty=result.get("novelty") or 0,
-        relevance_to_you=_strip_non_latin_tail(
-            str(result.get("relevance_to_you", "") or "").strip()
-        ),
+        relevance_to_you=relevance,
     )
 
 
@@ -279,7 +392,9 @@ def parse_summary_response(raw: str) -> ArticleSummary:
 
     Always returns a fully-populated :class:`ArticleSummary` dict.
     """
-    text = (raw or "").strip()
+    text = sanitize_reasoning_content(raw if isinstance(raw, str) else "")
+    if not text:
+        return _EMPTY_SUMMARY
 
     candidates: list[str] = [
         text,
@@ -308,37 +423,48 @@ def parse_summary_response(raw: str) -> ArticleSummary:
                 takeaways = [t.strip() for t in takeaways.splitlines() if t.strip()]
             elif not isinstance(takeaways, list):
                 takeaways = []
+            clean_takeaways: list[str] = []
+            for takeaway in takeaways:
+                cleaned = _clean_summary_text(takeaway)
+                if cleaned:
+                    clean_takeaways.append(cleaned)
 
             # Parse enrichment fields (new; default to empty when absent).
+            topics: list[str] = []
             raw_topics = data.get("topics", [])
-            topics = (
-                [str(t).lower().strip() for t in raw_topics if t]
-                if isinstance(raw_topics, list)
-                else []
-            )
+            if isinstance(raw_topics, list):
+                for topic in raw_topics:
+                    cleaned = sanitize_reasoning_content(str(topic)).lower().strip()
+                    if cleaned:
+                        topics.append(cleaned)
+
+            entities: list[str] = []
             raw_entities = data.get("entities", [])
-            entities = (
-                [str(e).strip() for e in raw_entities if e]
-                if isinstance(raw_entities, list)
-                else []
-            )
+            if isinstance(raw_entities, list):
+                for entity in raw_entities:
+                    cleaned = sanitize_reasoning_content(str(entity)).strip()
+                    if cleaned:
+                        entities.append(cleaned)
+            tldr = _clean_summary_text(data.get("tldr"))
+            summary = _clean_summary_text(data.get("summary"))
+            relevance = _clean_summary_text(data.get("relevance_to_you"))
+
             try:
                 novelty = max(1, min(5, int(data.get("novelty", 0) or 0)))
             except (TypeError, ValueError):
                 novelty = 0
 
+            if not (tldr or clean_takeaways or summary or topics or entities or relevance):
+                return _EMPTY_SUMMARY
+
             return ArticleSummary(
-                tldr=_strip_non_latin_tail(str(data.get("tldr", "") or "").strip()),
-                key_takeaways=[_strip_non_latin_tail(str(t)) for t in takeaways if t],
-                summary=_strip_non_latin_tail(
-                    str(data.get("summary", "") or "").strip()
-                ),
+                tldr=tldr,
+                key_takeaways=clean_takeaways,
+                summary=summary,
                 topics=topics,
                 entities=entities[:10],
                 novelty=novelty,
-                relevance_to_you=_strip_non_latin_tail(
-                    str(data.get("relevance_to_you", "") or "").strip()
-                ),
+                relevance_to_you=relevance,
             )
         except (json.JSONDecodeError, ValueError):
             continue
@@ -350,6 +476,9 @@ def parse_summary_response(raw: str) -> ArticleSummary:
             "parse_summary_response: recovered partial fields from truncated JSON"
         )
         return partial
+
+    if _looks_like_plain_reasoning(text):
+        return _EMPTY_SUMMARY
 
     if text:
         non_ascii = sum(1 for c in text if ord(c) > 127)
@@ -363,10 +492,13 @@ def parse_summary_response(raw: str) -> ArticleSummary:
             )
             return _EMPTY_SUMMARY
 
+    fallback = _clean_summary_text(text)
+    if not fallback:
+        return _EMPTY_SUMMARY
     return ArticleSummary(
         tldr="",
         key_takeaways=[],
-        summary=text,
+        summary=fallback,
         topics=[],
         entities=[],
         novelty=0,

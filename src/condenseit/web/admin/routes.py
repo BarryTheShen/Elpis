@@ -16,7 +16,12 @@ from fastapi.responses import (
 )
 
 from condenseit.api_urls import youtube_channel_feed_url
-from condenseit.config import LOCAL_INSTALL_FALLBACK_CREDENTIAL, load_config
+from condenseit.config import (
+    DEFAULT_SOURCE_MAX_ITEMS,
+    LOCAL_INSTALL_FALLBACK_CREDENTIAL,
+    MAX_SOURCE_ITEMS,
+    load_config,
+)
 from condenseit.network import (
     NetworkProxySettings,
     load_network_proxy,
@@ -102,6 +107,7 @@ def _build_source_extra(
     query: str = "",
     language: str = "en",
     country: str = "US",
+    max_items: int = DEFAULT_SOURCE_MAX_ITEMS,
     hn_feed: str = "top",
     hn_max_items: int = 20,
     hn_min_score: int = 50,
@@ -126,6 +132,7 @@ def _build_source_extra(
     feed_url = url
     effective_type = source_type
     conversion_note: str | None = None
+    source_max_items = max(1, min(MAX_SOURCE_ITEMS, int(max_items)))
 
     if source_type == "youtube" and channel_id:
         extra = {"channel_id": channel_id, "handle": name}
@@ -134,7 +141,12 @@ def _build_source_extra(
     elif source_type == "google_news":
         lang = (language or "en").lower()
         ctry = (country or "US").upper()
-        extra = {"query": query, "language": lang, "country": ctry}
+        extra = {
+            "query": query,
+            "language": lang,
+            "country": ctry,
+            "max_items": source_max_items,
+        }
         feed_url = (
             f"{_GNEWS_BASE}?q={quote_plus(query)}"
             f"&hl={lang}-{ctry}&gl={ctry}&ceid={ctry}:{lang}"
@@ -159,7 +171,10 @@ def _build_source_extra(
                 sub = m.group(1)
         feed_url = _reddit_subreddit_to_lemmy_url(sub)
         # Keep effective_type="reddit" so the UI badge stays "Reddit".
-        extra = {"converted_from": f"reddit:r/{sub}"}
+        extra = {
+            "converted_from": f"reddit:r/{sub}",
+            "max_items": source_max_items,
+        }
         conversion_note = (
             f"r/{sub} automatically routed via Lemmy.world RSS "
             f"(Reddit's API is blocked on most server IPs). "
@@ -172,7 +187,10 @@ def _build_source_extra(
         sub = m.group(1) if m else ""
         if sub:
             feed_url = _reddit_subreddit_to_lemmy_url(sub)
-            extra = {"converted_from": f"reddit:r/{sub}"}
+            extra = {
+                "converted_from": f"reddit:r/{sub}",
+                "max_items": source_max_items,
+            }
             conversion_note = (
                 f"Reddit URL detected and converted to a Lemmy.world RSS feed. "
                 f"Feed: {feed_url}"
@@ -180,12 +198,18 @@ def _build_source_extra(
 
     elif source_type == "github_releases":
         repo = (github_repo or "").strip().strip("/")
-        extra = {"repo": repo}
+        extra = {"repo": repo, "max_items": source_max_items}
         feed_url = f"https://github.com/{repo}/releases.atom"
 
     elif source_type == "podcast":
-        extra = {"feed_url": url, "name": name}
+        extra = {
+            "feed_url": url,
+            "name": name,
+            "max_items": source_max_items,
+        }
         feed_url = url
+    if source_type == "rss" and "max_items" not in extra:
+        extra["max_items"] = source_max_items
 
     # Persist filter rules regardless of source type.
     if hide_keywords:
@@ -223,6 +247,7 @@ async def _read_source_payload(request: Request) -> dict[str, Any]:
             "query": _fstr("query"),
             "language": _fstr("language", "en") or "en",
             "country": _fstr("country", "US") or "US",
+            "max_items": _fint("max_items", DEFAULT_SOURCE_MAX_ITEMS),
             "hn_feed": _fstr("hn_feed", "top") or "top",
             "hn_max_items": _fint("hn_max_items", 20),
             "hn_min_score": _fint("hn_min_score", 50),
@@ -248,6 +273,7 @@ async def _read_source_payload(request: Request) -> dict[str, Any]:
         "query": str(body.get("query", "")).strip(),
         "language": str(body.get("language", "en")).strip() or "en",
         "country": str(body.get("country", "US")).strip() or "US",
+        "max_items": int(body.get("max_items", DEFAULT_SOURCE_MAX_ITEMS)),
         "hn_feed": str(body.get("hn_feed", "top")).strip() or "top",
         "hn_max_items": int(body.get("hn_max_items", 20)),
         "hn_min_score": int(body.get("hn_min_score", 50)),
@@ -270,6 +296,12 @@ def _source_payload_error(payload: dict[str, Any]) -> str | None:
         return "name field is required"
     if not 1 <= int(payload["priority"]) <= 5:
         return "priority must be between 1 and 5"
+    try:
+        max_items = int(payload["max_items"])
+    except (TypeError, ValueError):
+        return "max_items must be an integer"
+    if not 1 <= max_items <= MAX_SOURCE_ITEMS:
+        return f"max_items must be between 1 and {MAX_SOURCE_ITEMS}"
     return None
 
 
@@ -395,12 +427,16 @@ def create_admin_router(
     @router.post("/api/sources", response_model=None)
     async def api_add_source(request: Request) -> JSONResponse:
         payload = await _read_source_payload(request)
+        error = _source_payload_error(payload)
+        if error is not None:
+            return JSONResponse({"error": error}, status_code=422)
         source_type = str(payload["source_type"])
         name = str(payload["name"])
         url = str(payload["url"])
         category = str(payload["category"])
         priority = int(payload["priority"])
         channel_id = str(payload["channel_id"])
+        source_max_items = int(payload["max_items"])
         query = str(payload["query"])
         language = str(payload["language"])
         country = str(payload["country"])
@@ -422,6 +458,7 @@ def create_admin_router(
             query=query,
             language=language,
             country=country,
+            max_items=source_max_items,
             hn_feed=hn_feed,
             hn_max_items=hn_max_items,
             hn_min_score=hn_min_score,
@@ -455,6 +492,7 @@ def create_admin_router(
             str(payload["name"]),
             query=str(payload["query"]),
             language=str(payload["language"]),
+            max_items=int(payload["max_items"]),
             country=str(payload["country"]),
             hn_feed=str(payload["hn_feed"]),
             hn_max_items=int(payload["hn_max_items"]),
@@ -753,6 +791,7 @@ def create_admin_router(
         return JSONResponse(
             {
                 "max_articles_per_digest": merged.max_articles_per_digest,
+                "digest_history_limit": merged.digest_history_limit,
                 "balance_digest_categories": merged.balance_digest_categories,
                 "max_articles_per_category": merged.max_articles_per_category,
                 "max_article_age_hours": merged.max_article_age_hours,
@@ -780,6 +819,22 @@ def create_admin_router(
             except (ValueError, TypeError):
                 return JSONResponse(
                     {"error": "max_articles_per_digest must be 1-200"},
+                    status_code=422,
+                )
+        if "digest_history_limit" in body:
+            try:
+                val = int(body["digest_history_limit"])
+                if 1 <= val <= 1000:
+                    store.set_setting("digest_history_limit", str(val))
+                    store.prune_digests(val)
+                else:
+                    return JSONResponse(
+                        {"error": "digest_history_limit must be 1-1000"},
+                        status_code=422,
+                    )
+            except (ValueError, TypeError):
+                return JSONResponse(
+                    {"error": "digest_history_limit must be 1-1000"},
                     status_code=422,
                 )
         if "balance_digest_categories" in body:
@@ -1067,6 +1122,7 @@ def create_admin_router(
         query: str = Form(""),
         language: str = Form("en"),
         country: str = Form("US"),
+        max_items: int = Form(DEFAULT_SOURCE_MAX_ITEMS),
         hn_feed: str = Form("top"),
         hn_max_items: int = Form(20),
         hn_min_score: int = Form(50),
@@ -1085,6 +1141,7 @@ def create_admin_router(
             query=query,
             language=language,
             country=country,
+            max_items=max_items,
             hn_feed=hn_feed,
             hn_max_items=hn_max_items,
             hn_min_score=hn_min_score,

@@ -64,3 +64,4 @@ export async function logout(): Promise<void> {
     credentials: 'include',
   }).catch(() => {});
 }
+

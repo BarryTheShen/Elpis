@@ -22,7 +22,6 @@ from condenseit.store.database import ContentStore
 logger = logging.getLogger(__name__)
 
 _BASE_URL = "https://news.google.com/rss/search"
-_MAX_ENTRIES = 15
 
 
 def build_gnews_url(config: GoogleNewsSearchConfig) -> str:
@@ -74,7 +73,7 @@ class GoogleNewsCollector:
         feed = feedparser.parse(resp.text)
         items: list[dict[str, str]] = []
 
-        for entry in feed.entries[:_MAX_ENTRIES]:
+        for entry in feed.entries[: cfg.max_items]:
             link = entry.get("link", "")
             if not link:
                 continue

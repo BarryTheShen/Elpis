@@ -1,6 +1,9 @@
 model: "qwen/qwen3.5-flash-02-23"
 # Maximum articles per digest run. Override with CONDENSEIT_MAX_ARTICLES_PER_DIGEST.
 max_articles_per_digest: 50
+# RSS/Atom feeds collect up to 50 entries each before ranking. Override
+# per-feed with `max_items` (1-200) when a feed publishes a larger archive.
+
 # Language for digest output. ISO 639-1 code (e.g. "en", "fr", "de") or "source"
 # to auto-detect each article's language and summarize in that language.
 # Default "en" produces English output regardless of the article's source language.

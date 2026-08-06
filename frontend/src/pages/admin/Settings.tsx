@@ -78,13 +78,13 @@ function Field({
   children: preact.ComponentChildren;
 }) {
   return (
-    <label class='flex flex-col gap-1'>
-      <span class='text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400'>
+    <label className='flex flex-col gap-1'>
+      <span className='text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400'>
         {label}
       </span>
       {children}
       {hint && (
-        <span class='text-xs text-slate-400 dark:text-slate-500'>{hint}</span>
+        <span className='text-xs text-slate-400 dark:text-slate-500'>{hint}</span>
       )}
     </label>
   );
@@ -123,17 +123,17 @@ function LanguageInput({
   }
 
   return (
-    <div class='flex flex-wrap gap-1.5 p-2 min-h-[42px] bg-white dark:bg-slate-950 border border-slate-200 dark:border-slate-700 rounded-lg focus-within:ring-2 focus-within:ring-blue-500'>
+    <div className='flex flex-wrap gap-1.5 p-2 min-h-[42px] bg-white dark:bg-slate-950 border border-slate-200 dark:border-slate-700 rounded-lg focus-within:ring-2 focus-within:ring-blue-500'>
       {value.map((code) => (
         <span
           key={code}
-          class='inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-xs font-medium bg-blue-100 dark:bg-blue-900/40 text-blue-800 dark:text-blue-200'
+          className='inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-xs font-medium bg-blue-100 dark:bg-blue-900/40 text-blue-800 dark:text-blue-200'
         >
           {code}
           <button
             type='button'
             onClick={() => remove(code)}
-            class='hover:text-red-500 dark:hover:text-red-400 transition-colors leading-none'
+            className='hover:text-red-500 dark:hover:text-red-400 transition-colors leading-none'
             aria-label={`Remove ${code}`}
           >
             ×
@@ -143,7 +143,7 @@ function LanguageInput({
       <input
         ref={inputRef}
         type='text'
-        class='flex-1 min-w-[80px] bg-transparent text-sm text-slate-900 dark:text-slate-100 focus:outline-none placeholder:text-slate-400'
+        className='flex-1 min-w-[80px] bg-transparent text-sm text-slate-900 dark:text-slate-100 focus:outline-none placeholder:text-slate-400'
         placeholder={value.length === 0 ? 'en, pt, de...' : ''}
         value={draft}
         onInput={(e) => setDraft((e.target as HTMLInputElement).value)}
@@ -198,17 +198,17 @@ function KeywordInput({
         : 'bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300';
 
   return (
-    <div class='flex flex-wrap gap-1.5 p-2 min-h-[42px] bg-white dark:bg-slate-950 border border-slate-200 dark:border-slate-700 rounded-lg focus-within:ring-2 focus-within:ring-blue-500'>
+    <div className='flex flex-wrap gap-1.5 p-2 min-h-[42px] bg-white dark:bg-slate-950 border border-slate-200 dark:border-slate-700 rounded-lg focus-within:ring-2 focus-within:ring-blue-500'>
       {value.map((phrase) => (
         <span
           key={phrase}
-          class={`inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-xs font-medium ${tagClass}`}
+          className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-xs font-medium ${tagClass}`}
         >
           {phrase}
           <button
             type='button'
             onClick={() => remove(phrase)}
-            class='hover:text-red-500 dark:hover:text-red-400 transition-colors leading-none'
+            className='hover:text-red-500 dark:hover:text-red-400 transition-colors leading-none'
             aria-label={`Remove ${phrase}`}
           >
             ×
@@ -218,7 +218,7 @@ function KeywordInput({
       <input
         ref={inputRef}
         type='text'
-        class='flex-1 min-w-[120px] bg-transparent text-sm text-slate-900 dark:text-slate-100 focus:outline-none placeholder:text-slate-400'
+        className='flex-1 min-w-[120px] bg-transparent text-sm text-slate-900 dark:text-slate-100 focus:outline-none placeholder:text-slate-400'
         placeholder={value.length === 0 ? (placeholder ?? 'Type and press Enter...') : ''}
         value={draft}
         onInput={(e) => setDraft((e.target as HTMLInputElement).value)}
@@ -248,7 +248,7 @@ function PresetTile({
     <button
       type='button'
       onClick={onClick}
-      class={[
+      className={[
         'flex-1 text-left rounded-xl border-2 px-4 py-3 transition-all',
         active
           ? 'border-blue-500 bg-blue-50 dark:bg-blue-900/20'
@@ -256,7 +256,7 @@ function PresetTile({
       ].join(' ')}
     >
       <p
-        class={[
+        className={[
           'text-sm font-semibold',
           active
             ? 'text-blue-700 dark:text-blue-300'
@@ -265,12 +265,12 @@ function PresetTile({
       >
         {title}
         {active && (
-          <span class='ml-2 text-xs font-medium px-1.5 py-0.5 rounded-full bg-blue-100 dark:bg-blue-800/50 text-blue-700 dark:text-blue-300'>
+          <span className='ml-2 text-xs font-medium px-1.5 py-0.5 rounded-full bg-blue-100 dark:bg-blue-800/50 text-blue-700 dark:text-blue-300'>
             active
           </span>
         )}
       </p>
-      <p class='mt-1 text-xs text-slate-500 dark:text-slate-400 leading-snug'>
+      <p className='mt-1 text-xs text-slate-500 dark:text-slate-400 leading-snug'>
         {description}
       </p>
     </button>
@@ -290,15 +290,15 @@ function Collapsible({
 }) {
   const [open, setOpen] = useState(false);
   return (
-    <div class='border border-slate-200 dark:border-slate-700 rounded-xl overflow-hidden'>
+    <div className='border border-slate-200 dark:border-slate-700 rounded-xl overflow-hidden'>
       <button
         type='button'
         onClick={() => setOpen((v) => !v)}
-        class='w-full flex items-center justify-between px-4 py-3 text-sm font-semibold text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-colors'
+        className='w-full flex items-center justify-between px-4 py-3 text-sm font-semibold text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-colors'
       >
         {label}
         <svg
-          class={`w-4 h-4 text-slate-400 transition-transform ${open ? 'rotate-180' : ''}`}
+          className={`w-4 h-4 text-slate-400 transition-transform ${open ? 'rotate-180' : ''}`}
           viewBox='0 0 20 20'
           fill='currentColor'
         >
@@ -310,7 +310,7 @@ function Collapsible({
         </svg>
       </button>
       {open && (
-        <div class='px-4 pb-4 pt-2 space-y-5 border-t border-slate-200 dark:border-slate-700'>
+        <div className='px-4 pb-4 pt-2 space-y-5 border-t border-slate-200 dark:border-slate-700'>
           {children}
         </div>
       )}
@@ -401,7 +401,7 @@ export function SettingsPage() {
 
   if (loadingCfg) {
     return (
-      <div class='flex items-center justify-center py-20'>
+      <div className='flex items-center justify-center py-20'>
         <Spinner size='lg' className='text-blue-600 dark:text-blue-400' />
       </div>
     );
@@ -409,7 +409,7 @@ export function SettingsPage() {
 
   if (!cfg) {
     return (
-      <p class='text-sm text-red-600 dark:text-red-400 p-4'>
+      <p className='text-sm text-red-600 dark:text-red-400 p-4'>
         {flash?.text ?? 'Could not load settings.'}
       </p>
     );
@@ -418,14 +418,14 @@ export function SettingsPage() {
   const mode = weights?.personalization_mode ?? 'balanced';
 
   return (
-    <div class='space-y-8 pb-12'>
+    <div className='space-y-8 pb-12'>
 
       {/* Page header */}
       <div>
-        <h1 class='text-2xl font-bold tracking-tight text-slate-900 dark:text-slate-100'>
+        <h1 className='text-2xl font-bold tracking-tight text-slate-900 dark:text-slate-100'>
           Digest settings
         </h1>
-        <p class='mt-1 text-sm text-slate-500 dark:text-slate-400'>
+        <p className='mt-1 text-sm text-slate-500 dark:text-slate-400'>
           Control what goes into your digest and how articles are ranked for you.
         </p>
       </div>
@@ -433,7 +433,7 @@ export function SettingsPage() {
       {/* Flash banner */}
       {flash && (
         <div
-          class={[
+          className={[
             'px-4 py-3 text-sm rounded-lg border',
             flash.ok
               ? 'bg-blue-50 dark:bg-blue-900/20 text-blue-700 dark:text-blue-300 border-blue-200 dark:border-blue-800'
@@ -447,26 +447,26 @@ export function SettingsPage() {
       {/* ================================================================
           SECTION 1 — What goes in your digest
           ================================================================ */}
-      <form onSubmit={handleSaveCfg} class='space-y-5'>
+      <form onSubmit={handleSaveCfg} className='space-y-5'>
         <div>
-          <h2 class='text-lg font-bold tracking-tight text-slate-900 dark:text-slate-100'>
+          <h2 className='text-lg font-bold tracking-tight text-slate-900 dark:text-slate-100'>
             What goes in your digest
           </h2>
-          <p class='mt-0.5 text-sm text-slate-500 dark:text-slate-400'>
+          <p className='mt-0.5 text-sm text-slate-500 dark:text-slate-400'>
             Article limits, how old articles can be, and which languages to include.
           </p>
         </div>
 
         <Card>
           <CardHeader title='Article limits' />
-          <div class='grid grid-cols-1 sm:grid-cols-2 gap-4'>
+          <div className='grid grid-cols-1 sm:grid-cols-2 gap-4'>
             <Field
               label='Max articles per digest'
               hint='How many articles appear in each digest. 20–30 is a good daily reading amount.'
             >
               <input
                 type='number'
-                class={INPUT}
+                className={INPUT}
                 min={1}
                 max={200}
                 required
@@ -484,6 +484,30 @@ export function SettingsPage() {
                 }
               />
             </Field>
+            <Field
+              label='Archive history'
+              hint='Keep this many published issues. Older issues are removed after a digest run.'
+            >
+              <input
+                type='number'
+                className={INPUT}
+                min={1}
+                max={1000}
+                required
+                value={cfg.digest_history_limit}
+                onInput={(e) =>
+                  setCfg((p) =>
+                    p
+                      ? {
+                          ...p,
+                          digest_history_limit:
+                            parseInt((e.target as HTMLInputElement).value, 10) || 1,
+                        }
+                      : p,
+                  )
+                }
+              />
+            </Field>
 
             <Field
               label='Article freshness (hours)'
@@ -491,7 +515,7 @@ export function SettingsPage() {
             >
               <input
                 type='number'
-                class={INPUT}
+                className={INPUT}
                 min={0}
                 required
                 value={cfg.max_article_age_hours}
@@ -509,11 +533,11 @@ export function SettingsPage() {
               />
             </Field>
 
-            <div class='sm:col-span-2'>
-              <label class='flex items-start gap-2 cursor-pointer'>
+            <div className='sm:col-span-2'>
+              <label className='flex items-start gap-2 cursor-pointer'>
                 <input
                   type='checkbox'
-                  class='mt-0.5'
+                  className='mt-0.5'
                   checked={cfg.balance_digest_categories}
                   onChange={(e) =>
                     setCfg((p) =>
@@ -528,9 +552,9 @@ export function SettingsPage() {
                     )
                   }
                 />
-                <span class='text-sm text-slate-700 dark:text-slate-300'>
-                  <span class='font-medium'>Spread articles across categories</span>
-                  <span class='block text-xs text-slate-500 dark:text-slate-400 mt-0.5'>
+                <span className='text-sm text-slate-700 dark:text-slate-300'>
+                  <span className='font-medium'>Spread articles across categories</span>
+                  <span className='block text-xs text-slate-500 dark:text-slate-400 mt-0.5'>
                     Reserves at least one slot per topic category before ranking
                     takes over. Keeps the digest varied instead of front-loading
                     one topic.
@@ -546,7 +570,7 @@ export function SettingsPage() {
               >
                 <input
                   type='number'
-                  class={INPUT}
+                  className={INPUT}
                   min={1}
                   max={50}
                   required
@@ -573,7 +597,7 @@ export function SettingsPage() {
             title='Language filter'
             description='Control which languages are collected and the language used in summaries.'
           />
-          <div class='space-y-4'>
+          <div className='space-y-4'>
             <Field
               label='Collect articles in these languages'
               hint='ISO 639-1 codes (en, pt, de…). Type a code and press Enter. Leave empty to accept all languages.'
@@ -592,7 +616,8 @@ export function SettingsPage() {
             >
               <input
                 type='text'
-                class={INPUT}
+                className={INPUT}
+                aria-label='Digest summary language'
                 value={cfg.digest_language ?? 'en'}
                 placeholder='en'
                 onInput={(e) =>
@@ -616,11 +641,11 @@ export function SettingsPage() {
         {/* ================================================================
             SECTION 2 — Things to avoid
             ================================================================ */}
-        <div class='pt-2'>
-          <h2 class='text-lg font-bold tracking-tight text-slate-900 dark:text-slate-100'>
+        <div className='pt-2'>
+          <h2 className='text-lg font-bold tracking-tight text-slate-900 dark:text-slate-100'>
             Things to avoid
           </h2>
-          <p class='mt-0.5 text-sm text-slate-500 dark:text-slate-400'>
+          <p className='mt-0.5 text-sm text-slate-500 dark:text-slate-400'>
             Two ways to keep unwanted content out — choose the right one for your
             situation.
           </p>
@@ -669,24 +694,24 @@ export function SettingsPage() {
         {/* ================================================================
             SECTION 3 — Summary style
             ================================================================ */}
-        <div class='pt-2'>
-          <h2 class='text-lg font-bold tracking-tight text-slate-900 dark:text-slate-100'>
+        <div className='pt-2'>
+          <h2 className='text-lg font-bold tracking-tight text-slate-900 dark:text-slate-100'>
             Summary style
           </h2>
-          <p class='mt-0.5 text-sm text-slate-500 dark:text-slate-400'>
+          <p className='mt-0.5 text-sm text-slate-500 dark:text-slate-400'>
             Control how much the AI writes per article.
           </p>
         </div>
 
         <Card>
-          <div class='grid grid-cols-1 sm:grid-cols-2 gap-4'>
+          <div className='grid grid-cols-1 sm:grid-cols-2 gap-4'>
             <Field
               label='Key takeaways per article'
               hint='Bullet points the AI produces per article (1–10).'
             >
               <input
                 type='number'
-                class={INPUT}
+                className={INPUT}
                 min={1}
                 max={10}
                 required
@@ -711,7 +736,7 @@ export function SettingsPage() {
             >
               <input
                 type='number'
-                class={INPUT}
+                className={INPUT}
                 min={1}
                 max={10}
                 required
@@ -740,11 +765,11 @@ export function SettingsPage() {
             title='YouTube transcription'
             description='When enabled, videos without captions are transcribed via Whisper. Requires an OpenRouter API key and yt-dlp installed on the server.'
           />
-          <div class='space-y-4'>
-            <label class='flex items-start gap-2 cursor-pointer'>
+          <div className='space-y-4'>
+            <label className='flex items-start gap-2 cursor-pointer'>
               <input
                 type='checkbox'
-                class='mt-0.5'
+                className='mt-0.5'
                 checked={cfg.youtube_transcription_enabled}
                 onChange={(e) =>
                   setCfg((p) =>
@@ -759,19 +784,19 @@ export function SettingsPage() {
                   )
                 }
               />
-              <span class='text-sm text-slate-700 dark:text-slate-300'>
+              <span className='text-sm text-slate-700 dark:text-slate-300'>
                 Enable audio transcription for YouTube videos (billed per second of audio)
               </span>
             </label>
 
             {cfg.youtube_transcription_enabled && (
-              <div class='grid grid-cols-1 sm:grid-cols-2 gap-4'>
+              <div className='grid grid-cols-1 sm:grid-cols-2 gap-4'>
                 <Field
                   label='Whisper model'
                   hint='turbo is fast and cheap; large-v3 is highest accuracy.'
                 >
                   <select
-                    class={INPUT}
+                    className={INPUT}
                     value={cfg.youtube_transcription_model}
                     onChange={(e) =>
                       setCfg((p) =>
@@ -801,7 +826,7 @@ export function SettingsPage() {
                 >
                   <input
                     type='number'
-                    class={INPUT}
+                    className={INPUT}
                     min={60}
                     max={7200}
                     required
@@ -838,12 +863,12 @@ export function SettingsPage() {
           SECTION 5 — Personalization
           ================================================================ */}
       {weights && (
-        <form onSubmit={handleSaveWeights} class='space-y-5'>
+        <form onSubmit={handleSaveWeights} className='space-y-5'>
           <div>
-            <h2 class='text-lg font-bold tracking-tight text-slate-900 dark:text-slate-100'>
+            <h2 className='text-lg font-bold tracking-tight text-slate-900 dark:text-slate-100'>
               Personalization
             </h2>
-            <p class='mt-0.5 text-sm text-slate-500 dark:text-slate-400'>
+            <p className='mt-0.5 text-sm text-slate-500 dark:text-slate-400'>
               How strongly the engine uses your star ratings and reading habits to
               re-order articles. Changes take effect on the next digest run.
             </p>
@@ -855,7 +880,7 @@ export function SettingsPage() {
               title='Learning intensity'
               description='Choose how aggressively your ratings shape the digest. You can fine-tune individual signals in Advanced below.'
             />
-            <div class='flex flex-col sm:flex-row gap-3'>
+            <div className='flex flex-col sm:flex-row gap-3'>
               <PresetTile
                 title='Off'
                 description='No personalisation. Articles are ordered purely by recency and your keyword boosts.'
@@ -897,7 +922,8 @@ export function SettingsPage() {
             >
               <textarea
                 rows={3}
-                class={TEXTAREA}
+                className={TEXTAREA}
+                aria-label='Reader profile'
                 value={weights.profile_summary ?? ''}
                 placeholder='Describe your interests in plain language...'
                 onInput={(e) =>
@@ -920,10 +946,10 @@ export function SettingsPage() {
               title='AI re-ordering'
               description='After classical scoring, send your top candidates to an AI with your reader profile. The AI score is blended with the classical score. One extra AI call per digest run.'
             />
-            <label class='flex items-start gap-2 cursor-pointer'>
+            <label className='flex items-start gap-2 cursor-pointer'>
               <input
                 type='checkbox'
-                class='mt-0.5'
+                className='mt-0.5'
                 checked={weights.llm_rerank_enabled}
                 onChange={(e) =>
                   setWeights((w) =>
@@ -936,7 +962,7 @@ export function SettingsPage() {
                   )
                 }
               />
-              <span class='text-sm text-slate-700 dark:text-slate-300'>
+              <span className='text-sm text-slate-700 dark:text-slate-300'>
                 Let the AI re-order my top stories using my reader profile
               </span>
             </label>
@@ -944,23 +970,23 @@ export function SettingsPage() {
 
           {/* Advanced collapsible */}
           <Collapsible label='Advanced — manual signal tuning'>
-            <p class='text-xs text-slate-400 dark:text-slate-500'>
+            <p className='text-xs text-slate-400 dark:text-slate-500'>
               Editing anything here switches your preset to "Custom". Each signal
               adds to the article's total ranking score.
             </p>
 
             {/* Explicit ratings */}
             <div>
-              <p class='text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400 mb-3'>
+              <p className='text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400 mb-3'>
                 Signals from your star ratings
               </p>
-              <div class='grid grid-cols-1 sm:grid-cols-2 gap-4'>
+              <div className='grid grid-cols-1 sm:grid-cols-2 gap-4'>
                 <Field
                   label='Content similarity weight'
                   hint='How much word-level content similarity to your liked articles influences ranking (0 = off, 5 = very strong).'
                 >
                   <input
-                    type='number' class={INPUT} min={0} max={5} step={0.05}
+                    type='number' className={INPUT} min={0} max={5} step={0.05}
                     value={weights.tfidf_preference_weight}
                     onInput={(e) =>
                       setWeightField(
@@ -976,7 +1002,7 @@ export function SettingsPage() {
                   hint='Boost/demote articles based on how you rated their category on average (0 = off).'
                 >
                   <input
-                    type='number' class={INPUT} min={0} max={5} step={0.05}
+                    type='number' className={INPUT} min={0} max={5} step={0.05}
                     value={weights.category_preference_weight}
                     onInput={(e) =>
                       setWeightField(
@@ -992,7 +1018,7 @@ export function SettingsPage() {
                   hint='Boost/demote articles based on how you rated their source feed on average (0 = off).'
                 >
                   <input
-                    type='number' class={INPUT} min={0} max={5} step={0.05}
+                    type='number' className={INPUT} min={0} max={5} step={0.05}
                     value={weights.source_preference_weight}
                     onInput={(e) =>
                       setWeightField(
@@ -1008,7 +1034,7 @@ export function SettingsPage() {
                   hint='How many star ratings are needed before the engine starts personalising. Lower = learns faster, but early ratings have more influence.'
                 >
                   <input
-                    type='number' class={INPUT} min={1} max={1000}
+                    type='number' className={INPUT} min={1} max={1000}
                     value={weights.min_ratings_for_learning}
                     onInput={(e) =>
                       setWeightField(
@@ -1023,16 +1049,16 @@ export function SettingsPage() {
 
             {/* Implicit signals */}
             <div>
-              <p class='text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400 mb-3'>
+              <p className='text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400 mb-3'>
                 Signals from reading behaviour
               </p>
-              <div class='grid grid-cols-1 sm:grid-cols-2 gap-4'>
+              <div className='grid grid-cols-1 sm:grid-cols-2 gap-4'>
                 <Field
                   label='Behaviour signal weight'
                   hint='How much reading, saving, and dismissing articles influences ranking relative to star ratings. 0 = disabled, 1 = same weight as star ratings.'
                 >
                   <input
-                    type='number' class={INPUT} min={0} max={1} step={0.05}
+                    type='number' className={INPUT} min={0} max={1} step={0.05}
                     value={weights.implicit_signal_weight}
                     onInput={(e) =>
                       setWeightField(
@@ -1048,7 +1074,7 @@ export function SettingsPage() {
                   hint='Older ratings count less. After this many days, a rating is worth half as much. 30 days is recommended.'
                 >
                   <input
-                    type='number' class={INPUT} min={1} max={3650}
+                    type='number' className={INPUT} min={1} max={3650}
                     value={weights.rating_decay_half_life_days}
                     onInput={(e) =>
                       setWeightField(
@@ -1063,16 +1089,16 @@ export function SettingsPage() {
 
             {/* Semantic embeddings */}
             <div>
-              <p class='text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400 mb-3'>
+              <p className='text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400 mb-3'>
                 Semantic similarity (requires embedding provider)
               </p>
-              <div class='grid grid-cols-1 sm:grid-cols-2 gap-4'>
+              <div className='grid grid-cols-1 sm:grid-cols-2 gap-4'>
                 <Field
                   label='Embedding provider'
                   hint='off = disabled. ollama = free local. openrouter = cloud (~$0.001/run).'
                 >
                   <select
-                    class={INPUT}
+                    className={INPUT}
                     value={weights.embedding_provider}
                     onChange={(e) => {
                       const provider = (e.target as HTMLSelectElement).value as
@@ -1121,7 +1147,7 @@ export function SettingsPage() {
                     }
                   >
                     <input
-                      type='text' class={INPUT}
+                      type='text' className={INPUT}
                       value={weights.embedding_model}
                       placeholder={
                         weights.embedding_provider === 'openrouter'
@@ -1144,7 +1170,7 @@ export function SettingsPage() {
                     hint='How strongly semantic closeness to your liked articles influences ranking (0 = off, 5 = very strong).'
                   >
                     <input
-                      type='number' class={INPUT} min={0} max={5} step={0.05}
+                      type='number' className={INPUT} min={0} max={5} step={0.05}
                       value={weights.embedding_preference_weight}
                       onInput={(e) =>
                         setWeightField(
@@ -1157,10 +1183,10 @@ export function SettingsPage() {
                 )}
 
                 {weights.embedding_provider !== 'off' && (
-                  <div class='sm:col-span-2 space-y-3'>
-                    <label class='flex items-start gap-2 cursor-pointer'>
+                  <div className='sm:col-span-2 space-y-3'>
+                    <label className='flex items-start gap-2 cursor-pointer'>
                       <input
-                        type='checkbox' class='mt-0.5'
+                        type='checkbox' className='mt-0.5'
                         checked={weights.semantic_dedup_enabled}
                         onChange={(e) =>
                           setWeightField(
@@ -1169,18 +1195,18 @@ export function SettingsPage() {
                           )
                         }
                       />
-                      <span class='text-sm text-slate-700 dark:text-slate-300'>
+                      <span className='text-sm text-slate-700 dark:text-slate-300'>
                         Remove duplicate stories covering the same event
                       </span>
                     </label>
                     {weights.semantic_dedup_enabled && (
-                      <div class='pl-6'>
+                      <div className='pl-6'>
                         <Field
                           label='Duplicate similarity threshold (0.5–1.0)'
                           hint='How similar two articles must be to count as the same story. 0.85 is recommended.'
                         >
                           <input
-                            type='number' class={INPUT} min={0.5} max={1.0} step={0.01}
+                            type='number' className={INPUT} min={0.5} max={1.0} step={0.01}
                             value={weights.semantic_dedup_threshold}
                             onInput={(e) =>
                               setWeightField(
@@ -1199,16 +1225,16 @@ export function SettingsPage() {
 
             {/* Topic enrichment */}
             <div>
-              <p class='text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400 mb-3'>
+              <p className='text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400 mb-3'>
                 AI topic enrichment
               </p>
-              <div class='grid grid-cols-1 sm:grid-cols-2 gap-4'>
+              <div className='grid grid-cols-1 sm:grid-cols-2 gap-4'>
                 <Field
                   label='Topic overlap weight'
                   hint='Influence of AI-extracted topic similarity to your rated articles (0 = off). Requires at least one summarised and rated article.'
                 >
                   <input
-                    type='number' class={INPUT} min={0} max={5} step={0.05}
+                    type='number' className={INPUT} min={0} max={5} step={0.05}
                     value={weights.topic_score_weight}
                     onInput={(e) =>
                       setWeightField(
@@ -1224,16 +1250,17 @@ export function SettingsPage() {
             {/* LLM reranker advanced */}
             {weights.llm_rerank_enabled && (
               <div>
-                <p class='text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400 mb-3'>
+                <p className='text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400 mb-3'>
                   AI re-ordering settings
                 </p>
-                <div class='grid grid-cols-1 sm:grid-cols-2 gap-4'>
+                <div className='grid grid-cols-1 sm:grid-cols-2 gap-4'>
                   <Field
                     label='Reranker model'
                     hint='Leave blank to use the same model as the summariser. Cheap models (e.g. deepseek/deepseek-v3) work well here.'
                   >
                     <input
-                      type='text' class={INPUT}
+                      type='text' className={INPUT}
+                      aria-label='Reranker model'
                       value={weights.llm_rerank_model}
                       placeholder='(same as summariser)'
                       onInput={(e) =>
@@ -1250,7 +1277,7 @@ export function SettingsPage() {
                     hint='Number of top articles the AI sees for re-ordering (1–200).'
                   >
                     <input
-                      type='number' class={INPUT} min={1} max={200}
+                      type='number' className={INPUT} min={1} max={200}
                       value={weights.llm_rerank_top_k}
                       onInput={(e) =>
                         setWeightField(
@@ -1266,7 +1293,7 @@ export function SettingsPage() {
                     hint='0 = ignore AI score. 1 = use AI score only. 0.4 = recommended starting point.'
                   >
                     <input
-                      type='number' class={INPUT} min={0} max={1} step={0.05}
+                      type='number' className={INPUT} min={0} max={1} step={0.05}
                       value={weights.llm_rerank_blend}
                       onInput={(e) =>
                         setWeightField(
@@ -1282,21 +1309,21 @@ export function SettingsPage() {
 
             {/* Category gate */}
             <div>
-              <p class='text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400 mb-3'>
+              <p className='text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400 mb-3'>
                 Category gate
               </p>
-              <p class='text-xs text-slate-400 dark:text-slate-500 mb-3'>
+              <p className='text-xs text-slate-400 dark:text-slate-500 mb-3'>
                 Optionally exclude or limit categories you consistently rate poorly.
                 Default −5.0 means the gate is off. Raise toward 0 to activate (e.g.
                 −1.5 to exclude, −0.5 to demote).
               </p>
-              <div class='grid grid-cols-1 sm:grid-cols-2 gap-4'>
+              <div className='grid grid-cols-1 sm:grid-cols-2 gap-4'>
                 <Field
                   label='Exclude threshold (−5 to 0)'
                   hint='Categories with learned score at/below this are dropped entirely.'
                 >
                   <input
-                    type='number' class={INPUT} min={-5} max={0} step={0.1}
+                    type='number' className={INPUT} min={-5} max={0} step={0.1}
                     value={weights.category_exclude_threshold}
                     onInput={(e) =>
                       setWeightField(
@@ -1312,7 +1339,7 @@ export function SettingsPage() {
                   hint='Categories at/below this lose their guaranteed slot and are capped.'
                 >
                   <input
-                    type='number' class={INPUT} min={-5} max={0} step={0.1}
+                    type='number' className={INPUT} min={-5} max={0} step={0.1}
                     value={weights.category_demote_threshold}
                     onInput={(e) =>
                       setWeightField(
@@ -1328,7 +1355,7 @@ export function SettingsPage() {
                   hint='Max articles allowed from a demoted category per digest.'
                 >
                   <input
-                    type='number' class={INPUT} min={0} max={50}
+                    type='number' className={INPUT} min={0} max={50}
                     value={weights.category_demote_cap}
                     onInput={(e) =>
                       setWeightField(
@@ -1344,7 +1371,7 @@ export function SettingsPage() {
                   hint='A category must have at least this many ratings before it can be gated. Protects categories you have not rated much yet.'
                 >
                   <input
-                    type='number' class={INPUT} min={1} max={1000}
+                    type='number' className={INPUT} min={1} max={1000}
                     value={weights.category_min_ratings}
                     onInput={(e) =>
                       setWeightField(

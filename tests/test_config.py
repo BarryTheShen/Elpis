@@ -1,8 +1,17 @@
 from pathlib import Path
 
 import pytest
+from pydantic import ValidationError
 
-from condenseit.config import AppConfig, _expand_env, load_config
+from condenseit.config import (
+    AppConfig,
+    FeedConfig,
+    GitHubReleasesConfig,
+    GoogleNewsSearchConfig,
+    PodcastConfig,
+    _expand_env,
+    load_config,
+)
 
 
 def test_expand_env_with_default() -> None:
@@ -13,10 +22,25 @@ def test_app_config_defaults() -> None:
     cfg = AppConfig()
     assert cfg.model == "llama3.2:3b"
     assert cfg.max_articles_per_digest == 50
+    assert cfg.digest_history_limit == 100
     assert cfg.max_article_age_hours == 36
     assert cfg.llm.provider == "openrouter"
     assert cfg.vps.enabled is True
     assert cfg.preferred_languages == []
+
+
+def test_rss_like_source_max_items_defaults_and_validates() -> None:
+    configs = (
+        FeedConfig(url="https://example.com/feed"),
+        GoogleNewsSearchConfig(query="security"),
+        GitHubReleasesConfig(repo="owner/repo"),
+        PodcastConfig(feed_url="https://example.com/podcast.xml"),
+    )
+
+    assert {config.max_items for config in configs} == {50}
+    assert FeedConfig(url="https://example.com/feed", max_items=200).max_items == 200
+    with pytest.raises(ValidationError):
+        FeedConfig(url="https://example.com/feed", max_items=201)
 
 
 def test_max_articles_env_override(

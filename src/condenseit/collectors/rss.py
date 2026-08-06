@@ -2,6 +2,7 @@
 
 import logging
 import re
+from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass, field
 from datetime import UTC, datetime
 from urllib.error import URLError
@@ -24,6 +25,7 @@ from condenseit.network import (
 from condenseit.store.database import ContentStore
 
 logger = logging.getLogger(__name__)
+_ARTICLE_EXTRACTION_WORKERS = 8
 
 # Matches og:image or twitter:image meta tags in any attribute order.
 # Group 1 captures the content value.
@@ -105,29 +107,44 @@ class RSSCollector:
     def _collect_feed(self, feed: FeedConfig) -> list[CollectedArticle]:
         parsed = feedparser.parse(self._fetch_feed_text(feed.url))
         source_title = parsed.feed.get("title", feed.url)
-        items: list[CollectedArticle] = []
+        candidates = [
+            (entry, entry.get("link"))
+            for entry in parsed.entries[: feed.max_items]
+            if entry.get("link")
+        ]
+        if not candidates:
+            return []
 
-        for entry in parsed.entries[:15]:
-            link = entry.get("link")
-            if not link:
-                continue
-            title = entry.get("title", "Untitled")
-            content, image_url = self._extract_content(link, entry)
-            if not content.strip():
-                continue
-            published = self._parse_published(entry)
-            items.append(
-                CollectedArticle(
-                    url=link,
-                    title=title,
-                    content=content,
-                    source=source_title,
-                    category=feed.category,
-                    published_at=published,
-                    content_hash=ContentStore.content_hash(content),
-                    image_url=image_url,
+        # ``executor.map`` yields in input order even when page requests finish
+        # out of order, keeping the feed's deterministic ordering intact.
+        with ThreadPoolExecutor(
+            max_workers=min(_ARTICLE_EXTRACTION_WORKERS, len(candidates)),
+        ) as executor:
+            extracted = executor.map(
+                lambda candidate: self._extract_content(
+                    candidate[1],
+                    candidate[0],
                 ),
+                candidates,
             )
+            items: list[CollectedArticle] = []
+            for (entry, link), (content, image_url) in zip(candidates, extracted):
+                if not content.strip():
+                    continue
+                title = entry.get("title", "Untitled")
+                published = self._parse_published(entry)
+                items.append(
+                    CollectedArticle(
+                        url=link,
+                        title=title,
+                        content=content,
+                        source=source_title,
+                        category=feed.category,
+                        published_at=published,
+                        content_hash=ContentStore.content_hash(content),
+                        image_url=image_url,
+                    ),
+                )
         return items
 
     def _fetch_feed_text(self, url: str) -> str:

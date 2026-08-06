@@ -383,6 +383,8 @@ class ContentStore:
         markdown: str,
         html: str,
         stats_json: str,
+        *,
+        history_limit: int | None = None,
     ) -> int:
         row = {
             "created_at": datetime.now(UTC).isoformat(),
@@ -391,7 +393,26 @@ class ContentStore:
             "stats_json": stats_json,
         }
         self.db["digests"].insert(row)
-        return int(self.db.execute("SELECT last_insert_rowid()").fetchone()[0])
+        digest_id = int(self.db.execute("SELECT last_insert_rowid()").fetchone()[0])
+        if history_limit is not None:
+            self.prune_digests(history_limit)
+        return digest_id
+
+    def prune_digests(self, keep: int) -> int:
+        """Delete older published issues, retaining the newest ``keep`` rows.
+
+        The archive is a publication history, so this intentionally removes
+        only rows from ``digests``. Articles, ratings, saved items, and
+        operational run logs remain available independently.
+        """
+        keep = max(1, int(keep))
+        cursor = self.db.execute(
+            "DELETE FROM digests "
+            "WHERE id NOT IN (SELECT id FROM digests ORDER BY id DESC LIMIT ?)",
+            [keep],
+        )
+        self.db.conn.commit()
+        return int(cursor.rowcount)
 
     def update_digest_stats(self, digest_id: int, stats_json: str) -> None:
         self.db.execute(
@@ -427,14 +448,28 @@ class ContentStore:
         )
         return rows[0] if rows else None
 
-    def list_digests(self, limit: int = 20) -> list[dict[str, Any]]:
-        return list(
-            self.db.query(
+    def list_digests(
+        self,
+        limit: int = 20,
+        before_id: int | None = None,
+    ) -> list[dict[str, Any]]:
+        """Return digest summaries in descending ID order.
+
+        ``before_id`` is an exclusive cursor for loading older pages.
+        """
+        if before_id is None:
+            sql = (
                 "SELECT id, created_at, stats_json FROM digests "
-                "ORDER BY id DESC LIMIT ?",
-                [limit],
-            ),
-        )
+                "ORDER BY id DESC LIMIT ?"
+            )
+            params = [limit]
+        else:
+            sql = (
+                "SELECT id, created_at, stats_json FROM digests "
+                "WHERE id < ? ORDER BY id DESC LIMIT ?"
+            )
+            params = [before_id, limit]
+        return list(self.db.query(sql, params))
 
     def rate_article(self, url: str, rating: int) -> None:
         self.db["ratings"].upsert(

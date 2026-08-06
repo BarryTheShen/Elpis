@@ -139,42 +139,42 @@ export function ProvidersPage() {
 
   if (loading && !cfg) {
     return (
-      <div class="flex items-center justify-center py-20">
+      <div className="flex items-center justify-center py-20">
         <Spinner size="lg" className="text-blue-600 dark:text-blue-400" />
       </div>
     );
   }
 
   if (!cfg) {
-    return <p class="text-sm text-red-600 dark:text-red-400 p-4">{flash ?? 'Could not load providers.'}</p>;
+    return <p className="text-sm text-red-600 dark:text-red-400 p-4">{flash ?? 'Could not load providers.'}</p>;
   }
 
   return (
-    <div class="space-y-5">
+    <div className="space-y-5">
       <div>
-        <h1 class="text-2xl font-bold tracking-tight text-slate-900 dark:text-slate-100">
+        <h1 className="text-2xl font-bold tracking-tight text-slate-900 dark:text-slate-100">
           Providers
         </h1>
-        <p class="mt-1 text-sm text-slate-500 dark:text-slate-400">
+        <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">
           Credentials, endpoints, and the active model backend live here. API keys are encrypted at rest.
         </p>
       </div>
 
       {flash && (
-        <div class="px-4 py-3 text-sm rounded-lg bg-blue-50 dark:bg-blue-900/20 text-blue-700 dark:text-blue-300 border border-blue-200 dark:border-blue-800">
+        <div className="px-4 py-3 text-sm rounded-lg bg-blue-50 dark:bg-blue-900/20 text-blue-700 dark:text-blue-300 border border-blue-200 dark:border-blue-800">
           {flash}
         </div>
       )}
 
       <Card>
         <CardHeader title="Active backend" description="Choose where Elpis sends model requests." />
-        <form onSubmit={saveSettings} class="space-y-4">
-          <label class="flex flex-col gap-1">
-            <span class="text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">
+        <form onSubmit={saveSettings} className="space-y-4">
+          <label className="flex flex-col gap-1">
+            <span className="text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">
               Provider
             </span>
             <select
-              class={INPUT}
+              className={INPUT}
               value={cfg.active_provider}
               onChange={(event) =>
                 setCfg((previous) =>
@@ -193,10 +193,10 @@ export function ProvidersPage() {
             </select>
           </label>
 
-          <label class="flex items-start gap-2 cursor-pointer">
+          <label className="flex items-start gap-2 cursor-pointer">
             <input
               type="checkbox"
-              class="mt-0.5"
+              className="mt-0.5"
               checked={cfg.openrouter_pick_cheapest}
               onChange={(event) =>
                 setCfg((previous) =>
@@ -210,12 +210,12 @@ export function ProvidersPage() {
               }
             />
             <span>
-              <span class="block text-sm text-slate-700 dark:text-slate-300">
+              <span className="block text-sm text-slate-700 dark:text-slate-300">
                 Let OpenRouter choose the cheapest suitable text model
               </span>
               {cfg.cheapest_model_id && (
-                <span class="block mt-1 text-xs text-slate-500 dark:text-slate-400">
-                  Current catalog choice: <code class="font-mono">{cfg.cheapest_model_id}</code>
+                <span className="block mt-1 text-xs text-slate-500 dark:text-slate-400">
+                  Current catalog choice: <code className="font-mono">{cfg.cheapest_model_id}</code>
                 </span>
               )}
             </span>
@@ -227,32 +227,32 @@ export function ProvidersPage() {
         </form>
       </Card>
 
-      <div class="grid grid-cols-1 xl:grid-cols-2 gap-4">
+      <div className="grid grid-cols-1 xl:grid-cols-2 gap-4">
         {cfg.providers.map((provider) => (
           <Card key={provider.id}>
-            <div class="flex items-start justify-between gap-3">
+            <div className="flex items-start justify-between gap-3">
               <div>
-                <h2 class="text-base font-semibold text-slate-900 dark:text-slate-100">
+                <h2 className="text-base font-semibold text-slate-900 dark:text-slate-100">
                   {provider.label}
                 </h2>
-                <p class="mt-1 text-xs text-slate-500 dark:text-slate-400">
+                <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
                   {provider.description}
                 </p>
               </div>
               {cfg.active_provider === provider.id && (
-                <span class="shrink-0 rounded-full bg-blue-100 px-2 py-1 text-[11px] font-semibold text-blue-700 dark:bg-blue-900/30 dark:text-blue-300">
+                <span className="shrink-0 rounded-full bg-blue-100 px-2 py-1 text-[11px] font-semibold text-blue-700 dark:bg-blue-900/30 dark:text-blue-300">
                   Active
                 </span>
               )}
             </div>
 
             {provider.supports_base_url && (
-              <label class="mt-4 flex flex-col gap-1">
-                <span class="text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">
+              <label className="mt-4 flex flex-col gap-1">
+                <span className="text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">
                   API base URL
                 </span>
                 <input
-                  class={INPUT}
+                  className={INPUT}
                   value={provider.base_url}
                   placeholder={provider.default_base_url || 'https://your-server.example/v1'}
                   onInput={(event) =>
@@ -266,7 +266,7 @@ export function ProvidersPage() {
                     )
                   }
                 />
-                <span class="text-xs text-slate-400 dark:text-slate-500">
+                <span className="text-xs text-slate-400 dark:text-slate-500">
                   {provider.id === 'custom'
                     ? 'Use the server base URL, usually ending in /v1.'
                     : provider.default_base_url
@@ -278,7 +278,7 @@ export function ProvidersPage() {
 
             {provider.requires_api_key ? (
               <form
-                class="mt-4 flex gap-2"
+                className="mt-4 flex gap-2"
                 onSubmit={(event) => {
                   event.preventDefault();
                   void saveKey(provider);
@@ -286,7 +286,7 @@ export function ProvidersPage() {
               >
                 <input
                   type="password"
-                  class={`${INPUT} flex-1`}
+                  className={`${INPUT} flex-1`}
                   autoComplete="off"
                   aria-label={`${provider.label} API key`}
                   placeholder={provider.api_key_configured ? provider.key_preview : 'API key'}
@@ -303,14 +303,14 @@ export function ProvidersPage() {
                 </Button>
               </form>
             ) : (
-              <p class="mt-4 text-xs text-slate-500 dark:text-slate-400">
+              <p className="mt-4 text-xs text-slate-500 dark:text-slate-400">
                 No API key required. Local Ollama must be reachable from the Elpis process.
               </p>
             )}
 
             {provider.api_key_configured && provider.requires_api_key && (
-              <div class="mt-2 flex items-center justify-between gap-3">
-                <p class="text-xs text-emerald-600 dark:text-emerald-400">
+              <div className="mt-2 flex items-center justify-between gap-3">
+                <p className="text-xs text-emerald-600 dark:text-emerald-400">
                   Key configured: {provider.key_preview}
                 </p>
                 <Button
@@ -334,14 +334,15 @@ export function ProvidersPage() {
           description={`Manage models at ${cfg.ollama_host}. Model and reasoning choices stay on the LLM settings page.`}
         />
         {!cfg.ollama_reachable ? (
-          <p class="text-sm text-amber-700 dark:text-amber-300">
+          <p className="text-sm text-amber-700 dark:text-amber-300">
             Ollama is not reachable. Start it locally or set its endpoint above.
           </p>
         ) : (
-          <div class="space-y-3">
-            <form onSubmit={pullOllama} class="flex gap-2">
+          <div className="space-y-3">
+            <form onSubmit={pullOllama} className="flex gap-2">
               <input
-                class={`${INPUT} flex-1`}
+                className={`${INPUT} flex-1`}
+                aria-label="Ollama model to pull"
                 placeholder="llama3.2:3b"
                 value={pullModel}
                 required
@@ -350,9 +351,10 @@ export function ProvidersPage() {
               <Button type="submit" loading={pulling}>Pull</Button>
             </form>
             {cfg.ollama_models.length > 0 && (
-              <form onSubmit={deleteOllama} class="flex gap-2">
+              <form onSubmit={deleteOllama} className="flex gap-2">
                 <select
-                  class={`${INPUT} flex-1`}
+                  className={`${INPUT} flex-1`}
+                  aria-label="Ollama model to delete"
                   value={deleteModel}
                   required
                   onChange={(event) => setDeleteModel((event.target as HTMLSelectElement).value)}
@@ -367,8 +369,8 @@ export function ProvidersPage() {
         )}
       </Card>
 
-      <p class="text-xs text-slate-500 dark:text-slate-400">
-        Configure output model and reasoning intensity in <Link href="/admin/llm" class="text-blue-600 hover:underline dark:text-blue-400">LLM settings</Link>.
+      <p className="text-xs text-slate-500 dark:text-slate-400">
+        Configure output model and reasoning intensity in <Link href="/admin/llm" className="text-blue-600 hover:underline dark:text-blue-400">LLM settings</Link>.
       </p>
     </div>
   );

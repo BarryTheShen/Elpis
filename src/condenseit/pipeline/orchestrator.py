@@ -22,6 +22,7 @@ from condenseit.collectors.rss import RSSCollector
 from condenseit.collectors.website import check_website_changes_with_health
 from condenseit.collectors.youtube import YouTubeCollector
 from condenseit.config import AppConfig, load_config, resolve_output_path
+from condenseit.digest.format import order_digest_items
 from condenseit.learning.embeddings import (
     build_embedding_provider,
     cosine_similarity,
@@ -315,6 +316,8 @@ class DigestPipeline:
             self._record_health(src_health)
 
         articles.extend(v.to_dict() for v in videos)
+        collected_articles_count = len(articles)
+
 
         # Persist new articles and identify the truly fresh subset.
         fresh = self.store.deduplicate(articles)
@@ -421,6 +424,8 @@ class DigestPipeline:
                     ),
                 )
                 logger.info("LLM reranker applied (model=%s)", _rerank_model)
+
+        candidate_count = len(ranked)
 
         max_n = self.config.max_articles_per_digest
         if self.config.balance_digest_categories:
@@ -541,6 +546,9 @@ class DigestPipeline:
 
         self.stats = {
             "articles_count": len(ranked),
+            "collected_articles_count": collected_articles_count,
+            "filtered_articles_count": len(articles),
+            "candidate_count": candidate_count,
             "videos_count": len(videos),
             "changes_count": len(changes),
             "processing_time": f"{elapsed:.0f}s",
@@ -554,6 +562,7 @@ class DigestPipeline:
             self.digest_md,
             self.digest_html,
             json.dumps(self.stats),
+            history_limit=self.config.digest_history_limit,
         )
         if not dry_run:
             self.store.attach_spending_to_digest(self.digest_run_id, digest_id)
@@ -895,35 +904,28 @@ class DigestPipeline:
         video_summaries: list[dict[str, Any]],
         changes: list[dict[str, str]],
     ) -> list[dict[str, Any]]:
-        """Flatten digest entries for the web UI (same order as markdown)."""
-        out: list[dict[str, Any]] = []
-        n = 0
-        for cat in sorted(categorized.keys()):
-            for e in categorized[cat]:
-                row = {**e, "id": n}
-                n += 1
-                out.append(row)
-        for e in video_summaries:
-            row = {**e, "id": n}
-            n += 1
-            out.append(row)
-        for c in changes:
-            status = str(c.get("status", "update"))
+        """Flatten digest entries in descending article-score order."""
+        out = order_digest_items(
+            [{**entry} for entries in categorized.values() for entry in entries]
+        )
+        out.extend({**entry} for entry in video_summaries)
+        for change in changes:
+            status = str(change.get("status", "update"))
             out.append(
                 {
-                    "id": n,
                     "title": f"Website ({status})",
-                    "url": str(c.get("url", "")),
-                    "summary": str(c.get("snippet", ""))[:800],
+                    "url": str(change.get("url", "")),
+                    "summary": str(change.get("snippet", ""))[:800],
                     "tldr": "",
                     "key_takeaways": [],
                     "source": "watch",
-                    "category": str(c.get("category", "General")),
+                    "category": str(change.get("category", "General")),
                     "published_at": "",
                     "kind": "watch",
-                },
+                }
             )
-            n += 1
+        for index, row in enumerate(out):
+            row["id"] = index
         return out
 
     @staticmethod
@@ -933,7 +935,7 @@ class DigestPipeline:
         changes: list[dict[str, str]],
     ) -> list[dict[str, Any]]:
         items: list[dict[str, Any]] = []
-        for i, art in enumerate(ranked):
+        for i, art in enumerate(order_digest_items(ranked)):
             u = str(art.get("url", ""))
             item_kind = (
                 "video" if u in video_urls else str(art.get("kind") or "article")
@@ -976,7 +978,7 @@ class DigestPipeline:
 
     def _dry_run_markdown(
         self,
-        articles: list[dict[str, str]],
+        articles: list[dict[str, Any]],
         changes: list[dict[str, str]],
         video_count: int,
     ) -> str:
@@ -986,7 +988,7 @@ class DigestPipeline:
             f"Collected **{len(articles)}** articles, **{video_count}** videos.",
             "",
         ]
-        for art in articles:
+        for art in order_digest_items(articles):
             score = art.get("preference_score", "")
             lines.append(
                 f"- [{art['title']}]({art['url']}) — {art['category']} ({score})",

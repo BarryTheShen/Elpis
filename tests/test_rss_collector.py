@@ -1,6 +1,10 @@
-"""Tests for RSS collection fallbacks."""
+"""Tests for RSS collection fallbacks and candidate limits."""
 
 from __future__ import annotations
+
+import threading
+import time
+from types import SimpleNamespace
 
 import httpx
 
@@ -73,3 +77,88 @@ def test_collect_feed_falls_back_to_urllib_on_403(
     assert articles[0].title == "Recovered article"
     assert articles[0].url == article_url
     assert articles[0].category == "Test"
+
+
+def test_collect_feed_honors_configured_max_items(
+    monkeypatch,
+) -> None:
+    entries = [
+        {
+            "link": f"https://example.com/article-{index}",
+            "title": f"Article {index}",
+            "summary": f"Summary {index}",
+        }
+        for index in range(30)
+    ]
+    parsed = SimpleNamespace(feed={"title": "Synthetic"}, entries=entries)
+    monkeypatch.setattr(
+        "condenseit.collectors.rss.feedparser.parse",
+        lambda _text: parsed,
+    )
+
+    collector = RSSCollector(
+        [
+            FeedConfig(
+                url="https://example.com/feed",
+                max_items=24,
+            )
+        ]
+    )
+    monkeypatch.setattr(collector, "_fetch_feed_text", lambda _url: "<rss />")
+    monkeypatch.setattr(
+        collector,
+        "_extract_content",
+        lambda _url, entry: (entry["summary"], None),
+    )
+
+    articles = collector.collect_all()
+
+    assert len(articles) == 24
+    assert [article.title for article in articles] == [
+        f"Article {index}" for index in range(24)
+    ]
+
+
+def test_collect_feed_extracts_pages_concurrently_in_feed_order(
+    monkeypatch,
+) -> None:
+    entries = [
+        {
+            "link": f"https://example.com/article-{index}",
+            "title": f"Article {index}",
+            "summary": f"Summary {index}",
+        }
+        for index in range(20)
+    ]
+    parsed = SimpleNamespace(feed={"title": "Synthetic"}, entries=entries)
+    monkeypatch.setattr(
+        "condenseit.collectors.rss.feedparser.parse",
+        lambda _text: parsed,
+    )
+
+    active = 0
+    max_active = 0
+    lock = threading.Lock()
+
+    def fake_extract(_url: str, entry: dict[str, str]) -> tuple[str, None]:
+        nonlocal active, max_active
+        with lock:
+            active += 1
+            max_active = max(max_active, active)
+        time.sleep(0.01)
+        with lock:
+            active -= 1
+        return entry["summary"], None
+
+    collector = RSSCollector(
+        [FeedConfig(url="https://example.com/feed", max_items=len(entries))]
+    )
+    monkeypatch.setattr(collector, "_fetch_feed_text", lambda _url: "<rss />")
+    monkeypatch.setattr(collector, "_extract_content", fake_extract)
+
+    articles = collector.collect_all()
+
+    assert max_active > 1
+    assert [article.url for article in articles] == [
+        entry["link"] for entry in entries
+    ]

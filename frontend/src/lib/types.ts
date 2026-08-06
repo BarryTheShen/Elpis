@@ -6,6 +6,7 @@
  */
 export interface ScoreBreakdown {
   keyword_high: number;
+  keyword_negative: number;
   keyword_medium: number;
   term_overlap: number;
   bigram_overlap: number;
@@ -67,6 +68,12 @@ export interface DigestMeta {
   id: number;
   created_at: string;
   articles_count?: number;
+  /** Number of collected article candidates before filtering. */
+  collected_articles_count?: number;
+  /** Number of candidates remaining after filtering. */
+  filtered_articles_count?: number;
+  /** Number of ranked candidates considered for final selection. */
+  candidate_count?: number;
   model?: string;
   processing_time?: string;
 }
@@ -74,6 +81,15 @@ export interface DigestMeta {
 export interface DigestDetail {
   meta: DigestMeta;
   items: DigestItem[];
+}
+
+export interface ArticleContent {
+  url: string;
+  title: string;
+  content: string;
+  source: string;
+  category: string;
+  published_at?: string;
 }
 
 export interface Source {
@@ -322,6 +338,8 @@ export interface ScheduleConfig {
 
 export interface DigestConfig {
   max_articles_per_digest: number;
+  /** Number of published issues retained in the public archive. */
+  digest_history_limit: number;
   balance_digest_categories: boolean;
   max_articles_per_category: number;
   max_article_age_hours: number;

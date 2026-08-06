@@ -49,7 +49,7 @@ export function Button({
       disabled={disabled || loading}
       onClick={onClick}
       title={title}
-      class={[
+      className={[
         'transition-colors select-none disabled:opacity-50 disabled:cursor-not-allowed',
         'active:scale-[0.98] focus-visible:ring-2 focus-visible:ring-[#2783de] focus-visible:ring-offset-2 dark:focus-visible:ring-offset-[#171716]',
         VARIANT[variant],
@@ -59,7 +59,7 @@ export function Button({
     >
       {loading && (
         <span
-          class={`inline-block rounded-full border-current border-t-transparent animate-spin ${
+          className={`inline-block rounded-full border-current border-t-transparent animate-spin ${
             size === 'sm' ? 'w-3 h-3 border-[1.5px]' : 'w-3.5 h-3.5 border-2'
           }`}
         />

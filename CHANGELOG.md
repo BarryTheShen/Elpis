@@ -2,6 +2,27 @@
 
 ## Unreleased
 
+
+- Collection: RSS/Atom, Google News, GitHub Releases, and podcast sources now
+  collect up to 50 entries by default (configurable to 200) before ranking;
+  ordered concurrent article extraction preserves feed order and records
+  collected, filtered, candidate, and selected counts.
+- Reader: publication history moved to a paginated public archive, while admin
+  routes remain configuration/operations only; article and summary views now
+  render safe paragraphs, headings, lists, links, code, and blockquotes without
+  exposing provider reasoning or raw structured JSON.
+- Archive: published issues are bounded to the newest 100 by default
+  (`digest_history_limit`, configurable from Admin > Digest settings); older
+  issue rows are pruned without deleting article, rating, saved-item, or run
+  history.
+- Summaries: truncated reasoning-model responses now recover completed visible
+  fields, while ellipsis placeholders and plain thinking transcripts stay out
+  of publication cards and reader panels.
+- Ranking: category balancing now preserves descending preference-score output
+  order, persisted/public API items normalize legacy digest order, dry-run
+  digests serialize the same order, and configured keywords use word
+  boundaries so short terms such as `go` do not match `Google`.
+
 - Branding: reintroduced the project as Elpis, with independent repository
   documentation, PWA identity, and retained CondenseIt MIT attribution.
 - Publication: exposed read-only digest routes while withholding raw rendered

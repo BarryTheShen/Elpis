@@ -15,7 +15,7 @@ export function RatingStars({
   disabled = false,
 }: RatingStarsProps) {
   return (
-    <div class="flex shrink-0 gap-1" role="group" aria-label="Rating">
+    <div className="flex shrink-0 gap-1" role="group" aria-label="Rating">
       {STARS.map((n) => {
         const active = (value ?? 0) >= n;
         return (
@@ -26,7 +26,7 @@ export function RatingStars({
             onClick={() => onChange(n)}
             title={LABELS[n - 1]}
             aria-label={`Rate ${n} star${n !== 1 ? 's' : ''}`}
-            class={[
+            className={[
               'w-8 h-8 flex items-center justify-center rounded-md text-sm font-semibold',
               'border transition-all cursor-pointer select-none active:scale-[0.96]',
               'disabled:opacity-50 disabled:cursor-not-allowed',

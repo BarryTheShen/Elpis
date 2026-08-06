@@ -19,7 +19,6 @@ from condenseit.store.database import ContentStore
 
 logger = logging.getLogger(__name__)
 
-_MAX_ENTRIES = 10
 
 
 class GitHubReleasesCollector:
@@ -60,7 +59,7 @@ class GitHubReleasesCollector:
         feed = feedparser.parse(resp.text)
 
         items: list[dict[str, str]] = []
-        for entry in feed.entries[:_MAX_ENTRIES]:
+        for entry in feed.entries[: cfg.max_items]:
             link = entry.get("link", "")
             title = entry.get("title", "")
             if not title or not link:

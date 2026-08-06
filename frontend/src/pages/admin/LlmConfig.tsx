@@ -29,12 +29,12 @@ function Field({
   children: ComponentChildren;
 }) {
   return (
-    <label class="flex flex-col gap-1">
-      <span class="text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">
+    <label className="flex flex-col gap-1">
+      <span className="text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">
         {label}
       </span>
       {children}
-      {hint && <span class="text-xs text-slate-400 dark:text-slate-500">{hint}</span>}
+      {hint && <span className="text-xs text-slate-400 dark:text-slate-500">{hint}</span>}
     </label>
   );
 }
@@ -76,7 +76,7 @@ export function LlmConfigPage() {
 
   if (loading) {
     return (
-      <div class="flex items-center justify-center py-20">
+      <div className="flex items-center justify-center py-20">
         <Spinner size="lg" className="text-blue-600 dark:text-blue-400" />
       </div>
     );
@@ -84,7 +84,7 @@ export function LlmConfigPage() {
 
   if (!cfg) {
     return (
-      <p class="text-sm text-red-600 dark:text-red-400 p-4">
+      <p className="text-sm text-red-600 dark:text-red-400 p-4">
         {flash ?? 'Could not load LLM settings.'}
       </p>
     );
@@ -95,33 +95,33 @@ export function LlmConfigPage() {
     REASONING_OPTIONS[0];
 
   return (
-    <div class="space-y-5">
+    <div className="space-y-5">
       <div>
-        <h1 class="text-2xl font-bold tracking-tight text-slate-900 dark:text-slate-100">
+        <h1 className="text-2xl font-bold tracking-tight text-slate-900 dark:text-slate-100">
           LLM settings
         </h1>
-        <p class="mt-1 text-sm text-slate-500 dark:text-slate-400">
+        <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">
           Choose the model and how much reasoning it should use. Credentials and endpoints are managed in{' '}
-          <Link href="/admin/providers" class="text-blue-600 hover:underline dark:text-blue-400">
+          <Link href="/admin/providers" className="text-blue-600 hover:underline dark:text-blue-400">
             Providers
           </Link>.
         </p>
       </div>
 
       {flash && (
-        <div class="px-4 py-3 text-sm rounded-lg bg-blue-50 dark:bg-blue-900/20 text-blue-700 dark:text-blue-300 border border-blue-200 dark:border-blue-800">
+        <div className="px-4 py-3 text-sm rounded-lg bg-blue-50 dark:bg-blue-900/20 text-blue-700 dark:text-blue-300 border border-blue-200 dark:border-blue-800">
           {flash}
         </div>
       )}
 
       <Card>
         <CardHeader title="Model output" />
-        <form onSubmit={handleSave} class="space-y-5">
-          <div class="rounded-lg border border-slate-200 bg-slate-50 px-3 py-2.5 dark:border-slate-700 dark:bg-slate-800/50">
-            <p class="text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">
+        <form onSubmit={handleSave} className="space-y-5">
+          <div className="rounded-lg border border-slate-200 bg-slate-50 px-3 py-2.5 dark:border-slate-700 dark:bg-slate-800/50">
+            <p className="text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">
               Active provider
             </p>
-            <p class="mt-1 text-sm font-medium text-slate-900 dark:text-slate-100">
+            <p className="mt-1 text-sm font-medium text-slate-900 dark:text-slate-100">
               {cfg.provider}
             </p>
           </div>
@@ -131,7 +131,7 @@ export function LlmConfigPage() {
             hint="Use the model identifier expected by the active provider. OpenRouter IDs look like provider/model."
           >
             <input
-              class={INPUT}
+              className={INPUT}
               value={cfg.model}
               required
               onInput={(event) =>
@@ -146,7 +146,7 @@ export function LlmConfigPage() {
 
           <Field label="Reasoning effort" hint={selectedReasoning.hint}>
             <select
-              class={INPUT}
+              className={INPUT}
               value={cfg.reasoning_effort}
               onChange={(event) =>
                 setCfg((previous) =>
@@ -168,12 +168,12 @@ export function LlmConfigPage() {
             </select>
           </Field>
 
-          <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <Field
               label="Extended thinking"
               hint="Passes a provider-neutral thinking budget when supported."
             >
-              <label class="flex items-center gap-2 min-h-10 text-sm text-slate-700 dark:text-slate-300">
+              <label className="flex items-center gap-2 min-h-10 text-sm text-slate-700 dark:text-slate-300">
                 <input
                   type="checkbox"
                   checked={cfg.thinking_enabled}
@@ -197,7 +197,7 @@ export function LlmConfigPage() {
               hint="0 lets the provider choose. Range: 0-100000 tokens."
             >
               <input
-                class={INPUT}
+                className={INPUT}
                 type="number"
                 min="0"
                 max="100000"
@@ -219,7 +219,7 @@ export function LlmConfigPage() {
             </Field>
           </div>
 
-          <div class="rounded-lg bg-slate-50 px-3 py-2.5 text-xs leading-5 text-slate-600 dark:bg-slate-800/50 dark:text-slate-400">
+          <div className="rounded-lg bg-slate-50 px-3 py-2.5 text-xs leading-5 text-slate-600 dark:bg-slate-800/50 dark:text-slate-400">
             LiteLLM normalizes reasoning controls across OpenRouter, OpenAI, Anthropic, Gemini, local Ollama, and custom OpenAI-compatible servers. Providers that do not support a control safely ignore it.
           </div>
 

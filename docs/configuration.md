@@ -10,6 +10,14 @@
   the app does not fall back to legacy Jinja pages when the package is installed
   under `site-packages`.
 
+## Publication history
+
+The public archive is cursor-paginated and retains the newest **100 issues** by
+default. Set `digest_history_limit` in `config.yaml` (or **Admin > Digest
+settings**) to a value from 1 to 1,000. Older issue rows are pruned after a
+successful digest run; source articles, ratings, saved stories, and run logs
+remain independent.
+
 ## Sources
 
 All sources are managed from **Admin > Sources** in the web UI. Changes take effect
@@ -52,12 +60,23 @@ Hacker News, Reddit, GitHub Releases, Podcast, and YouTube collectors.
 ### RSS / Atom
 
 Any public RSS or Atom feed URL. Most news sites and blogs publish one.
+Elpis reads up to **50 entries per feed by default** (`max_items`, allowed range
+1–200), then ranks the combined candidate pool before applying the final
+`max_articles_per_digest` and category limits. This keeps collection broad
+without sending every candidate to the summarizer.
+
+The shipped configuration includes **28 feeds** across general news, technology,
+developer, AI, and security coverage. Their configured limits provide room for
+up to **960 candidates** before ranking; failed feeds are recorded in source
+health and do not abort the other collectors.
+
 
 ```yaml
 feeds:
   - url: "https://www.example.com/rss"
     category: "General News"
     priority: 2
+    max_items: 50
 ```
 
 ### YouTube

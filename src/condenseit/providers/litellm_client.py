@@ -11,7 +11,32 @@ import logging
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any
 
+from condenseit.providers.base import sanitize_reasoning_content
 from condenseit.providers.catalog import get_litellm_model
+
+
+_REASONING_FIELD_NAMES = frozenset(
+    {"reasoning", "reasoning_content", "thinking"}
+)
+_REASONING_BLOCK_TYPES = frozenset(
+    {
+        "analysis",
+        "chain_of_thought",
+        "chain-of-thought",
+        "cot",
+        "deliberation",
+        "internal",
+        "private",
+        "reasoning",
+        "reasoning_content",
+        "reflection",
+        "redacted_thinking",
+        "scratchpad",
+        "think",
+        "thinking",
+        "thought",
+    }
+)
 
 if TYPE_CHECKING:
     from condenseit.providers.budget import BudgetTracker
@@ -34,25 +59,54 @@ def _value(obj: Any, key: str, default: Any = None) -> Any:
     return getattr(obj, key, default)
 
 
-def _message_content(message: Any) -> str:
-    raw = _value(message, "content", "")
-    if isinstance(raw, str):
-        return raw.strip()
-    if isinstance(raw, list):
-        parts: list[str] = []
-        for block in raw:
-            if isinstance(block, dict):
-                # Keep text blocks but never leak provider reasoning blocks into
-                # the digest when a provider returns a mixed content array.
-                if block.get("type") in {"thinking", "redacted_thinking", "reasoning"}:
-                    continue
-                text = block.get("text") or block.get("content")
-            else:
-                text = getattr(block, "text", None) or getattr(block, "content", None)
-            if isinstance(text, str) and text.strip():
-                parts.append(text.strip())
+def _normalise_label(value: Any) -> str:
+    """Normalize provider field/type labels for case and separator variants."""
+    return str(value or "").strip().casefold().replace("-", "_").replace(" ", "_")
+
+
+def _is_reasoning_type(value: Any) -> bool:
+    return _normalise_label(value) in _REASONING_BLOCK_TYPES
+
+
+def _visible_field(value: Any, field_name: str) -> Any:
+    """Read a content field while ignoring known provider reasoning fields."""
+    if isinstance(value, dict):
+        wanted = _normalise_label(field_name)
+        for key, child in value.items():
+            normalized = _normalise_label(key)
+            if normalized in _REASONING_FIELD_NAMES:
+                continue
+            if normalized == wanted:
+                return child
+        return None
+    return _value(value, field_name, None)
+
+
+def _visible_content(value: Any) -> str:
+    """Recursively collect visible text from LiteLLM's typed content forms."""
+    if isinstance(value, str):
+        return sanitize_reasoning_content(value)
+    if isinstance(value, (list, tuple)):
+        parts = []
+        for block in value:
+            text = _visible_content(block)
+            if text:
+                parts.append(text)
         return "\n".join(parts).strip()
-    return ""
+    if value is None:
+        return ""
+
+    if _is_reasoning_type(_visible_field(value, "type")):
+        return ""
+
+    text = _visible_field(value, "text")
+    if not text:
+        text = _visible_field(value, "content")
+    return _visible_content(text)
+
+
+def _message_content(message: Any) -> str:
+    return _visible_content(_value(message, "content", ""))
 
 
 def _response_usage(response: Any) -> tuple[int, float]:

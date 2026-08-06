@@ -447,25 +447,25 @@ class PreferenceEngine:
                 "llm_rerank": 0.0,
             }
 
-            # 1. Keyword boosts from config.
+            # 1. Keyword boosts from config. Plain keywords use token
+            # boundaries so short terms such as "go" do not match "Google".
             for kw in high:
-                if kw in text_lower:
+                if _keyword_matches_text(kw, text_lower):
                     breakdown["keyword_high"] += 2.0
             for kw in medium:
-                if kw in text_lower:
+                if _keyword_matches_text(kw, text_lower):
                     breakdown["keyword_medium"] += 1.0
 
             # 1b. Negative keyword penalty for explicitly disliked topics.
             # Multi-word phrases match when every word appears (cheap, order-
             # independent), so "celebrity news" penalises an article only when
-            # both words are present; single words use a plain substring match.
+            # both words are present; single words use token-boundary matching.
             for kw in negative:
-                if not kw:
-                    continue
-                if " " in kw:
-                    if all(part in text_lower for part in kw.split()):
+                parts = [part for part in kw.strip().lower().split() if part]
+                if len(parts) > 1:
+                    if all(_keyword_matches_text(part, text_lower) for part in parts):
                         breakdown["keyword_negative"] -= 2.0
-                elif kw in text_lower:
+                elif parts and _keyword_matches_text(parts[0], text_lower):
                     breakdown["keyword_negative"] -= 2.0
 
             # 2. Synonym expansion: expand article tokens to include synonyms
@@ -1055,6 +1055,17 @@ def _time_decay(rated_at: str, now: datetime, lam: float) -> float:
     except (ValueError, OverflowError):
         return 1.0
 
+
+def _keyword_matches_text(keyword: str, text: str) -> bool:
+    """Match a ranking keyword without treating short words as substrings."""
+    kw = keyword.strip().lower()
+    if not kw:
+        return False
+    if "*" in kw:
+        parts = [part for part in kw.split("*") if part]
+        return all(part in text for part in parts)
+    pattern = re.escape(kw).replace(r"\ ", r"\s+")
+    return re.search(rf"(?<!\w){pattern}(?!\w)", text) is not None
 
 def _tokenize(text: str) -> list[str]:
     """Extract meaningful word tokens (length >= 3) from text."""

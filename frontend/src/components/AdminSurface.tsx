@@ -4,22 +4,17 @@ import { Link, Redirect, Route, Switch } from 'wouter';
 import { AppLayout } from '../layouts/AppLayout';
 import { LoginPage } from '../pages/Login';
 import { ProvidersPage } from '../pages/admin/Providers';
-import { DigestPage } from '../pages/Digest';
 import { OverviewPage } from '../pages/admin/Overview';
 import { BudgetPage } from '../pages/admin/Budget';
 import { AdvancedPage } from '../pages/admin/Advanced';
-import { ReadLaterPage } from '../pages/ReadLater';
 import { LlmConfigPage } from '../pages/admin/LlmConfig';
-import { StarredPage } from '../pages/Starred';
 import { LogsPage } from '../pages/admin/Logs';
 import { PreferencesPage } from '../pages/admin/Preferences';
 import { SchedulePage } from '../pages/admin/Schedule';
 import { SecurityPage } from '../pages/admin/Security';
 import { SettingsPage } from '../pages/admin/Settings';
 import { SourcesPage } from '../pages/admin/Sources';
-import { api } from '../lib/api';
 import { checkAuth } from '../lib/auth';
-import type { DigestEntry } from '../lib/types';
 
 type AuthState = 'checking' | 'authenticated' | 'unauthenticated';
 
@@ -39,6 +34,8 @@ function useDesktopViewport(): boolean {
   return isDesktop;
 }
 
+const ADMIN_HOME = '/admin/overview';
+
 function AdminRoutes() {
   return (
     <Switch>
@@ -46,14 +43,14 @@ function AdminRoutes() {
         <Redirect to="/admin/overview" />
       </Route>
       <Route path="/admin/overview"><OverviewPage /></Route>
-      <Route path="/admin/digest"><DigestPage /></Route>
+      <Route path="/admin/digest"><Redirect to="/" /></Route>
       <Route path="/admin/sources"><SourcesPage /></Route>
       <Route path="/admin/llm"><LlmConfigPage /></Route>
       <Route path="/admin/providers"><ProvidersPage /></Route>
       <Route path="/admin/keys"><Redirect to="/admin/providers" /></Route>
       <Route path="/admin/budget"><BudgetPage /></Route>
-      <Route path="/admin/read-later"><ReadLaterPage /></Route>
-      <Route path="/admin/starred"><StarredPage /></Route>
+      <Route path="/admin/read-later"><Redirect to="/read-later" /></Route>
+      <Route path="/admin/starred"><Redirect to="/starred" /></Route>
       <Route path="/admin/schedule"><SchedulePage /></Route>
       <Route path="/admin/advanced"><AdvancedPage /></Route>
       <Route path="/admin/logs"><LogsPage /></Route>
@@ -61,7 +58,7 @@ function AdminRoutes() {
       <Route path="/admin/profile"><PreferencesPage /></Route>
       <Route path="/admin/security"><SecurityPage /></Route>
       <Route>
-        <div class="py-20 text-center text-[#7d7a75] dark:text-[#b4b1ab]">
+        <div className="py-20 text-center text-[#7d7a75] dark:text-[#b4b1ab]">
           Admin page not found.
         </div>
       </Route>
@@ -71,20 +68,20 @@ function AdminRoutes() {
 
 function MobileAdminNotice() {
   return (
-    <main class="flex min-h-screen items-center justify-center bg-[#f9f8f7] px-6 text-[#2c2c2b] dark:bg-[#171716] dark:text-[#f4f3f1]">
-      <section class="max-w-sm text-center">
-        <p class="text-sm font-semibold tracking-[0.12em] text-[#7d7a75] dark:text-[#b4b1ab]">
+    <main className="flex min-h-screen items-center justify-center bg-[#f9f8f7] px-6 text-[#2c2c2b] dark:bg-[#171716] dark:text-[#f4f3f1]">
+      <section className="max-w-sm text-center">
+        <p className="text-sm font-semibold tracking-[0.12em] text-[#7d7a75] dark:text-[#b4b1ab]">
           Desktop only
         </p>
-        <h1 class="mt-3 text-2xl font-semibold tracking-tight">
+        <h1 className="mt-3 text-2xl font-semibold tracking-tight">
           Administration is available on a larger screen.
         </h1>
-        <p class="mt-3 text-base leading-7 text-[#7d7a75] dark:text-[#b4b1ab]">
+        <p className="mt-3 text-base leading-7 text-[#7d7a75] dark:text-[#b4b1ab]">
           This mobile edition stays focused on reading today&apos;s publication.
         </p>
         <Link
           href="/"
-          class="mt-6 inline-flex rounded-md bg-[#2783de] px-4 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-[#1f6fbe] active:scale-[0.98] focus-visible:ring-2 focus-visible:ring-[#2783de] dark:bg-[#63aaf0] dark:text-[#171716] dark:hover:bg-[#83bdf5]"
+          className="mt-6 inline-flex rounded-md bg-[#2783de] px-4 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-[#1f6fbe] active:scale-[0.98] focus-visible:ring-2 focus-visible:ring-[#2783de] dark:bg-[#63aaf0] dark:text-[#171716] dark:hover:bg-[#83bdf5]"
         >
           Return to today
         </Link>
@@ -102,10 +99,9 @@ interface AdminSurfaceProps {
 export function AdminSurface({ loginOnly = false }: AdminSurfaceProps) {
   const isDesktop = useDesktopViewport();
   const [authState, setAuthState] = useState<AuthState>('checking');
-  const [digests, setDigests] = useState<DigestEntry[]>([]);
 
   useEffect(() => {
-    if (!isDesktop) return;
+    if (!isDesktop && !loginOnly) return;
 
     let active = true;
     checkAuth()
@@ -115,7 +111,7 @@ export function AdminSurface({ loginOnly = false }: AdminSurfaceProps) {
     return () => {
       active = false;
     };
-  }, [isDesktop]);
+  }, [isDesktop, loginOnly]);
 
   useEffect(() => {
     const handleExpired = () => setAuthState('unauthenticated');
@@ -125,21 +121,17 @@ export function AdminSurface({ loginOnly = false }: AdminSurfaceProps) {
 
   useEffect(() => {
     if (loginOnly && authState === 'authenticated') {
-      window.location.replace('/admin/overview');
+      window.location.replace(ADMIN_HOME);
     }
   }, [authState, loginOnly]);
 
-  useEffect(() => {
-    if (loginOnly || authState !== 'authenticated') return;
-    api.listDigests().then(setDigests).catch(() => setDigests([]));
-  }, [authState, loginOnly]);
 
-  if (!isDesktop) return <MobileAdminNotice />;
+  if (!isDesktop && !loginOnly) return <MobileAdminNotice />;
 
   if (authState === 'checking') {
     return (
-      <div class="flex min-h-screen items-center justify-center bg-[#f9f8f7] dark:bg-[#171716]">
-        <span class="h-8 w-8 animate-spin rounded-full border-4 border-[#2783de] border-t-transparent" />
+      <div className="flex min-h-screen items-center justify-center bg-[#f9f8f7] dark:bg-[#171716]">
+        <span className="h-8 w-8 animate-spin rounded-full border-4 border-[#2783de] border-t-transparent" />
       </div>
     );
   }
@@ -149,7 +141,7 @@ export function AdminSurface({ loginOnly = false }: AdminSurfaceProps) {
       <LoginPage
         onLogin={() => {
           if (loginOnly) {
-            window.location.assign('/admin/overview');
+            window.location.assign(ADMIN_HOME);
           } else {
             setAuthState('authenticated');
           }
@@ -160,13 +152,13 @@ export function AdminSurface({ loginOnly = false }: AdminSurfaceProps) {
 
   if (loginOnly) {
     return (
-      <div class="flex min-h-screen items-center justify-center bg-[#f9f8f7] dark:bg-[#171716]">
-        <span class="h-8 w-8 animate-spin rounded-full border-4 border-[#2783de] border-t-transparent" />
+      <div className="flex min-h-screen items-center justify-center bg-[#f9f8f7] dark:bg-[#171716]">
+        <span className="h-8 w-8 animate-spin rounded-full border-4 border-[#2783de] border-t-transparent" />
       </div>
     );
   }
   return (
-    <AppLayout digests={digests} currentDigestId={null}>
+    <AppLayout>
       <AdminRoutes />
     </AppLayout>
   );

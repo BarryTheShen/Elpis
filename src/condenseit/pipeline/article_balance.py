@@ -4,6 +4,13 @@ from collections import defaultdict, deque
 from typing import Any
 
 
+def _preference_score(article: dict[str, Any]) -> float:
+    raw = article.get("preference_score")
+    try:
+        return float(raw)
+    except (TypeError, ValueError):
+        return float("-inf")
+
 def select_balanced_digest_articles(
     ranked: list[dict[str, Any]],
     max_n: int,
@@ -21,6 +28,8 @@ def select_balanced_digest_articles(
 
     Phase 2 walks the full global rank list and fills remaining slots, capping
     any single category at ``max_per_category`` articles.
+    The selected set is returned in descending preference-score order so
+    category coverage never makes a lower-scoring article appear first.
 
     Categories with no candidates in ``ranked`` are omitted. If ``max_n`` is
     smaller than the number of distinct categories, only the first
@@ -142,4 +151,4 @@ def select_balanced_digest_articles(
                 break
         return fallback
 
-    return selected
+    return sorted(selected, key=_preference_score, reverse=True)

@@ -21,13 +21,13 @@ function Field({
   children: preact.ComponentChildren;
 }) {
   return (
-    <label class='flex flex-col gap-1'>
-      <span class='text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400'>
+    <label className='flex flex-col gap-1'>
+      <span className='text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400'>
         {label}
       </span>
       {children}
       {hint && (
-        <span class='text-xs leading-relaxed text-slate-400 dark:text-slate-500'>
+        <span className='text-xs leading-relaxed text-slate-400 dark:text-slate-500'>
           {hint}
         </span>
       )}
@@ -122,22 +122,22 @@ export function AdvancedPage() {
 
   if (loading) {
     return (
-      <div class='flex justify-center py-20'>
+      <div className='flex justify-center py-20'>
         <Spinner size='md' />
       </div>
     );
   }
 
   return (
-    <div class='max-w-3xl space-y-6'>
+    <div className='max-w-3xl space-y-6'>
       <header>
-        <p class='text-xs font-semibold uppercase tracking-[0.12em] text-[#7d7a75] dark:text-[#b4b1ab]'>
+        <p className='text-xs font-semibold uppercase tracking-[0.12em] text-[#7d7a75] dark:text-[#b4b1ab]'>
           System
         </p>
-        <h1 class='mt-1 text-2xl font-semibold tracking-tight text-[#2c2c2b] dark:text-[#f4f3f1]'>
+        <h1 className='mt-1 text-2xl font-semibold tracking-tight text-[#2c2c2b] dark:text-[#f4f3f1]'>
           Advanced settings
         </h1>
-        <p class='mt-2 text-sm leading-6 text-[#7d7a75] dark:text-[#b4b1ab]'>
+        <p className='mt-2 text-sm leading-6 text-[#7d7a75] dark:text-[#b4b1ab]'>
           Control outbound network access for feed collection, article fetching,
           YouTube, model providers, and command-line downloaders.
         </p>
@@ -146,7 +146,7 @@ export function AdvancedPage() {
       {flash && (
         <div
           role='status'
-          class={[
+          className={[
             'rounded-lg border px-4 py-3 text-sm',
             flash.ok
               ? 'border-emerald-200 bg-emerald-50 text-emerald-800 dark:border-emerald-900/60 dark:bg-emerald-950/30 dark:text-emerald-200'
@@ -162,19 +162,19 @@ export function AdvancedPage() {
           title='Network & proxy'
           description='Shared proxy policy for Elpis-managed outbound requests.'
         />
-        <form onSubmit={save} class='space-y-5'>
-          <label class='flex items-start gap-3 rounded-lg border border-slate-200 p-3 dark:border-slate-700'>
+        <form onSubmit={save} className='space-y-5'>
+          <label className='flex items-start gap-3 rounded-lg border border-slate-200 p-3 dark:border-slate-700'>
             <input
               type='checkbox'
-              class='mt-1 h-4 w-4 accent-blue-600'
+              className='mt-1 h-4 w-4 accent-blue-600'
               checked={enabled}
               onChange={(event) => setEnabled((event.target as HTMLInputElement).checked)}
             />
             <span>
-              <span class='block text-sm font-semibold text-slate-800 dark:text-slate-200'>
+              <span className='block text-sm font-semibold text-slate-800 dark:text-slate-200'>
                 Route outbound traffic through a proxy
               </span>
-              <span class='mt-1 block text-xs leading-relaxed text-slate-500 dark:text-slate-400'>
+              <span className='mt-1 block text-xs leading-relaxed text-slate-500 dark:text-slate-400'>
                 HTTP(S) and SOCKS5 proxy URLs are supported. The setting is applied to
                 Elpis-managed HTTPX clients, urllib, requests, YouTubeTranscriptApi,
                 yt-dlp, and model APIs.
@@ -188,7 +188,8 @@ export function AdvancedPage() {
           >
             <input
               type='url'
-              class={INPUT}
+              className={INPUT}
+              aria-label='Proxy URL'
               value={proxyUrl}
               onInput={(event) => setProxyUrl((event.target as HTMLInputElement).value)}
               placeholder={config?.proxy_url_display ?? 'http://proxy.example:8080'}
@@ -202,7 +203,8 @@ export function AdvancedPage() {
             hint='Comma- or newline-separated hostnames. localhost, 127.0.0.1, ::1, and host.docker.internal are always bypassed so local Ollama remains reachable.'
           >
             <textarea
-              class={INPUT + ' min-h-[88px] resize-y leading-relaxed'}
+              className={INPUT + ' min-h-[88px] resize-y leading-relaxed'}
+              aria-label='Proxy bypass hosts'
               value={bypassHosts}
               onInput={(event) => setBypassHosts((event.target as HTMLTextAreaElement).value)}
               placeholder='localhost, 127.0.0.1, ::1, host.docker.internal'
@@ -210,16 +212,16 @@ export function AdvancedPage() {
             />
           </Field>
 
-          <div class='flex flex-wrap items-center justify-between gap-3 border-t border-slate-200 pt-4 dark:border-slate-700'>
-            <div class='text-xs text-slate-500 dark:text-slate-400'>
-              Current source: <span class='font-semibold'>{config ? sourceLabel(config) : 'Unknown'}</span>
+          <div className='flex flex-wrap items-center justify-between gap-3 border-t border-slate-200 pt-4 dark:border-slate-700'>
+            <div className='text-xs text-slate-500 dark:text-slate-400'>
+              Current source: <span className='font-semibold'>{config ? sourceLabel(config) : 'Unknown'}</span>
               {config?.youtube_proxy_override && (
-                <span class='ml-2 text-amber-700 dark:text-amber-300'>
+                <span className='ml-2 text-amber-700 dark:text-amber-300'>
                   YouTube has an explicit environment override.
                 </span>
               )}
             </div>
-            <div class='flex gap-2'>
+            <div className='flex gap-2'>
               <Button type='submit' loading={saving}>
                 Save settings
               </Button>
@@ -234,7 +236,7 @@ export function AdvancedPage() {
       {testResult && (
         <Card>
           <CardHeader title='Latest connection test' />
-          <div class={testResult.ok ? 'text-sm text-emerald-700 dark:text-emerald-300' : 'text-sm text-red-700 dark:text-red-300'}>
+          <div className={testResult.ok ? 'text-sm text-emerald-700 dark:text-emerald-300' : 'text-sm text-red-700 dark:text-red-300'}>
             {testResult.ok
               ? `HTTP ${testResult.status_code} from ${testResult.target ?? 'the test endpoint'} in ${testResult.elapsed_ms ?? 0} ms.`
               : testResult.error ?? 'The proxy test failed.'}
@@ -244,7 +246,7 @@ export function AdvancedPage() {
 
       <Card>
         <CardHeader title='Safety notes' />
-        <ul class='list-disc space-y-2 pl-5 text-sm leading-relaxed text-slate-600 dark:text-slate-300'>
+        <ul className='list-disc space-y-2 pl-5 text-sm leading-relaxed text-slate-600 dark:text-slate-300'>
           <li>Proxy credentials are encrypted with Elpis&apos; existing data key.</li>
           <li>Credentials are masked in the API response, logs, and this page.</li>
           <li>Fresh installs with no saved or environment policy start disabled; existing environment policies are detected.</li>

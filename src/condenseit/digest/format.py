@@ -4,6 +4,38 @@ from datetime import UTC, datetime
 from typing import Any
 
 
+def order_digest_items(items: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    """Return items in descending preference-score order.
+
+    Items without a score retain their input order.  This keeps older digests
+    deterministic while making scored digests visibly match the ranking
+    engine's output.
+    """
+    return sorted(items, key=_preference_score, reverse=True)
+
+
+def order_digest_categories(categorized: dict[str, list[dict[str, Any]]]) -> list[str]:
+    """Order category sections by the best score they contain."""
+    return sorted(
+        categorized,
+        key=lambda category: (
+            -max(
+                (_preference_score(item) for item in categorized[category]),
+                default=float("-inf"),
+            ),
+            category,
+        ),
+    )
+
+
+def _preference_score(item: dict[str, Any]) -> float:
+    raw = item.get("preference_score")
+    try:
+        return float(raw)
+    except (TypeError, ValueError):
+        return float("-inf")
+
+
 def build_digest_markdown(
     categorized: dict[str, list[dict[str, Any]]],
     changes: list[dict[str, str]] | None = None,
@@ -18,8 +50,8 @@ def build_digest_markdown(
         "",
     ]
 
-    for category in sorted(categorized.keys()):
-        items = categorized[category]
+    for category in order_digest_categories(categorized):
+        items = order_digest_items(categorized[category])
         if not items:
             continue
         lines.append(f"## {category}")

@@ -82,7 +82,7 @@ export function OverviewPage() {
 
   if (loading) {
     return (
-      <div class="flex items-center justify-center py-20">
+      <div className="flex items-center justify-center py-20">
         <Spinner size="lg" className="text-blue-600 dark:text-blue-400" />
       </div>
     );
@@ -98,16 +98,16 @@ export function OverviewPage() {
   );
 
   return (
-    <div class="space-y-6">
-      <div class="flex flex-wrap items-end justify-between gap-4">
+    <div className="space-y-6">
+      <div className="flex flex-wrap items-end justify-between gap-4">
         <div>
-          <p class="text-sm font-medium text-[#1d5f9f] dark:text-[#a6d2f8]">
+          <p className="text-sm font-medium text-[#1d5f9f] dark:text-[#a6d2f8]">
             System overview
           </p>
-          <h1 class="mt-2 text-3xl font-semibold tracking-tight text-[#2c2c2b] dark:text-[#f4f3f1]">
+          <h1 className="mt-2 text-3xl font-semibold tracking-tight text-[#2c2c2b] dark:text-[#f4f3f1]">
             Digest operations
           </h1>
-          <p class="mt-2 max-w-2xl text-sm leading-6 text-[#7d7a75] dark:text-[#b4b1ab]">
+          <p className="mt-2 max-w-2xl text-sm leading-6 text-[#7d7a75] dark:text-[#b4b1ab]">
             See whether the latest run completed, which sources responded, and
             where to investigate when something failed.
           </p>
@@ -123,11 +123,11 @@ export function OverviewPage() {
       </div>
 
       {error && (
-        <div class="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-[#f4c6c1] bg-[#fff1ef] px-4 py-3 text-sm text-[#b9382f] dark:border-[#7e3f37] dark:bg-[#4a2521] dark:text-[#ff9f96]">
+        <div className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-[#f4c6c1] bg-[#fff1ef] px-4 py-3 text-sm text-[#b9382f] dark:border-[#7e3f37] dark:bg-[#4a2521] dark:text-[#ff9f96]">
           <span>{error}</span>
           <button
             type="button"
-            class="font-semibold underline underline-offset-2"
+            className="font-semibold underline underline-offset-2"
             onClick={() => void load()}
           >
             Retry
@@ -135,34 +135,34 @@ export function OverviewPage() {
         </div>
       )}
 
-      <div class="grid gap-5 lg:grid-cols-2">
+      <div className="grid gap-5 lg:grid-cols-2">
         <Card>
           <CardHeader
             title="Latest digest run"
             description="The most recent scheduled or manual run."
           />
           {latest ? (
-            <div class="space-y-4">
-              <div class="flex flex-wrap items-center justify-between gap-3">
-                <div class="flex items-center gap-2">
+            <div className="space-y-4">
+              <div className="flex flex-wrap items-center justify-between gap-3">
+                <div className="flex items-center gap-2">
                   <Badge variant={statusVariant(latest.state)}>
                     {statusLabel(latest.state)}
                   </Badge>
-                  <span class="text-xs text-[#7d7a75] dark:text-[#b4b1ab]">
+                  <span className="text-xs text-[#7d7a75] dark:text-[#b4b1ab]">
                     Run #{latest.id}
                   </span>
                 </div>
-                <span class="text-xs text-[#7d7a75] dark:text-[#b4b1ab]">
+                <span className="text-xs text-[#7d7a75] dark:text-[#b4b1ab]">
                   {formatDigestLabel(latest.finished_at ?? latest.started_at)}
                 </span>
               </div>
 
-              <p class="text-sm leading-6 text-[#5f5c57] dark:text-[#d0cdc6]">
+              <p className="text-sm leading-6 text-[#5f5c57] dark:text-[#d0cdc6]">
                 {latest.message || 'No run details available.'}
               </p>
 
               {latest.state === 'completed' && (
-                <div class="flex flex-wrap gap-x-5 gap-y-2 border-t border-[#e6e5e3] pt-3 text-xs text-[#7d7a75] dark:border-[#3b3a37] dark:text-[#b4b1ab]">
+                <div className="flex flex-wrap gap-x-5 gap-y-2 border-t border-[#e6e5e3] pt-3 text-xs text-[#7d7a75] dark:border-[#3b3a37] dark:text-[#b4b1ab]">
                   {numberStat(latest.stats, 'articles_count') != null && (
                     <span>
                       {numberStat(latest.stats, 'articles_count')} articles
@@ -178,16 +178,16 @@ export function OverviewPage() {
               )}
 
               {latest.state === 'failed' && latest.error && (
-                <p class="break-words rounded-md bg-[#fff1ef] px-3 py-2 text-xs leading-5 text-[#b9382f] dark:bg-[#4a2521] dark:text-[#ff9f96]">
+                <p className="break-words rounded-md bg-[#fff1ef] px-3 py-2 text-xs leading-5 text-[#b9382f] dark:bg-[#4a2521] dark:text-[#ff9f96]">
                   {latest.error}
                 </p>
               )}
 
-              <div class="flex flex-wrap gap-3 text-xs font-semibold">
+              <div className="flex flex-wrap gap-3 text-xs font-semibold">
                 {latest.digest_id != null && (
                   <Link
-                    href={`/admin/digest?id=${latest.digest_id}`}
-                    class="text-[#1d5f9f] hover:underline dark:text-[#a6d2f8]"
+                    href={`/?id=${latest.digest_id}`}
+                    className="text-[#1d5f9f] hover:underline dark:text-[#a6d2f8]"
                   >
                     View digest
                   </Link>
@@ -195,7 +195,7 @@ export function OverviewPage() {
                 {latest.log_id != null && (
                   <Link
                     href="/admin/logs"
-                    class="text-[#1d5f9f] hover:underline dark:text-[#a6d2f8]"
+                    className="text-[#1d5f9f] hover:underline dark:text-[#a6d2f8]"
                   >
                     View logs
                   </Link>
@@ -203,13 +203,13 @@ export function OverviewPage() {
               </div>
             </div>
           ) : (
-            <div class="space-y-3">
-              <p class="text-sm leading-6 text-[#7d7a75] dark:text-[#b4b1ab]">
+            <div className="space-y-3">
+              <p className="text-sm leading-6 text-[#7d7a75] dark:text-[#b4b1ab]">
                 No digest runs have been recorded yet.
               </p>
               <Link
                 href="/admin/sources"
-                class="inline-flex text-sm font-semibold text-[#1d5f9f] hover:underline dark:text-[#a6d2f8]"
+                className="inline-flex text-sm font-semibold text-[#1d5f9f] hover:underline dark:text-[#a6d2f8]"
               >
                 Configure sources
               </Link>
@@ -222,46 +222,46 @@ export function OverviewPage() {
             title="Source health"
             description="Results from the latest collection run."
           />
-          <div class="space-y-4">
-            <div class="grid grid-cols-3 gap-3 text-center">
+          <div className="space-y-4">
+            <div className="grid grid-cols-3 gap-3 text-center">
               <div>
-                <p class="text-xl font-semibold text-[#2c2c2b] dark:text-[#f4f3f1]">
+                <p className="text-xl font-semibold text-[#2c2c2b] dark:text-[#f4f3f1]">
                   {enabledSources.length}
                 </p>
-                <p class="mt-1 text-xs text-[#7d7a75] dark:text-[#b4b1ab]">
+                <p className="mt-1 text-xs text-[#7d7a75] dark:text-[#b4b1ab]">
                   Enabled
                 </p>
               </div>
               <div>
-                <p class="text-xl font-semibold text-[#2c2c2b] dark:text-[#f4f3f1]">
+                <p className="text-xl font-semibold text-[#2c2c2b] dark:text-[#f4f3f1]">
                   {checkedSources.length}
                 </p>
-                <p class="mt-1 text-xs text-[#7d7a75] dark:text-[#b4b1ab]">
+                <p className="mt-1 text-xs text-[#7d7a75] dark:text-[#b4b1ab]">
                   Checked
                 </p>
               </div>
               <div>
-                <p class="text-xl font-semibold text-[#b9382f] dark:text-[#ff9f96]">
+                <p className="text-xl font-semibold text-[#b9382f] dark:text-[#ff9f96]">
                   {failedSources.length}
                 </p>
-                <p class="mt-1 text-xs text-[#7d7a75] dark:text-[#b4b1ab]">
+                <p className="mt-1 text-xs text-[#7d7a75] dark:text-[#b4b1ab]">
                   Failed
                 </p>
               </div>
             </div>
 
             {failedSources.length > 0 ? (
-              <div class="space-y-2 border-t border-[#e6e5e3] pt-3 dark:border-[#3b3a37]">
+              <div className="space-y-2 border-t border-[#e6e5e3] pt-3 dark:border-[#3b3a37]">
                 {failedSources.slice(0, 4).map((source) => (
                   <div
                     key={source.id}
-                    class="flex items-start justify-between gap-3 text-sm"
+                    className="flex items-start justify-between gap-3 text-sm"
                   >
-                    <span class="min-w-0 truncate text-[#5f5c57] dark:text-[#d0cdc6]">
+                    <span className="min-w-0 truncate text-[#5f5c57] dark:text-[#d0cdc6]">
                       {source.name}
                     </span>
                     <span
-                      class="max-w-[12rem] truncate text-xs text-[#b9382f] dark:text-[#ff9f96]"
+                      className="max-w-[12rem] truncate text-xs text-[#b9382f] dark:text-[#ff9f96]"
                       title={source.last_error ?? ''}
                     >
                       {source.last_error || 'Collection failed'}
@@ -269,13 +269,13 @@ export function OverviewPage() {
                   </div>
                 ))}
                 {failedSources.length > 4 && (
-                  <p class="text-xs text-[#7d7a75] dark:text-[#b4b1ab]">
+                  <p className="text-xs text-[#7d7a75] dark:text-[#b4b1ab]">
                     +{failedSources.length - 4} more failed sources
                   </p>
                 )}
               </div>
             ) : (
-              <p class="border-t border-[#e6e5e3] pt-3 text-sm text-[#7d7a75] dark:border-[#3b3a37] dark:text-[#b4b1ab]">
+              <p className="border-t border-[#e6e5e3] pt-3 text-sm text-[#7d7a75] dark:border-[#3b3a37] dark:text-[#b4b1ab]">
                 {checkedSources.length === 0
                   ? 'Sources have not been checked yet.'
                   : 'No source failures recorded in the latest checks.'}
@@ -284,7 +284,7 @@ export function OverviewPage() {
 
             <Link
               href="/admin/sources"
-              class="inline-flex text-xs font-semibold text-[#1d5f9f] hover:underline dark:text-[#a6d2f8]"
+              className="inline-flex text-xs font-semibold text-[#1d5f9f] hover:underline dark:text-[#a6d2f8]"
             >
               Manage sources
             </Link>
@@ -293,42 +293,42 @@ export function OverviewPage() {
       </div>
 
       <Card noPad>
-        <div class="px-5 pt-5">
+        <div className="px-5 pt-5">
           <CardHeader
             title="Recent runs"
             description="A durable history remains available after a server restart."
           />
         </div>
         {runs.length === 0 ? (
-          <p class="px-5 pb-5 text-sm text-[#7d7a75] dark:text-[#b4b1ab]">
+          <p className="px-5 pb-5 text-sm text-[#7d7a75] dark:text-[#b4b1ab]">
             Run a digest to start building history.
           </p>
         ) : (
-          <div class="divide-y divide-[#e6e5e3] dark:divide-[#3b3a37]">
+          <div className="divide-y divide-[#e6e5e3] dark:divide-[#3b3a37]">
             {runs.map((run) => (
-              <div key={run.id} class="px-5 py-4">
-                <div class="flex flex-wrap items-center justify-between gap-3">
-                  <div class="flex items-center gap-2">
+              <div key={run.id} className="px-5 py-4">
+                <div className="flex flex-wrap items-center justify-between gap-3">
+                  <div className="flex items-center gap-2">
                     <Badge variant={statusVariant(run.state)}>
                       {statusLabel(run.state)}
                     </Badge>
-                    <span class="text-sm font-semibold text-[#2c2c2b] dark:text-[#f4f3f1]">
+                    <span className="text-sm font-semibold text-[#2c2c2b] dark:text-[#f4f3f1]">
                       Run #{run.id}
                     </span>
                     {run.digest_id != null && (
-                      <span class="text-xs text-[#7d7a75] dark:text-[#b4b1ab]">
+                      <span className="text-xs text-[#7d7a75] dark:text-[#b4b1ab]">
                         Digest #{run.digest_id}
                       </span>
                     )}
                   </div>
-                  <span class="text-xs text-[#7d7a75] dark:text-[#b4b1ab]">
+                  <span className="text-xs text-[#7d7a75] dark:text-[#b4b1ab]">
                     {formatDigestLabel(run.finished_at ?? run.started_at)}
                   </span>
                 </div>
-                <p class="mt-2 text-sm text-[#5f5c57] dark:text-[#d0cdc6]">
+                <p className="mt-2 text-sm text-[#5f5c57] dark:text-[#d0cdc6]">
                   {run.message || 'No run details available.'}
                 </p>
-                <div class="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-xs text-[#7d7a75] dark:text-[#b4b1ab]">
+                <div className="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-xs text-[#7d7a75] dark:text-[#b4b1ab]">
                   {numberStat(run.stats, 'articles_count') != null && (
                     <span>{numberStat(run.stats, 'articles_count')} articles</span>
                   )}
@@ -337,8 +337,8 @@ export function OverviewPage() {
                   )}
                   {run.digest_id != null && (
                     <Link
-                      href={`/admin/digest?id=${run.digest_id}`}
-                      class="font-semibold text-[#1d5f9f] hover:underline dark:text-[#a6d2f8]"
+                      href={`/?id=${run.digest_id}`}
+                      className="font-semibold text-[#1d5f9f] hover:underline dark:text-[#a6d2f8]"
                     >
                       Open digest
                     </Link>
@@ -346,7 +346,7 @@ export function OverviewPage() {
                   {run.log_id != null && (
                     <Link
                       href="/admin/logs"
-                      class="font-semibold text-[#1d5f9f] hover:underline dark:text-[#a6d2f8]"
+                      className="font-semibold text-[#1d5f9f] hover:underline dark:text-[#a6d2f8]"
                     >
                       Open logs
                     </Link>
@@ -354,7 +354,7 @@ export function OverviewPage() {
                 </div>
                 {run.state === 'failed' && run.error && (
                   <p
-                    class="mt-2 truncate text-xs text-[#b9382f] dark:text-[#ff9f96]"
+                    className="mt-2 truncate text-xs text-[#b9382f] dark:text-[#ff9f96]"
                     title={run.error}
                   >
                     {run.error}

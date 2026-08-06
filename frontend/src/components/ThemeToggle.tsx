@@ -33,19 +33,15 @@ export function ThemeToggle() {
 
   /** Persist the next theme before updating the visible icon state. */
   function handleToggle() {
-    setTheme((currentTheme) => {
-      const nextTheme = currentTheme === 'dark' ? 'light' : 'dark';
-
-      persistTheme(nextTheme);
-
-      return nextTheme;
-    });
+    const nextTheme = theme === 'dark' ? 'light' : 'dark';
+    persistTheme(nextTheme);
+    setTheme(nextTheme);
   }
 
   return (
     <button
       type="button"
-      class={[
+      className={[
         'inline-flex h-9 w-9 flex-shrink-0 items-center justify-center',
         'rounded-md border border-[#e6e5e3] bg-white text-[#2c2c2b]',
         'transition-colors hover:bg-[#f0efed] active:scale-[0.96]',
@@ -66,7 +62,7 @@ export function ThemeToggle() {
 function SunIcon() {
   return (
     <svg
-      class="h-4 w-4"
+      className="h-4 w-4"
       fill="none"
       viewBox="0 0 24 24"
       stroke="currentColor"
@@ -86,7 +82,7 @@ function SunIcon() {
 function MoonIcon() {
   return (
     <svg
-      class="h-4 w-4"
+      className="h-4 w-4"
       fill="none"
       viewBox="0 0 24 24"
       stroke="currentColor"

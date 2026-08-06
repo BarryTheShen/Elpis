@@ -141,26 +141,26 @@ export function SchedulePage() {
 
   if (loading) {
     return (
-      <div class="flex items-center justify-center py-20">
+      <div className="flex items-center justify-center py-20">
         <Spinner size="lg" className="text-blue-600 dark:text-blue-400" />
       </div>
     );
   }
 
   return (
-    <div class="space-y-5">
+    <div className="space-y-5">
       <div>
-        <h1 class="text-2xl font-bold tracking-tight text-slate-900 dark:text-slate-100">
+        <h1 className="text-2xl font-bold tracking-tight text-slate-900 dark:text-slate-100">
           Schedule
         </h1>
-        <p class="mt-1 text-sm text-slate-500 dark:text-slate-400">
+        <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">
           Enable automatic digest runs and set the times they fire each day.
         </p>
       </div>
 
       {flash && (
         <div
-          class={[
+          className={[
             'px-4 py-3 text-sm rounded-lg border',
             flash.ok
               ? 'bg-blue-50 dark:bg-blue-900/20 text-blue-700 dark:text-blue-300 border-blue-200 dark:border-blue-800'
@@ -173,12 +173,12 @@ export function SchedulePage() {
 
       {/* Enable / disable toggle */}
       <Card>
-        <div class="flex items-center justify-between gap-4">
+        <div className="flex items-center justify-between gap-4">
           <div>
-            <p class="text-sm font-semibold text-slate-800 dark:text-slate-200">
+            <p className="text-sm font-semibold text-slate-800 dark:text-slate-200">
               Automatic scheduling
             </p>
-            <p class="mt-0.5 text-xs text-slate-500 dark:text-slate-400">
+            <p className="mt-0.5 text-xs text-slate-500 dark:text-slate-400">
               {enabled
                 ? cfg?.next_run_utc
                   ? `Next run: ${nextRunLabel()}`
@@ -190,7 +190,7 @@ export function SchedulePage() {
             type="button"
             disabled={togglingEnabled}
             onClick={handleToggleEnabled}
-            class={[
+            className={[
               'relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent',
               'transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2',
               enabled
@@ -199,10 +199,11 @@ export function SchedulePage() {
               togglingEnabled ? 'opacity-50 cursor-not-allowed' : '',
             ].join(' ')}
             role="switch"
+            aria-label="Enable automatic scheduling"
             aria-checked={enabled}
           >
             <span
-              class={[
+              className={[
                 'pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0',
                 'transition duration-200 ease-in-out',
                 enabled ? 'translate-x-5' : 'translate-x-0',
@@ -218,18 +219,18 @@ export function SchedulePage() {
           title="Run times"
           description="Times are in your configured timezone (24-hour HH:MM). Save to apply changes."
         />
-        <form onSubmit={handleSaveTimes} class="space-y-5">
+        <form onSubmit={handleSaveTimes} className="space-y-5">
           {/* Timezone select */}
-          <div class="space-y-1.5">
+          <div className="space-y-1.5">
             <label
-              for="tz-select"
-              class="block text-xs font-medium text-slate-600 dark:text-slate-400"
+              htmlFor="tz-select"
+              className="block text-xs font-medium text-slate-600 dark:text-slate-400"
             >
               Timezone
             </label>
             <select
               id="tz-select"
-              class={`${INPUT} w-full`}
+              className={`${INPUT} w-full`}
               value={timezone}
               onChange={(e) => setTimezone((e.target as HTMLSelectElement).value)}
             >
@@ -249,15 +250,16 @@ export function SchedulePage() {
           </div>
 
           {/* HH:MM time inputs */}
-          <div class="space-y-2">
-            <label class="block text-xs font-medium text-slate-600 dark:text-slate-400">
+          <div className="space-y-2">
+            <p className="block text-xs font-medium text-slate-600 dark:text-slate-400">
               Daily run times
-            </label>
+            </p>
             {times.map((t, idx) => (
-              <div key={idx} class="flex items-center gap-2">
+              <div key={t} className="flex items-center gap-2">
                 <input
                   type="text"
-                  class={`${INPUT} w-28`}
+                  className={`${INPUT} w-28`}
+                  aria-label={`Daily run time ${idx + 1}`}
                   placeholder="07:00"
                   value={t}
                   pattern="([01]\d|2[0-3]):[0-5]\d"
@@ -270,7 +272,7 @@ export function SchedulePage() {
                   <button
                     type="button"
                     onClick={() => removeTime(idx)}
-                    class="text-slate-400 hover:text-red-500 dark:hover:text-red-400 transition-colors text-sm px-1"
+                    className="text-slate-400 hover:text-red-500 dark:hover:text-red-400 transition-colors text-sm px-1"
                     aria-label="Remove time"
                   >
                     Remove
@@ -280,7 +282,7 @@ export function SchedulePage() {
             ))}
           </div>
 
-          <div class="flex items-center gap-3">
+          <div className="flex items-center gap-3">
             <Button type="button" variant="secondary" size="sm" onClick={addTime}>
               Add time
             </Button>

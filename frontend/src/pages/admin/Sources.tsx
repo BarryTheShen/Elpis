@@ -74,6 +74,9 @@ function extraNumber(
 
 async function searchITunesPodcasts(query: string): Promise<ITunesResult[]> {
   const res = await fetch(itunesPodcastSearchUrl(query));
+  if (!res.ok) {
+    throw new Error(`Podcast search failed (${res.status})`);
+  }
   const data = (await res.json()) as { results?: unknown[] };
   return (data.results ?? []) as ITunesResult[];
 }
@@ -297,7 +300,7 @@ export function SourcesPage() {
 
   if (loading) {
     return (
-      <div class="flex items-center justify-center py-20">
+      <div className="flex items-center justify-center py-20">
         <Spinner
           size="lg"
           className="text-blue-600 dark:text-blue-400"
@@ -308,27 +311,27 @@ export function SourcesPage() {
 
   if (error) {
     return (
-      <p class="text-sm text-red-600 dark:text-red-400 p-4">
+      <p className="text-sm text-red-600 dark:text-red-400 p-4">
         {error}
       </p>
     );
   }
 
   return (
-    <div class="space-y-5">
+    <div className="space-y-5">
       {/* Page header */}
-      <div class="flex items-center justify-between gap-4 flex-wrap">
-        <div class="flex items-center gap-3">
-          <h1 class="text-2xl font-bold tracking-tight text-slate-900 dark:text-slate-100">
+      <div className="flex items-center justify-between gap-4 flex-wrap">
+        <div className="flex items-center gap-3">
+          <h1 className="text-2xl font-bold tracking-tight text-slate-900 dark:text-slate-100">
             Sources
           </h1>
           {sources.length > 0 && (
-            <span class="inline-flex items-center px-2.5 py-0.5 text-xs font-semibold rounded-full bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300">
+            <span className="inline-flex items-center px-2.5 py-0.5 text-xs font-semibold rounded-full bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300">
               {sources.length}
             </span>
           )}
         </div>
-        <div class="flex items-center gap-2">
+        <div className="flex items-center gap-2">
           <Button
             size="sm"
             onClick={() => setAddFormOpen((o) => !o)}
@@ -337,12 +340,12 @@ export function SourcesPage() {
           </Button>
         </div>
       </div>
-      <p class="text-sm text-slate-500 dark:text-slate-400 -mt-3">
+      <p className="text-sm text-slate-500 dark:text-slate-400 -mt-3">
         RSS, YouTube, website monitors, Google News searches, Hacker News, Reddit, GitHub Releases, and Podcasts.
       </p>
 
       {flash && (
-        <div class="px-4 py-3 text-sm rounded-lg bg-blue-50 dark:bg-blue-900/20 text-blue-700 dark:text-blue-300 border border-blue-200 dark:border-blue-800">
+        <div className="px-4 py-3 text-sm rounded-lg bg-blue-50 dark:bg-blue-900/20 text-blue-700 dark:text-blue-300 border border-blue-200 dark:border-blue-800">
           {flash}
         </div>
       )}
@@ -353,13 +356,13 @@ export function SourcesPage() {
           <CardHeader title="Add source" />
           <form
             onSubmit={handleAdd}
-            class="grid grid-cols-1 sm:grid-cols-2 gap-3"
+            className="grid grid-cols-1 sm:grid-cols-2 gap-3"
           >
             {/* --- Type selector --- */}
             <Field label="Type">
               <select
                 name="source_type"
-                class={inputCls}
+                className={inputCls}
                 value={sourceType}
                 onChange={(e) =>
                   setSourceType(
@@ -384,14 +387,14 @@ export function SourcesPage() {
                 <input
                   name="name"
                   required
-                  class={inputCls}
+                  className={inputCls}
                   value={podcastName}
                   onInput={(e) =>
                     setPodcastName((e.target as HTMLInputElement).value)
                   }
                 />
               ) : (
-                <input name="name" required class={inputCls} />
+                <input name="name" required className={inputCls} />
               )}
             </Field>
 
@@ -410,9 +413,9 @@ export function SourcesPage() {
                         ? 'https://example.com/page-to-watch'
                         : 'https://example.com/feed.xml'
                   }
-                  class={inputCls}
+                  className={inputCls}
                 />
-                <span class="text-xs text-slate-400 dark:text-slate-500 mt-0.5">
+                <span className="text-xs text-slate-400 dark:text-slate-500 mt-0.5">
                   {sourceType === 'youtube'
                     ? 'Channel page URL or RSS feed URL'
                     : sourceType === 'website'
@@ -430,10 +433,11 @@ export function SourcesPage() {
               >
                 <input
                   name="channel_id"
+                  aria-label="YouTube channel ID"
                   placeholder="UC..."
-                  class={inputCls}
+                  className={inputCls}
                 />
-                <span class="text-xs text-slate-400 dark:text-slate-500 mt-0.5">
+                <span className="text-xs text-slate-400 dark:text-slate-500 mt-0.5">
                   Found in the channel's About page or URL
                 </span>
               </Field>
@@ -445,6 +449,7 @@ export function SourcesPage() {
                 <Field label="Search query" className="sm:col-span-2">
                   <input
                     name="query"
+                    aria-label="Google News search query"
                     required
                     placeholder='site:reuters.com when:1d  /  "AI" intitle:release'
                     value={gnewsQuery}
@@ -453,35 +458,37 @@ export function SourcesPage() {
                         (e.target as HTMLInputElement).value,
                       )
                     }
-                    class={inputCls}
+                    className={inputCls}
                   />
-                  <span class="text-xs text-slate-400 dark:text-slate-500 mt-0.5">
+                  <span className="text-xs text-slate-400 dark:text-slate-500 mt-0.5">
                     Supports{' '}
-                    <code class="font-mono">site:</code>,{' '}
-                    <code class="font-mono">when:</code>,{' '}
-                    <code class="font-mono">intitle:</code>,{' '}
-                    <code class="font-mono">source:</code> operators
+                    <code className="font-mono">site:</code>,{' '}
+                    <code className="font-mono">when:</code>,{' '}
+                    <code className="font-mono">intitle:</code>,{' '}
+                    <code className="font-mono">source:</code> operators
                   </span>
                 </Field>
                 {gnewsQuery && (
-                  <p class="sm:col-span-2 text-xs font-mono text-slate-400 dark:text-slate-500 break-all">
+                  <p className="sm:col-span-2 text-xs font-mono text-slate-400 dark:text-slate-500 break-all">
                     {`https://news.google.com/rss/search?q=${encodeURIComponent(gnewsQuery)}&hl=en-US&gl=US&ceid=US:en`}
                   </p>
                 )}
                 <Field label="Language">
                   <input
                     name="language"
+                    aria-label="Google News language"
                     defaultValue="en"
                     placeholder="en"
-                    class={inputCls}
+                    className={inputCls}
                   />
                 </Field>
                 <Field label="Country">
                   <input
                     name="country"
+                    aria-label="Google News country"
                     defaultValue="US"
                     placeholder="US"
-                    class={inputCls}
+                    className={inputCls}
                   />
                 </Field>
               </>
@@ -491,7 +498,7 @@ export function SourcesPage() {
             {sourceType === 'hackernews' && (
               <>
                 <Field label="Feed">
-                  <select name="hn_feed" class={inputCls} defaultValue="top">
+                  <select name="hn_feed" className={inputCls} defaultValue="top">
                     <option value="top">Top stories</option>
                     <option value="best">Best stories</option>
                     <option value="new">New stories</option>
@@ -505,9 +512,9 @@ export function SourcesPage() {
                     type="number"
                     defaultValue="50"
                     min="0"
-                    class={inputCls}
+                    className={inputCls}
                   />
-                  <span class="text-xs text-slate-400 dark:text-slate-500 mt-0.5">
+                  <span className="text-xs text-slate-400 dark:text-slate-500 mt-0.5">
                     Skip stories below this score
                   </span>
                 </Field>
@@ -518,7 +525,7 @@ export function SourcesPage() {
                     defaultValue="20"
                     min="1"
                     max="100"
-                    class={inputCls}
+                    className={inputCls}
                   />
                 </Field>
               </>
@@ -530,17 +537,18 @@ export function SourcesPage() {
                 <Field label="Subreddit" className="sm:col-span-2">
                   <input
                     name="subreddit"
+                  aria-label="Subreddit"
                     required
                     placeholder="netsec"
-                    class={inputCls}
+                    className={inputCls}
                   />
-                  <span class="text-xs text-slate-400 dark:text-slate-500 mt-0.5">
+                  <span className="text-xs text-slate-400 dark:text-slate-500 mt-0.5">
                     Name only, without{' '}
-                    <code class="font-mono">r/</code>
+                    <code className="font-mono">r/</code>
                   </span>
                 </Field>
                 <Field label="Sort">
-                  <select name="reddit_sort" class={inputCls} defaultValue="hot">
+                  <select name="reddit_sort" className={inputCls} defaultValue="hot">
                     <option value="hot">Hot</option>
                     <option value="new">New</option>
                     <option value="top">Top</option>
@@ -550,7 +558,7 @@ export function SourcesPage() {
                 <Field label="Time filter (for Top)">
                   <select
                     name="reddit_time_filter"
-                    class={inputCls}
+                    className={inputCls}
                     defaultValue="day"
                   >
                     <option value="hour">Past hour</option>
@@ -567,7 +575,7 @@ export function SourcesPage() {
                     type="number"
                     defaultValue="10"
                     min="0"
-                    class={inputCls}
+                    className={inputCls}
                   />
                 </Field>
                 <Field label="Max items">
@@ -577,7 +585,7 @@ export function SourcesPage() {
                     defaultValue="20"
                     min="1"
                     max="100"
-                    class={inputCls}
+                    className={inputCls}
                   />
                 </Field>
               </>
@@ -588,12 +596,13 @@ export function SourcesPage() {
               <Field label="Repository" className="sm:col-span-2">
                 <input
                   name="github_repo"
+                  aria-label="GitHub repository"
                   required
                   placeholder="astral-sh/uv"
-                  class={inputCls}
+                  className={inputCls}
                 />
-                <span class="text-xs text-slate-400 dark:text-slate-500 mt-0.5">
-                  Format: <code class="font-mono">owner/repo</code>
+                <span className="text-xs text-slate-400 dark:text-slate-500 mt-0.5">
+                  Format: <code className="font-mono">owner/repo</code>
                 </span>
               </Field>
             )}
@@ -601,14 +610,15 @@ export function SourcesPage() {
             {/* --- Podcast search + URL --- */}
             {sourceType === 'podcast' && (
               <>
-                <div class="sm:col-span-2 space-y-2">
-                  <label class="flex flex-col gap-1">
-                    <span class="text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">
+                <div className="sm:col-span-2 space-y-2">
+                  <div className="flex flex-col gap-1">
+                    <span className="text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">
                       Search podcasts
                     </span>
-                    <div class="flex gap-2">
+                    <div className="flex gap-2">
                       <input
                         type="text"
+                        aria-label="Podcast search"
                         placeholder='e.g. "Darknet Diaries"'
                         value={podcastQuery}
                         onInput={(e) =>
@@ -622,40 +632,40 @@ export function SourcesPage() {
                             void searchPodcasts();
                           }
                         }}
-                        class={`${inputCls} flex-1`}
+                        className={`${inputCls} flex-1`}
                       />
                       <button
                         type="button"
                         onClick={() => void searchPodcasts()}
                         disabled={podcastSearching}
-                        class="px-4 py-2 text-sm font-semibold rounded-lg bg-blue-600 text-white hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors whitespace-nowrap"
+                        className="px-4 py-2 text-sm font-semibold rounded-lg bg-blue-600 text-white hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors whitespace-nowrap"
                       >
                         {podcastSearching ? 'Searching...' : 'Search'}
                       </button>
                     </div>
-                  </label>
+                  </div>
 
                   {podcastResults.length > 0 && (
-                    <div class="rounded-lg border border-slate-200 dark:border-slate-700 divide-y divide-slate-100 dark:divide-slate-800 overflow-hidden">
+                    <div className="rounded-lg border border-slate-200 dark:border-slate-700 divide-y divide-slate-100 dark:divide-slate-800 overflow-hidden">
                       {podcastResults.map((r) => (
                         <button
                           key={r.feedUrl}
                           type="button"
                           onClick={() => selectPodcast(r)}
-                          class="w-full flex items-center gap-3 px-3 py-2.5 text-left bg-white dark:bg-slate-900 hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors"
+                          className="w-full flex items-center gap-3 px-3 py-2.5 text-left bg-white dark:bg-slate-900 hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors"
                         >
                           {r.artworkUrl100 && (
                             <img
                               src={r.artworkUrl100}
                               alt=""
-                              class="w-10 h-10 rounded-lg object-cover flex-shrink-0"
+                              className="w-10 h-10 rounded-lg object-cover flex-shrink-0"
                             />
                           )}
-                          <div class="min-w-0 flex-1">
-                            <p class="text-sm font-medium text-slate-900 dark:text-slate-100 truncate">
+                          <div className="min-w-0 flex-1">
+                            <p className="text-sm font-medium text-slate-900 dark:text-slate-100 truncate">
                               {r.collectionName}
                             </p>
-                            <p class="text-xs text-slate-500 dark:text-slate-400 truncate">
+                            <p className="text-xs text-slate-500 dark:text-slate-400 truncate">
                               {r.artistName}
                             </p>
                           </div>
@@ -668,9 +678,10 @@ export function SourcesPage() {
                 <Field label="Feed URL" className="sm:col-span-2">
                   <input
                     name="url"
+                    aria-label="Podcast feed URL"
                     required
                     placeholder="https://feeds.example.com/podcast"
-                    class={inputCls}
+                    className={inputCls}
                     value={podcastFeedUrl}
                     onInput={(e) =>
                       setPodcastFeedUrl(
@@ -678,7 +689,7 @@ export function SourcesPage() {
                       )
                     }
                   />
-                  <span class="text-xs text-slate-400 dark:text-slate-500 mt-0.5">
+                  <span className="text-xs text-slate-400 dark:text-slate-500 mt-0.5">
                     Auto-filled from search, or paste the RSS feed URL directly
                   </span>
                 </Field>
@@ -691,13 +702,13 @@ export function SourcesPage() {
                 name="category"
                 defaultValue="General"
                 options={categories}
-                class={inputCls}
+                className={inputCls}
               />
             </Field>
             <Field label="Priority">
               <select
                 name="priority"
-                class={inputCls}
+                className={inputCls}
                 defaultValue="2"
               >
                 <option value="1">1 - High</option>
@@ -707,9 +718,27 @@ export function SourcesPage() {
                 <option value="5">5 - Lowest</option>
               </select>
             </Field>
+            {(sourceType === 'rss' ||
+              sourceType === 'google_news' ||
+              sourceType === 'github_releases' ||
+              sourceType === 'podcast') && (
+              <Field label="Max items per source">
+                <input
+                  name="max_items"
+                  type="number"
+                  min="1"
+                  max="200"
+                  defaultValue="50"
+                  className={inputCls}
+                />
+                <span className="text-xs text-slate-400 dark:text-slate-500 mt-0.5">
+                  Candidate entries collected before ranking (1–200)
+                </span>
+              </Field>
+            )}
 
             {/* --- Filter rules --- */}
-            <div class="sm:col-span-2 border-t border-slate-100 dark:border-slate-800 pt-3 grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <div className="sm:col-span-2 border-t border-slate-100 dark:border-slate-800 pt-3 grid grid-cols-1 sm:grid-cols-2 gap-3">
               <KeywordChipInput
                 name="require_keywords"
                 label="Show only if"
@@ -730,7 +759,7 @@ export function SourcesPage() {
               />
             </div>
 
-            <div class="sm:col-span-2">
+            <div className="sm:col-span-2">
               <Button type="submit" loading={addLoading}>
                 Add source
               </Button>
@@ -742,15 +771,15 @@ export function SourcesPage() {
       {/* OPML import/export */}
       <Card>
         <CardHeader title="OPML" />
-        <div class="flex flex-wrap items-center gap-3">
-          <label class="flex items-center gap-2 cursor-pointer">
-            <span class="inline-flex items-center px-4 py-2 text-sm font-semibold bg-slate-100 dark:bg-slate-800 text-slate-800 dark:text-slate-200 border border-slate-300 dark:border-slate-600 rounded-lg hover:bg-slate-200 dark:hover:bg-slate-700 transition-colors cursor-pointer">
+        <div className="flex flex-wrap items-center gap-3">
+          <label className="flex items-center gap-2 cursor-pointer">
+            <span className="inline-flex items-center px-4 py-2 text-sm font-semibold bg-slate-100 dark:bg-slate-800 text-slate-800 dark:text-slate-200 border border-slate-300 dark:border-slate-600 rounded-lg hover:bg-slate-200 dark:hover:bg-slate-700 transition-colors cursor-pointer">
               {opmlLoading ? 'Importing...' : 'Import OPML'}
             </span>
             <input
               type="file"
               accept=".opml,.xml,text/xml"
-              class="sr-only"
+              className="sr-only"
               onChange={handleImportOpml}
               disabled={opmlLoading}
             />
@@ -758,7 +787,7 @@ export function SourcesPage() {
           <a
             href={api.exportOpmlUrl()}
             download="elpis-sources.opml"
-            class="inline-flex items-center px-4 py-2 text-sm font-semibold bg-slate-100 dark:bg-slate-800 text-slate-800 dark:text-slate-200 border border-slate-300 dark:border-slate-600 rounded-lg hover:bg-slate-200 dark:hover:bg-slate-700 transition-colors"
+            className="inline-flex items-center px-4 py-2 text-sm font-semibold bg-slate-100 dark:bg-slate-800 text-slate-800 dark:text-slate-200 border border-slate-300 dark:border-slate-600 rounded-lg hover:bg-slate-200 dark:hover:bg-slate-700 transition-colors"
           >
             Export OPML
           </a>
@@ -767,10 +796,10 @@ export function SourcesPage() {
 
       {/* Search + category filter */}
       {sources.length > 0 && (
-        <div class="space-y-3">
-          <div class="relative">
+        <div className="space-y-3">
+          <div className="relative">
             <svg
-              class="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400"
+              className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400"
               fill="none"
               viewBox="0 0 24 24"
               stroke="currentColor"
@@ -784,6 +813,7 @@ export function SourcesPage() {
             </svg>
             <input
               type="text"
+              aria-label="Search sources"
               placeholder="Search by name, URL, or category..."
               value={searchQuery}
               onInput={(e) =>
@@ -791,16 +821,16 @@ export function SourcesPage() {
                   (e.target as HTMLInputElement).value,
                 )
               }
-              class={`${inputCls} pl-10`}
+              className={`${inputCls} pl-10`}
             />
           </div>
 
           {categories.length > 1 && (
-            <div class="flex flex-wrap gap-1.5">
+            <div className="flex flex-wrap gap-1.5">
               <button
                 type="button"
                 onClick={() => setActiveCategory(null)}
-                class={[
+                className={[
                   'px-2.5 py-1 text-xs font-medium rounded-full transition-colors',
                   activeCategory === null
                     ? 'bg-blue-600 text-white'
@@ -818,7 +848,7 @@ export function SourcesPage() {
                       activeCategory === cat ? null : cat,
                     )
                   }
-                  class={[
+                  className={[
                     'px-2.5 py-1 text-xs font-medium rounded-full transition-colors',
                     activeCategory === cat
                       ? 'bg-blue-600 text-white'
@@ -845,61 +875,61 @@ export function SourcesPage() {
           }
         />
       ) : filteredSources.length === 0 ? (
-        <div class="py-10 text-center text-sm text-slate-500 dark:text-slate-400">
+        <div className="py-10 text-center text-sm text-slate-500 dark:text-slate-400">
           No sources match your search.
         </div>
       ) : (
         <>
           {/* Desktop table */}
-          <div class="hidden md:block bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl shadow-sm overflow-hidden">
-            <div class="overflow-x-auto">
-              <table class="w-full text-sm border-collapse">
+          <div className="hidden md:block bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl shadow-sm overflow-hidden">
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm border-collapse">
                 <thead>
-                  <tr class="bg-slate-50 dark:bg-slate-800/60 text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">
-                    <th class="text-left px-4 py-3">Type</th>
-                    <th class="text-left px-4 py-3">Name</th>
-                    <th class="text-left px-4 py-3">URL</th>
-                    <th class="text-left px-4 py-3">Category</th>
-                    <th class="text-left px-4 py-3">Priority</th>
-                    <th class="text-left px-4 py-3">Health</th>
-                    <th class="text-left px-4 py-3">Enabled</th>
-                    <th class="px-4 py-3" />
+                  <tr className="bg-slate-50 dark:bg-slate-800/60 text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">
+                    <th className="text-left px-4 py-3">Type</th>
+                    <th className="text-left px-4 py-3">Name</th>
+                    <th className="text-left px-4 py-3">URL</th>
+                    <th className="text-left px-4 py-3">Category</th>
+                    <th className="text-left px-4 py-3">Priority</th>
+                    <th className="text-left px-4 py-3">Health</th>
+                    <th className="text-left px-4 py-3">Enabled</th>
+                    <th className="px-4 py-3" />
                   </tr>
                 </thead>
                 <tbody>
                   {filteredSources.map((s) => (
                     <Fragment key={s.id}>
                       <tr
-                        class={[
+                        className={[
                           'border-t border-slate-100 dark:border-slate-800 hover:bg-slate-50 dark:hover:bg-slate-800/30',
                           s.enabled === 0 ? 'opacity-50' : '',
                         ].join(' ')}
                       >
-                        <td class="px-4 py-3">
+                        <td className="px-4 py-3">
                           <Badge variant={kindVariant(s.type)}>
                             {s.type}
                           </Badge>
                         </td>
-                        <td class="px-4 py-3 font-medium text-slate-900 dark:text-slate-100">
+                        <td className="px-4 py-3 font-medium text-slate-900 dark:text-slate-100">
                           {s.name}
                         </td>
-                        <td class="px-4 py-3 max-w-xs truncate text-slate-500 dark:text-slate-400 font-mono text-xs">
+                        <td className="px-4 py-3 max-w-xs truncate text-slate-500 dark:text-slate-400 font-mono text-xs">
                           {s.url}
                         </td>
-                        <td class="px-4 py-3 text-slate-600 dark:text-slate-400">
+                        <td className="px-4 py-3 text-slate-600 dark:text-slate-400">
                           {s.category}
                         </td>
-                        <td class="px-4 py-3">
+                        <td className="px-4 py-3">
                           <span
-                            class={`inline-flex items-center px-2 py-0.5 text-xs font-medium rounded-full ${PRIORITY_COLORS[s.priority] ?? PRIORITY_COLORS[2]}`}
+                            className={`inline-flex items-center px-2 py-0.5 text-xs font-medium rounded-full ${PRIORITY_COLORS[s.priority] ?? PRIORITY_COLORS[2]}`}
                           >
                             {PRIORITY_LABELS[s.priority] ??
                               `P${s.priority}`}
                           </span>
                         </td>
-                        <td class="px-4 py-3 text-xs text-slate-500">
+                        <td className="px-4 py-3 text-xs text-slate-500">
                           {s.last_status ? (
-                            <div class="flex flex-col gap-0.5">
+                            <div className="flex flex-col gap-0.5">
                               <Badge
                                 variant={kindVariant(
                                   s.last_status === 'ok'
@@ -921,22 +951,23 @@ export function SourcesPage() {
                               )}
                             </div>
                           ) : (
-                            <span class="text-slate-400">
+                            <span className="text-slate-400">
                               &mdash;
                             </span>
                           )}
                         </td>
-                        <td class="px-4 py-3">
+                        <td className="px-4 py-3">
                           <ToggleSwitch
                             enabled={s.enabled !== 0}
                             disabled={togglingId === s.id}
+                            label={`${s.enabled !== 0 ? 'Disable' : 'Enable'} ${s.name}`}
                             onChange={() =>
                               handleToggle(s.id, s.enabled ?? 1)
                             }
                           />
                         </td>
-                        <td class="px-4 py-3">
-                          <div class="flex justify-end gap-2">
+                        <td className="px-4 py-3">
+                          <div className="flex justify-end gap-2">
                             <Button
                               variant="ghost"
                               size="sm"
@@ -966,8 +997,8 @@ export function SourcesPage() {
                         </td>
                       </tr>
                       {editingId === s.id && (
-                        <tr class="border-t border-slate-100 dark:border-slate-800 bg-slate-50 dark:bg-slate-800/40">
-                          <td colSpan={8} class="px-4 py-4">
+                        <tr className="border-t border-slate-100 dark:border-slate-800 bg-slate-50 dark:bg-slate-800/40">
+                          <td colSpan={8} className="px-4 py-4">
                             <SourceEditForm
                               source={s}
                               loading={editLoadingId === s.id}
@@ -985,21 +1016,21 @@ export function SourcesPage() {
             </div>
           </div>
 
-          <div class="md:hidden space-y-3">
+          <div className="md:hidden space-y-3">
             {filteredSources.map((s) => (
               <div
                 key={s.id}
-                class={[
+                className={[
                   'bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl shadow-sm p-4 space-y-2',
                   s.enabled === 0 ? 'opacity-50' : '',
                 ].join(' ')}
               >
-                <div class="flex items-start justify-between gap-2">
-                  <div class="min-w-0 flex-1">
-                    <p class="font-medium text-sm text-slate-900 dark:text-slate-100 truncate">
+                <div className="flex items-start justify-between gap-2">
+                  <div className="min-w-0 flex-1">
+                    <p className="font-medium text-sm text-slate-900 dark:text-slate-100 truncate">
                       {s.name}
                     </p>
-                    <p class="text-xs text-slate-500 dark:text-slate-400 font-mono truncate mt-0.5">
+                    <p className="text-xs text-slate-500 dark:text-slate-400 font-mono truncate mt-0.5">
                       {s.url}
                     </p>
                   </div>
@@ -1007,22 +1038,22 @@ export function SourcesPage() {
                     {s.type}
                   </Badge>
                 </div>
-                <div class="flex items-center gap-2 flex-wrap">
-                  <span class="text-xs text-slate-600 dark:text-slate-400">
+                <div className="flex items-center gap-2 flex-wrap">
+                  <span className="text-xs text-slate-600 dark:text-slate-400">
                     {s.category}
                   </span>
-                  <span class="text-slate-300 dark:text-slate-600">
+                  <span className="text-slate-300 dark:text-slate-600">
                     &middot;
                   </span>
                   <span
-                    class={`inline-flex items-center px-2 py-0.5 text-xs font-medium rounded-full ${PRIORITY_COLORS[s.priority] ?? PRIORITY_COLORS[2]}`}
+                    className={`inline-flex items-center px-2 py-0.5 text-xs font-medium rounded-full ${PRIORITY_COLORS[s.priority] ?? PRIORITY_COLORS[2]}`}
                   >
                     {PRIORITY_LABELS[s.priority] ??
                       `P${s.priority}`}
                   </span>
                   {s.last_status && (
                     <>
-                      <span class="text-slate-300 dark:text-slate-600">
+                      <span className="text-slate-300 dark:text-slate-600">
                         &middot;
                       </span>
                       <Badge
@@ -1037,20 +1068,21 @@ export function SourcesPage() {
                     </>
                   )}
                 </div>
-                <div class="flex items-center justify-between pt-1">
-                  <div class="flex items-center gap-2">
+                <div className="flex items-center justify-between pt-1">
+                  <div className="flex items-center gap-2">
                     <ToggleSwitch
                       enabled={s.enabled !== 0}
                       disabled={togglingId === s.id}
+                      label={`${s.enabled !== 0 ? 'Disable' : 'Enable'} ${s.name}`}
                       onChange={() =>
                         handleToggle(s.id, s.enabled ?? 1)
                       }
                     />
-                    <span class="text-xs text-slate-500 dark:text-slate-400">
+                    <span className="text-xs text-slate-500 dark:text-slate-400">
                       {s.enabled !== 0 ? 'Enabled' : 'Disabled'}
                     </span>
                   </div>
-                  <div class="flex items-center gap-2">
+                  <div className="flex items-center gap-2">
                     <Button
                       variant="ghost"
                       size="sm"
@@ -1077,7 +1109,7 @@ export function SourcesPage() {
                   </div>
                 </div>
                 {editingId === s.id && (
-                  <div class="pt-2 border-t border-slate-100 dark:border-slate-800">
+                  <div className="pt-2 border-t border-slate-100 dark:border-slate-800">
                     <SourceEditForm
                       source={s}
                       loading={editLoadingId === s.id}
@@ -1115,7 +1147,7 @@ function SourceEditForm({
   const [podcastResults, setPodcastResults] = useState<ITunesResult[]>([]);
   const [podcastSearching, setPodcastSearching] = useState(false);
   const [podcastName, setPodcastName] = useState(source.name);
-  const [podcastFeedUrl, setPodcastFeedUrl] = useState(
+  const [podcastFeedUrl, setPodcastFeedUrl] = useState(() =>
     extraText(extra, 'feed_url', source.url),
   );
 
@@ -1142,7 +1174,7 @@ function SourceEditForm({
   return (
     <form
       onSubmit={onSubmit}
-      class="grid grid-cols-1 sm:grid-cols-2 gap-3"
+      className="grid grid-cols-1 sm:grid-cols-2 gap-3"
     >
       <input type="hidden" name="source_type" value={sourceType} />
       <Field label="Name">
@@ -1154,14 +1186,14 @@ function SourceEditForm({
             onInput={(e) =>
               setPodcastName((e.target as HTMLInputElement).value)
             }
-            class={inputCls}
+            className={inputCls}
           />
         ) : (
           <input
             name="name"
             required
             defaultValue={source.name}
-            class={inputCls}
+            className={inputCls}
           />
         )}
       </Field>
@@ -1174,7 +1206,7 @@ function SourceEditForm({
             name="url"
             required
             defaultValue={source.url}
-            class={inputCls}
+            className={inputCls}
           />
         </Field>
       )}
@@ -1184,7 +1216,7 @@ function SourceEditForm({
           <input
             name="channel_id"
             defaultValue={extraText(extra, 'channel_id')}
-            class={inputCls}
+            className={inputCls}
           />
         </Field>
       )}
@@ -1196,21 +1228,21 @@ function SourceEditForm({
               name="query"
               required
               defaultValue={extraText(extra, 'query')}
-              class={inputCls}
+              className={inputCls}
             />
           </Field>
           <Field label="Language">
             <input
               name="language"
               defaultValue={extraText(extra, 'language', 'en')}
-              class={inputCls}
+              className={inputCls}
             />
           </Field>
           <Field label="Country">
             <input
               name="country"
               defaultValue={extraText(extra, 'country', 'US')}
-              class={inputCls}
+              className={inputCls}
             />
           </Field>
         </>
@@ -1221,7 +1253,7 @@ function SourceEditForm({
           <Field label="Feed">
             <select
               name="hn_feed"
-              class={inputCls}
+              className={inputCls}
               defaultValue={extraText(extra, 'feed', 'top')}
             >
               <option value="top">Top stories</option>
@@ -1237,7 +1269,7 @@ function SourceEditForm({
               type="number"
               min="0"
               defaultValue={extraNumber(extra, 'min_score', 50)}
-              class={inputCls}
+              className={inputCls}
             />
           </Field>
           <Field label="Max items">
@@ -1247,7 +1279,7 @@ function SourceEditForm({
               min="1"
               max="100"
               defaultValue={extraNumber(extra, 'max_items', 20)}
-              class={inputCls}
+              className={inputCls}
             />
           </Field>
         </>
@@ -1260,13 +1292,13 @@ function SourceEditForm({
               name="subreddit"
               required
               defaultValue={extraText(extra, 'subreddit', source.name)}
-              class={inputCls}
+              className={inputCls}
             />
           </Field>
           <Field label="Sort">
             <select
               name="reddit_sort"
-              class={inputCls}
+              className={inputCls}
               defaultValue={extraText(extra, 'sort', 'hot')}
             >
               <option value="hot">Hot</option>
@@ -1278,7 +1310,7 @@ function SourceEditForm({
           <Field label="Time filter">
             <select
               name="reddit_time_filter"
-              class={inputCls}
+              className={inputCls}
               defaultValue={extraText(extra, 'time_filter', 'day')}
             >
               <option value="hour">Past hour</option>
@@ -1295,7 +1327,7 @@ function SourceEditForm({
               type="number"
               min="0"
               defaultValue={extraNumber(extra, 'min_score', 10)}
-              class={inputCls}
+              className={inputCls}
             />
           </Field>
           <Field label="Max items">
@@ -1305,7 +1337,7 @@ function SourceEditForm({
               min="1"
               max="100"
               defaultValue={extraNumber(extra, 'max_items', 20)}
-              class={inputCls}
+              className={inputCls}
             />
           </Field>
         </>
@@ -1317,21 +1349,22 @@ function SourceEditForm({
             name="github_repo"
             required
             defaultValue={extraText(extra, 'repo')}
-            class={inputCls}
+            className={inputCls}
           />
         </Field>
       )}
 
       {sourceType === 'podcast' && (
         <>
-          <div class="sm:col-span-2 space-y-2">
-            <label class="flex flex-col gap-1">
-              <span class="text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">
+          <div className="sm:col-span-2 space-y-2">
+            <div className="flex flex-col gap-1">
+              <span className="text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">
                 Search podcasts
               </span>
-              <div class="flex gap-2">
+              <div className="flex gap-2">
                 <input
                   type="text"
+                  aria-label="Podcast search"
                   placeholder='e.g. "Darknet Diaries"'
                   value={podcastQuery}
                   onInput={(e) =>
@@ -1343,40 +1376,40 @@ function SourceEditForm({
                       void searchPodcasts();
                     }
                   }}
-                  class={`${inputCls} flex-1`}
+                  className={`${inputCls} flex-1`}
                 />
                 <button
                   type="button"
                   onClick={() => void searchPodcasts()}
                   disabled={podcastSearching}
-                  class="px-4 py-2 text-sm font-semibold rounded-lg bg-blue-600 text-white hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors whitespace-nowrap"
+                  className="px-4 py-2 text-sm font-semibold rounded-lg bg-blue-600 text-white hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors whitespace-nowrap"
                 >
                   {podcastSearching ? 'Searching...' : 'Search'}
                 </button>
               </div>
-            </label>
+            </div>
 
             {podcastResults.length > 0 && (
-              <div class="rounded-lg border border-slate-200 dark:border-slate-700 divide-y divide-slate-100 dark:divide-slate-800 overflow-hidden">
+              <div className="rounded-lg border border-slate-200 dark:border-slate-700 divide-y divide-slate-100 dark:divide-slate-800 overflow-hidden">
                 {podcastResults.map((r) => (
                   <button
                     key={r.feedUrl}
                     type="button"
                     onClick={() => selectPodcast(r)}
-                    class="w-full flex items-center gap-3 px-3 py-2.5 text-left bg-white dark:bg-slate-900 hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors"
+                    className="w-full flex items-center gap-3 px-3 py-2.5 text-left bg-white dark:bg-slate-900 hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors"
                   >
                     {r.artworkUrl100 && (
                       <img
                         src={r.artworkUrl100}
                         alt=""
-                        class="w-10 h-10 rounded-lg object-cover flex-shrink-0"
+                        className="w-10 h-10 rounded-lg object-cover flex-shrink-0"
                       />
                     )}
-                    <div class="min-w-0 flex-1">
-                      <p class="text-sm font-medium text-slate-900 dark:text-slate-100 truncate">
+                    <div className="min-w-0 flex-1">
+                      <p className="text-sm font-medium text-slate-900 dark:text-slate-100 truncate">
                         {r.collectionName}
                       </p>
-                      <p class="text-xs text-slate-500 dark:text-slate-400 truncate">
+                      <p className="text-xs text-slate-500 dark:text-slate-400 truncate">
                         {r.artistName}
                       </p>
                     </div>
@@ -1394,7 +1427,7 @@ function SourceEditForm({
               onInput={(e) =>
                 setPodcastFeedUrl((e.target as HTMLInputElement).value)
               }
-              class={inputCls}
+              className={inputCls}
             />
           </Field>
         </>
@@ -1405,13 +1438,13 @@ function SourceEditForm({
           name="category"
           defaultValue={source.category}
           options={categories}
-          class={inputCls}
+          className={inputCls}
         />
       </Field>
       <Field label="Priority">
         <select
           name="priority"
-          class={inputCls}
+          className={inputCls}
           defaultValue={String(source.priority)}
         >
           <option value="1">1 - High</option>
@@ -1421,9 +1454,27 @@ function SourceEditForm({
           <option value="5">5 - Lowest</option>
         </select>
       </Field>
+      {(sourceType === 'rss' ||
+        sourceType === 'google_news' ||
+        sourceType === 'github_releases' ||
+        sourceType === 'podcast') && (
+        <Field label="Max items per source">
+          <input
+            name="max_items"
+            type="number"
+            min="1"
+            max="200"
+            defaultValue={extraNumber(extra, 'max_items', 50)}
+            className={inputCls}
+          />
+          <span className="text-xs text-slate-400 dark:text-slate-500 mt-0.5">
+            Candidate entries collected before ranking (1–200)
+          </span>
+        </Field>
+      )}
 
       {/* --- Filter rules --- */}
-      <div class="sm:col-span-2 border-t border-slate-100 dark:border-slate-800 pt-3 grid grid-cols-1 sm:grid-cols-2 gap-3">
+      <div className="sm:col-span-2 border-t border-slate-100 dark:border-slate-800 pt-3 grid grid-cols-1 sm:grid-cols-2 gap-3">
         <KeywordChipInput
           name="require_keywords"
           label="Show only if"
@@ -1459,7 +1510,7 @@ function SourceEditForm({
         />
       </div>
 
-      <div class="sm:col-span-2 flex items-center gap-2">
+      <div className="sm:col-span-2 flex items-center gap-2">
         <Button type="submit" size="sm" loading={loading}>
           Save changes
         </Button>
@@ -1481,8 +1532,8 @@ function Field({
   className?: string;
 }) {
   return (
-    <label class={`flex flex-col gap-1 ${className}`}>
-      <span class="text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">
+    <label className={`flex flex-col gap-1 ${className}`}>
+      <span className="text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">
         {label}
       </span>
       {children}
@@ -1522,11 +1573,11 @@ function KeywordChipInput({
   function addKeyword(raw: string) {
     const parts = raw.split(',').map((s) => s.trim()).filter(Boolean);
     setKeywords((prev) => {
-      const next = [...prev];
-      for (const p of parts) {
-        if (!next.includes(p)) next.push(p);
+      const next = new Set(prev);
+      for (const part of parts) {
+        next.add(part);
       }
-      return next;
+      return [...next];
     });
     setInputValue('');
   }
@@ -1536,24 +1587,24 @@ function KeywordChipInput({
   }
 
   return (
-    <div class="flex flex-col gap-1.5">
-      <span class="text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">
+    <div className="flex flex-col gap-1.5">
+      <span className="text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">
         {label}
       </span>
       <input type="hidden" name={name} value={keywords.join(',')} />
       {keywords.length > 0 && (
-        <div class="flex flex-wrap gap-1.5">
+        <div className="flex flex-wrap gap-1.5">
           {keywords.map((kw) => (
             <span
               key={kw}
-              class={`inline-flex items-center gap-1 px-2 py-0.5 text-xs font-medium rounded-full ${chipClass}`}
+              className={`inline-flex items-center gap-1 px-2 py-0.5 text-xs font-medium rounded-full ${chipClass}`}
             >
               {kw}
               <button
                 type="button"
                 aria-label={`Remove ${kw}`}
                 onClick={() => removeKeyword(kw)}
-                class="ml-0.5 hover:opacity-70 transition-opacity"
+                className="ml-0.5 hover:opacity-70 transition-opacity"
               >
                 &times;
               </button>
@@ -1561,9 +1612,10 @@ function KeywordChipInput({
           ))}
         </div>
       )}
-      <div class="flex gap-2">
+      <div className="flex gap-2">
         <input
           type="text"
+          aria-label="Keyword"
           placeholder="Add keyword..."
           value={inputValue}
           onInput={(e) => setInputValue((e.target as HTMLInputElement).value)}
@@ -1573,17 +1625,17 @@ function KeywordChipInput({
               if (inputValue.trim()) addKeyword(inputValue);
             }
           }}
-          class={`${inputCls} flex-1`}
+          className={`${inputCls} flex-1`}
         />
         <button
           type="button"
           onClick={() => { if (inputValue.trim()) addKeyword(inputValue); }}
-          class="px-3 py-2 text-sm font-semibold rounded-lg bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700 transition-colors whitespace-nowrap"
+          className="px-3 py-2 text-sm font-semibold rounded-lg bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700 transition-colors whitespace-nowrap"
         >
           Add
         </button>
       </div>
-      <p class="text-xs text-slate-400 dark:text-slate-500">{hint}</p>
+      <p className="text-xs text-slate-400 dark:text-slate-500">{hint}</p>
     </div>
   );
 }
@@ -1595,20 +1647,23 @@ function KeywordChipInput({
 function ToggleSwitch({
   enabled,
   onChange,
+  label,
   disabled = false,
 }: {
   enabled: boolean;
   onChange: () => void;
+  label: string;
   disabled?: boolean;
 }) {
   return (
     <button
       type="button"
       role="switch"
+      aria-label={label}
       aria-checked={enabled}
       disabled={disabled}
       onClick={onChange}
-      class={[
+      className={[
         'relative inline-flex h-5 w-9 flex-shrink-0 items-center rounded-full',
         'transition-colors duration-200 ease-in-out',
         'focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-1',
@@ -1621,7 +1676,7 @@ function ToggleSwitch({
       ].join(' ')}
     >
       <span
-        class={[
+        className={[
           'inline-block h-3.5 w-3.5 rounded-full bg-white shadow',
           'transition-transform duration-200 ease-in-out',
           enabled ? 'translate-x-5' : 'translate-x-0.5',

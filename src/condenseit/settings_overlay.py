@@ -96,6 +96,11 @@ def _apply_digest_settings(config: AppConfig, store: ContentStore) -> None:
         if val is not None:
             config.max_articles_per_digest = val
 
+    history_limit = store.get_setting("digest_history_limit", "")
+    if history_limit:
+        val = parse_int_in_range(history_limit, "digest_history_limit", 1, 1000)
+        if val is not None:
+            config.digest_history_limit = val
     balance = store.get_setting("balance_digest_categories", "")
     if balance == "1":
         config.balance_digest_categories = True

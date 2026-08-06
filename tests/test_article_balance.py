@@ -15,7 +15,7 @@ def _art(url: str, category: str, score: float) -> dict[str, object]:
 
 
 def test_balanced_selection_includes_each_category_when_room() -> None:
-    """Skewed global rank should still surface every category once."""
+    """Coverage should not disturb descending score order."""
     ranked = [
         _art("i1", "Infosec News", 9.0),
         _art("i2", "Infosec News", 8.0),
@@ -25,8 +25,7 @@ def test_balanced_selection_includes_each_category_when_room() -> None:
     ]
     out = select_balanced_digest_articles(ranked, max_n=5)
     urls = [str(a["url"]) for a in out]
-    assert urls[:3] == ["i1", "g1", "f1"]
-    assert urls[3:] == ["i2", "i3"]
+    assert urls == ["i1", "i2", "i3", "g1", "f1"]
 
 
 def test_respects_max_n_less_than_category_count() -> None:

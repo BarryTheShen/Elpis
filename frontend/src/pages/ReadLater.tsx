@@ -113,7 +113,7 @@ export function ReadLaterPage() {
 
   if (loading) {
     return (
-      <div class="flex items-center justify-center py-20">
+      <div className="flex items-center justify-center py-20">
         <Spinner size="lg" className="text-blue-600 dark:text-blue-400" />
       </div>
     );
@@ -128,14 +128,14 @@ export function ReadLaterPage() {
           <button
             type="button"
             onClick={load}
-            class="inline-flex items-center px-4 py-2 text-sm font-semibold bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+            className="inline-flex items-center px-4 py-2 text-sm font-semibold bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
           >
             Retry
           </button>
         }
         icon={
           <svg
-            class="w-10 h-10"
+            className="w-10 h-10"
             fill="none"
             viewBox="0 0 24 24"
             stroke="currentColor"
@@ -154,12 +154,12 @@ export function ReadLaterPage() {
 
   if (items.length === 0) {
     return (
-      <div class="space-y-4">
+      <div className="space-y-4">
         <div>
-          <h1 class="text-2xl font-bold tracking-tight text-slate-900 dark:text-slate-100">
+          <h1 className="text-2xl font-bold tracking-tight text-slate-900 dark:text-slate-100">
             Read Later
           </h1>
-          <p class="mt-1 text-sm text-slate-500 dark:text-slate-400">
+          <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">
             Items you save here stay until you mark them as done.
           </p>
         </div>
@@ -169,7 +169,7 @@ export function ReadLaterPage() {
           description='Hit the bookmark button on any digest item to save it here for later. Items stay until you remove them, even after new digest runs.'
           icon={
             <svg
-              class="w-10 h-10"
+              className="w-10 h-10"
               fill="none"
               viewBox="0 0 24 24"
               stroke="currentColor"
@@ -185,7 +185,7 @@ export function ReadLaterPage() {
           action={
             <a
               href="/"
-              class="inline-flex items-center px-4 py-2 text-sm font-semibold bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+              className="inline-flex items-center px-4 py-2 text-sm font-semibold bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
             >
               Go to digest
             </a>
@@ -196,14 +196,14 @@ export function ReadLaterPage() {
   }
 
   return (
-    <div class="space-y-4">
+    <div className="space-y-4">
       {/* Page header */}
-      <div class="flex items-start justify-between gap-4 flex-wrap">
+      <div className="flex items-start justify-between gap-4 flex-wrap">
         <div>
-          <h1 class="text-2xl font-bold tracking-tight text-slate-900 dark:text-slate-100">
+          <h1 className="text-2xl font-bold tracking-tight text-slate-900 dark:text-slate-100">
             Read Later
           </h1>
-          <p class="mt-1 text-sm text-slate-500 dark:text-slate-400">
+          <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">
             {items.length} item{items.length !== 1 ? 's' : ''} saved ·
             click bookmark or &quot;Mark done&quot; to remove
           </p>
@@ -211,10 +211,10 @@ export function ReadLaterPage() {
       </div>
 
       {/* Item grid */}
-      <div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl shadow-sm overflow-hidden">
-        <div class="px-4 py-3 border-b border-slate-100 dark:border-slate-800 flex items-center gap-3">
+      <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl shadow-sm overflow-hidden">
+        <div className="px-4 py-3 border-b border-slate-100 dark:border-slate-800 flex items-center gap-3">
           <svg
-            class="w-4 h-4 text-amber-500 dark:text-amber-400 flex-shrink-0"
+            className="w-4 h-4 text-amber-500 dark:text-amber-400 flex-shrink-0"
             fill="currentColor"
             viewBox="0 0 24 24"
           >
@@ -224,13 +224,13 @@ export function ReadLaterPage() {
               d="M17.593 3.322c1.1.128 1.907 1.077 1.907 2.185V21L12 17.25 4.5 21V5.507c0-1.108.806-2.057 1.907-2.185a48.507 48.507 0 0111.186 0z"
             />
           </svg>
-          <p class="text-xs text-slate-500 dark:text-slate-400">
+          <p className="text-xs text-slate-500 dark:text-slate-400">
             These items persist independently of new digest runs. Remove them
             when you&apos;re done.
           </p>
         </div>
 
-        <div class="p-4 grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div className="p-4 grid grid-cols-1 md:grid-cols-2 gap-4">
           {items.map((raw) => {
             const item = normalizeItem({
               ...raw,

@@ -561,6 +561,36 @@ def test_score_breakdown_keyword_high_contributes(store: ContentStore) -> None:
     ranked = eng.rank_articles([art], keyword_high={"kubernetes"})
     assert ranked[0]["score_breakdown"]["keyword_high"] == pytest.approx(2.0)
 
+def test_keyword_matching_uses_word_boundaries(store: ContentStore) -> None:
+    """Short configured terms must not match inside unrelated words."""
+    eng = _engine(store, min_ratings=1)
+    arts = [
+        {
+            "url": "https://keyword.test/google",
+            "title": "Google Cloud release",
+            "content": "",
+            "category": "Tech",
+            "source": "Feed",
+        },
+        {
+            "url": "https://keyword.test/go",
+            "title": "Go language release",
+            "content": "",
+            "category": "Tech",
+            "source": "Feed",
+        },
+    ]
+
+    ranked = eng.rank_articles(arts, keyword_medium={"go"})
+    by_url = {str(article["url"]): article for article in ranked}
+
+    assert by_url["https://keyword.test/google"]["score_breakdown"][
+        "keyword_medium"
+    ] == pytest.approx(0.0)
+    assert by_url["https://keyword.test/go"]["score_breakdown"][
+        "keyword_medium"
+    ] == pytest.approx(1.0)
+
 
 def test_score_breakdown_sums_to_preference_score(store: ContentStore) -> None:
     """The sum of all breakdown values must equal preference_score."""

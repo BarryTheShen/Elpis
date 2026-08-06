@@ -118,28 +118,28 @@ export function SecurityPage() {
 
   if (loading) {
     return (
-      <div class="flex items-center justify-center py-20">
+      <div className="flex items-center justify-center py-20">
         <Spinner size="lg" className="text-blue-600 dark:text-blue-400" />
       </div>
     );
   }
 
   return (
-    <div class="space-y-5">
+    <div className="space-y-5">
       <div>
-        <h1 class="text-2xl font-bold tracking-tight text-slate-900 dark:text-slate-100">
+        <h1 className="text-2xl font-bold tracking-tight text-slate-900 dark:text-slate-100">
           Security
         </h1>
-        <p class="mt-1 text-sm text-slate-500 dark:text-slate-400">
+        <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">
           Manage your admin password.
         </p>
       </div>
 
       {/* Default password warning */}
       {info?.using_default && (
-        <div class="flex items-start gap-3 px-4 py-3 rounded-lg bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-700 text-sm text-amber-800 dark:text-amber-300">
+        <div className="flex items-start gap-3 px-4 py-3 rounded-lg bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-700 text-sm text-amber-800 dark:text-amber-300">
           <svg
-            class="w-5 h-5 flex-shrink-0 mt-0.5"
+            className="w-5 h-5 flex-shrink-0 mt-0.5"
             fill="none"
             viewBox="0 0 24 24"
             stroke="currentColor"
@@ -152,8 +152,8 @@ export function SecurityPage() {
             />
           </svg>
           <div>
-            <p class="font-semibold">You are using the default password.</p>
-            <p class="mt-0.5 text-xs opacity-80">
+            <p className="font-semibold">You are using the default password.</p>
+            <p className="mt-0.5 text-xs opacity-80">
               Change it below before exposing this instance to the internet.
             </p>
           </div>
@@ -162,7 +162,7 @@ export function SecurityPage() {
 
       {flash && (
         <div
-          class={[
+          className={[
             'px-4 py-3 text-sm rounded-lg border',
             flash.ok
               ? 'bg-blue-50 dark:bg-blue-900/20 text-blue-700 dark:text-blue-300 border-blue-200 dark:border-blue-800'
@@ -178,14 +178,14 @@ export function SecurityPage() {
           title="Change password"
           description="Changes take effect immediately. Your current session stays active."
         />
-        <form onSubmit={handleSubmit} class="space-y-4">
-          <label class="flex flex-col gap-1">
-            <span class="text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">
+        <form onSubmit={handleSubmit} className="space-y-4">
+          <label className="flex flex-col gap-1">
+            <span className="text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">
               Current password
             </span>
             <input
               type="password"
-              class={INPUT}
+              className={INPUT}
               required
               autoComplete="current-password"
               value={current}
@@ -193,31 +193,31 @@ export function SecurityPage() {
             />
           </label>
 
-          <label class="flex flex-col gap-1">
-            <span class="text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">
+          <label className="flex flex-col gap-1">
+            <span className="text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">
               New password
             </span>
             <input
               type="password"
-              class={INPUT}
+              className={INPUT}
               required
               minLength={8}
               autoComplete="new-password"
               value={next}
               onInput={(e) => setNext((e.target as HTMLInputElement).value)}
             />
-            <span class="text-xs text-slate-400 dark:text-slate-500">
+            <span className="text-xs text-slate-400 dark:text-slate-500">
               Minimum 8 characters.
             </span>
           </label>
 
-          <label class="flex flex-col gap-1">
-            <span class="text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">
+          <label className="flex flex-col gap-1">
+            <span className="text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">
               Confirm new password
             </span>
             <input
               type="password"
-              class={INPUT}
+              className={INPUT}
               required
               autoComplete="new-password"
               value={confirm}
@@ -225,7 +225,7 @@ export function SecurityPage() {
             />
           </label>
 
-          <div class="pt-1">
+          <div className="pt-1">
             <Button type="submit" loading={saving}>
               Change password
             </Button>
@@ -235,9 +235,9 @@ export function SecurityPage() {
 
       {info && !info.using_default && (
         <Card>
-          <p class="text-xs text-slate-400 dark:text-slate-500">
+          <p className="text-xs text-slate-400 dark:text-slate-500">
             Password source:{' '}
-            <code class="bg-slate-100 dark:bg-slate-800 px-1 py-0.5 rounded">
+            <code className="bg-slate-100 dark:bg-slate-800 px-1 py-0.5 rounded">
               {info.source === 'db'
                 ? 'set via admin panel'
                 : info.source === 'env'
@@ -260,10 +260,10 @@ export function SecurityPage() {
         {feedTokenLoading ? (
           <Spinner size="sm" className="text-blue-600 dark:text-blue-400" />
         ) : (
-          <div class="space-y-4">
+          <div className="space-y-4">
             {feedFlash && (
               <div
-                class={[
+                className={[
                   'px-4 py-3 text-sm rounded-lg border',
                   feedFlash.ok
                     ? 'bg-blue-50 dark:bg-blue-900/20 text-blue-700 dark:text-blue-300 border-blue-200 dark:border-blue-800'
@@ -276,29 +276,29 @@ export function SecurityPage() {
 
             {feedToken?.exists ? (
               <>
-                <label class="flex flex-col gap-1">
-                  <span class="text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">
+                <label className="flex flex-col gap-1">
+                  <span className="text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">
                     Feed URL
                   </span>
-                  <div class="flex gap-2">
+                  <div className="flex gap-2">
                     <input
                       ref={feedUrlRef}
                       type="text"
                       readOnly
                       value={feedToken.feed_url ?? ''}
-                      class={INPUT + ' font-mono text-xs flex-1'}
+                      className={INPUT + ' font-mono text-xs flex-1'}
                       onClick={() => feedUrlRef.current?.select()}
                     />
                     <Button type="button" onClick={handleCopyUrl}>
                       Copy
                     </Button>
                   </div>
-                  <span class="text-xs text-slate-400 dark:text-slate-500">
+                  <span className="text-xs text-slate-400 dark:text-slate-500">
                     Add this URL to your RSS reader. Treat it like a password — it grants read access to your digest.
                   </span>
                 </label>
 
-                <div class="flex items-center gap-3">
+                <div className="flex items-center gap-3">
                   <Button
                     type="button"
                     variant="danger"
@@ -310,7 +310,7 @@ export function SecurityPage() {
                   {revokeConfirm && (
                     <button
                       type="button"
-                      class="text-sm text-slate-500 dark:text-slate-400 hover:underline"
+                      className="text-sm text-slate-500 dark:text-slate-400 hover:underline"
                       onClick={() => setRevokeConfirm(false)}
                     >
                       Cancel
@@ -319,8 +319,8 @@ export function SecurityPage() {
                 </div>
               </>
             ) : (
-              <div class="space-y-2">
-                <p class="text-sm text-slate-500 dark:text-slate-400">
+              <div className="space-y-2">
+                <p className="text-sm text-slate-500 dark:text-slate-400">
                   No feed token active. Generate one to get your feed URL.
                 </p>
                 <Button

@@ -102,3 +102,31 @@ def test_existing_run_logs_get_run_id_column(tmp_path: Path) -> None:
     }
     assert "run_id" in columns
     store.close()
+
+
+
+def test_list_digests_uses_exclusive_cursor_and_default_page(tmp_path: Path) -> None:
+    store = ContentStore(db_path=tmp_path / "digests.db")
+    for _ in range(25):
+        store.save_digest("# Digest", "<p>Digest</p>", "{}")
+
+    assert [row["id"] for row in store.list_digests()] == list(range(25, 5, -1))
+    assert [row["id"] for row in store.list_digests(limit=2, before_id=20)] == [
+        19,
+        18,
+    ]
+    assert store.list_digests(limit=2, before_id=1) == []
+    store.close()
+
+
+def test_prune_digests_retains_newest_issues(tmp_path: Path) -> None:
+    store = ContentStore(db_path=tmp_path / "retention.db")
+    ids = [
+        store.save_digest(f"# Digest {index}", "<p>Digest</p>", "{}")
+        for index in range(5)
+    ]
+
+    assert store.prune_digests(2) == 3
+    assert [row["id"] for row in store.list_digests(limit=10)] == ids[-2:][::-1]
+    assert store.prune_digests(2) == 0
+    store.close()

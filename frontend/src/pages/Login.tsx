@@ -29,46 +29,47 @@ export function LoginPage({ onLogin }: LoginPageProps) {
     setLoading(true);
     setError(null);
 
-    const err = await login(password);
-
-    setLoading(false);
-
-    if (err) {
-      setError(err);
-      setPassword('');
-    } else {
-      onLogin();
+    try {
+      const err = await login(password);
+      if (err) {
+        setError(err);
+        setPassword('');
+      } else {
+        onLogin();
+      }
+    } finally {
+      setLoading(false);
     }
   }
 
   return (
-    <div class="relative flex min-h-screen items-center justify-center bg-[#f9f8f7] px-4 py-12 text-[#2c2c2b] dark:bg-[#171716] dark:text-[#f4f3f1]">
-      <div class="absolute right-4 top-4">
+    <div className="relative flex min-h-screen items-center justify-center bg-[#f9f8f7] px-4 py-12 text-[#2c2c2b] dark:bg-[#171716] dark:text-[#f4f3f1]">
+      <div className="absolute right-4 top-4">
         <ThemeToggle />
       </div>
 
-      <main class="w-full max-w-md">
-        <div class="mb-8 flex items-center gap-3">
-          <span class="flex h-10 w-10 items-center justify-center rounded-md bg-[#2783de] text-base font-black text-white">
+      <main className="w-full max-w-md">
+        <div className="mb-8 flex items-center gap-3">
+          <span className="flex h-10 w-10 items-center justify-center rounded-md bg-[#2783de] text-base font-black text-white">
             {product.mark}
           </span>
           <div>
-            <p class="text-sm font-semibold tracking-tight">{product.name}</p>
-            <p class="text-sm text-[#7d7a75] dark:text-[#b4b1ab]">Admin sign-in</p>
+            <p className="text-sm font-semibold tracking-tight">{product.name}</p>
+            <p className="text-sm text-[#7d7a75] dark:text-[#b4b1ab]">Admin sign-in</p>
           </div>
         </div>
 
-        <section class="border-y border-[#e6e5e3] bg-white px-6 py-8 dark:border-[#3b3a37] dark:bg-[#20201e] sm:px-8">
-          <h1 class="text-3xl font-semibold tracking-tight">Welcome back</h1>
-          <p class="mt-2 text-base leading-7 text-[#7d7a75] dark:text-[#b4b1ab]">
+        <section className="border-y border-[#e6e5e3] bg-white px-6 py-8 dark:border-[#3b3a37] dark:bg-[#20201e] sm:px-8">
+          <h1 className="text-3xl font-semibold tracking-tight">Welcome back</h1>
+          <p className="mt-2 text-base leading-7 text-[#7d7a75] dark:text-[#b4b1ab]">
             Sign in to manage sources, settings, and today&apos;s publication.
           </p>
 
-          <form onSubmit={handleSubmit} class="mt-8 flex flex-col gap-5">
-            <div class="flex flex-col gap-2">
+          <form onSubmit={handleSubmit} className="mt-8 flex flex-col gap-5">
+            <div className="flex flex-col gap-2">
               <label
-                for="password"
-                class="text-sm font-semibold text-[#2c2c2b] dark:text-[#f4f3f1]"
+                htmlFor="password"
+                className="text-sm font-semibold text-[#2c2c2b] dark:text-[#f4f3f1]"
               >
                 Password
               </label>
@@ -84,7 +85,7 @@ export function LoginPage({ onLogin }: LoginPageProps) {
                 aria-invalid={error ? 'true' : undefined}
                 aria-describedby={error ? 'login-error' : undefined}
                 placeholder="Enter your password"
-                class={[
+                className={[
                   'w-full rounded-md border px-3 py-2.5 text-base outline-none transition-colors',
                   'bg-white dark:bg-[#171716]',
                   'text-[#2c2c2b] dark:text-[#f4f3f1]',
@@ -97,7 +98,7 @@ export function LoginPage({ onLogin }: LoginPageProps) {
             </div>
 
             {error && (
-              <p id="login-error" role="alert" class="text-sm leading-6 text-[#b9382f] dark:text-[#ff9f96]">
+              <p id="login-error" role="alert" className="text-sm leading-6 text-[#b9382f] dark:text-[#ff9f96]">
                 {error}
               </p>
             )}
@@ -105,10 +106,10 @@ export function LoginPage({ onLogin }: LoginPageProps) {
             <button
               type="submit"
               disabled={loading || !password.trim()}
-              class="inline-flex min-h-11 items-center justify-center gap-2 rounded-md bg-[#2783de] px-4 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-[#1f6fbe] active:scale-[0.98] focus-visible:ring-2 focus-visible:ring-[#2783de] disabled:cursor-not-allowed disabled:opacity-50 dark:bg-[#63aaf0] dark:text-[#171716] dark:hover:bg-[#83bdf5]"
+              className="inline-flex min-h-11 items-center justify-center gap-2 rounded-md bg-[#2783de] px-4 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-[#1f6fbe] active:scale-[0.98] focus-visible:ring-2 focus-visible:ring-[#2783de] disabled:cursor-not-allowed disabled:opacity-50 dark:bg-[#63aaf0] dark:text-[#171716] dark:hover:bg-[#83bdf5]"
             >
               {loading && (
-                <span class="h-4 w-4 rounded-full border-2 border-current border-t-transparent animate-spin" />
+                <span className="h-4 w-4 rounded-full border-2 border-current border-t-transparent animate-spin" />
               )}
               {loading ? 'Signing in...' : 'Sign in'}
             </button>

@@ -4,7 +4,7 @@ interface CategoryComboboxProps {
   name: string;
   defaultValue?: string;
   options: string[];
-  class?: string;
+  className?: string;
 }
 
 /**
@@ -16,7 +16,7 @@ export function CategoryCombobox({
   name,
   defaultValue = '',
   options,
-  class: cls = '',
+  className = '',
 }: CategoryComboboxProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
@@ -88,12 +88,13 @@ export function CategoryCombobox({
   }, []);
 
   return (
-    <div ref={containerRef} class="relative">
+    <div ref={containerRef} className="relative">
       <input
         ref={inputRef}
         name={name}
         defaultValue={defaultValue}
-        class={cls}
+        className={className}
+        aria-label="Category"
         autoComplete="off"
         onInput={handleInput}
         onFocus={handleFocus}
@@ -101,21 +102,23 @@ export function CategoryCombobox({
       />
       {open && filtered.length > 0 && (
         <ul
-          class="absolute z-50 mt-1 w-full rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-950 shadow-lg max-h-48 overflow-y-auto py-1"
+          className="absolute z-50 mt-1 w-full rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-950 shadow-lg max-h-48 overflow-y-auto py-1"
           onMouseDown={(e) => e.preventDefault()}
         >
           {filtered.map((option, i) => (
-            <li
-              key={option}
-              class={[
-                'px-3 py-1.5 text-sm cursor-pointer select-none',
-                i === highlighted
-                  ? 'bg-blue-600 text-white dark:bg-blue-500'
-                  : 'text-slate-900 dark:text-slate-100 hover:bg-slate-100 dark:hover:bg-slate-800',
-              ].join(' ')}
-              onClick={() => select(option)}
-            >
-              {option}
+            <li key={option}>
+              <button
+                type="button"
+                className={[
+                  'block w-full px-3 py-1.5 text-left text-sm cursor-pointer select-none',
+                  i === highlighted
+                    ? 'bg-blue-600 text-white dark:bg-blue-500'
+                    : 'text-slate-900 dark:text-slate-100 hover:bg-slate-100 dark:hover:bg-slate-800',
+                ].join(' ')}
+                onClick={() => select(option)}
+              >
+                {option}
+              </button>
             </li>
           ))}
         </ul>

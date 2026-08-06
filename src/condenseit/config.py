@@ -11,6 +11,13 @@ from pydantic import BaseModel, Field
 
 logger = logging.getLogger(__name__)
 
+# Candidate collection defaults are intentionally higher than the final digest
+# size so ranking can compare a broad set of source entries.
+DEFAULT_SOURCE_MAX_ITEMS = 50
+MAX_SOURCE_ITEMS = 200
+DEFAULT_DIGEST_HISTORY_LIMIT = 100
+
+
 # First-run credential when nothing is set in DB or env (override in production).
 LOCAL_INSTALL_FALLBACK_CREDENTIAL = (
     os.environ.get("CONDENSEIT_DEFAULT_PASSWORD", "").strip() or "elpis"
@@ -19,6 +26,11 @@ LOCAL_INSTALL_FALLBACK_CREDENTIAL = (
 
 class FeedConfig(BaseModel):
     url: str
+    max_items: int = Field(
+        default=DEFAULT_SOURCE_MAX_ITEMS,
+        ge=1,
+        le=MAX_SOURCE_ITEMS,
+    )
     category: str = "General"
     priority: int = 2
     hide_keywords: list[str] = Field(default_factory=list)
@@ -50,6 +62,11 @@ class GoogleNewsSearchConfig(BaseModel):
     """
 
     query: str
+    max_items: int = Field(
+        default=DEFAULT_SOURCE_MAX_ITEMS,
+        ge=1,
+        le=MAX_SOURCE_ITEMS,
+    )
     language: str = "en"
     country: str = "US"
     category: str = "General"
@@ -91,6 +108,11 @@ class GitHubReleasesConfig(BaseModel):
     """GitHub releases tracked via the public Atom feed for a repository."""
 
     repo: str
+    max_items: int = Field(
+        default=DEFAULT_SOURCE_MAX_ITEMS,
+        ge=1,
+        le=MAX_SOURCE_ITEMS,
+    )
     category: str = "General"
     priority: int = 2
     hide_keywords: list[str] = Field(default_factory=list)
@@ -102,6 +124,11 @@ class PodcastConfig(BaseModel):
     """A podcast tracked via its RSS/Atom feed URL."""
 
     feed_url: str
+    max_items: int = Field(
+        default=DEFAULT_SOURCE_MAX_ITEMS,
+        ge=1,
+        le=MAX_SOURCE_ITEMS,
+    )
     name: str = ""
     category: str = "General"
     priority: int = 2
@@ -222,6 +249,14 @@ class VpsConfig(BaseModel):
 class AppConfig(BaseModel):
     model: str = "llama3.2:3b"
     max_articles_per_digest: int = Field(default=50, ge=1, le=200)
+    # Number of published issues retained in the archive. Older issues are
+    # removed after a successful run so the SQLite publication store stays
+    # bounded.
+    digest_history_limit: int = Field(
+        default=DEFAULT_DIGEST_HISTORY_LIMIT,
+        ge=1,
+        le=1000,
+    )
     balance_digest_categories: bool = True
     max_articles_per_category: int = Field(default=5, ge=1, le=50)
     max_article_age_hours: int = Field(default=36, ge=0)

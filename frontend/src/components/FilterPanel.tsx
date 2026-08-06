@@ -93,11 +93,11 @@ export function FilterPanel({
   const activeCount = Object.values(filters).filter(Boolean).length;
 
   return (
-    <div class="border-y border-[#e6e5e3] dark:border-[#3b3a37] bg-[#f9f8f7] dark:bg-[#20201e]">
-      <div class="flex flex-col gap-2 p-3 sm:flex-row sm:items-center">
-        <div class="relative flex-1">
+    <div className="border-y border-[#e6e5e3] dark:border-[#3b3a37] bg-[#f9f8f7] dark:bg-[#20201e]">
+      <div className="flex flex-col gap-2 p-3 sm:flex-row sm:items-center">
+        <div className="relative flex-1">
           <svg
-            class="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400"
+            className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400"
             fill="none"
             viewBox="0 0 24 24"
             stroke="currentColor"
@@ -111,15 +111,16 @@ export function FilterPanel({
           </svg>
           <input
             type="search"
+            aria-label="Search digest"
             placeholder="Search title, summary, source..."
-            class="w-full rounded-md border border-[#e6e5e3] bg-white py-2.5 pl-9 pr-3 text-sm text-[#2c2c2b] placeholder-[#7d7a75] outline-none transition-colors focus:border-[#2783de] focus:ring-2 focus:ring-[#2783de]/20 dark:border-[#3b3a37] dark:bg-[#171716] dark:text-[#f4f3f1] dark:placeholder-[#b4b1ab]"
+            className="w-full rounded-md border border-[#e6e5e3] bg-white py-2.5 pl-9 pr-3 text-sm text-[#2c2c2b] placeholder-[#7d7a75] outline-none transition-colors focus:border-[#2783de] focus:ring-2 focus:ring-[#2783de]/20 dark:border-[#3b3a37] dark:bg-[#171716] dark:text-[#f4f3f1] dark:placeholder-[#b4b1ab]"
             onInput={(e) => handleSearch((e.target as HTMLInputElement).value)}
           />
         </div>
         <button
           type="button"
           onClick={() => setOpen((o) => !o)}
-          class={[
+          className={[
             'flex items-center gap-1.5 px-3 py-2 text-sm rounded-md border transition-colors active:scale-[0.98] focus-visible:ring-2 focus-visible:ring-[#2783de]',
             open
               ? 'bg-[#e5f2fc] dark:bg-[#1c3852] border-[#9bcaf2] dark:border-[#4f8fc8] text-[#1d5f9f] dark:text-[#a6d2f8]'
@@ -127,7 +128,7 @@ export function FilterPanel({
           ].join(' ')}
         >
           <svg
-            class="w-4 h-4"
+            className="w-4 h-4"
             fill="none"
             viewBox="0 0 24 24"
             stroke="currentColor"
@@ -141,7 +142,7 @@ export function FilterPanel({
           </svg>
           Filters
           {activeCount > 0 && (
-            <span class="ml-0.5 bg-[#2783de] text-white text-xs font-bold rounded-md min-w-4 h-4 px-1 flex items-center justify-center">
+            <span className="ml-0.5 bg-[#2783de] text-white text-xs font-bold rounded-md min-w-4 h-4 px-1 flex items-center justify-center">
               {activeCount}
             </span>
           )}
@@ -150,7 +151,7 @@ export function FilterPanel({
           <button
             type="button"
             onClick={reset}
-            class="px-3 py-2 text-sm text-[#7d7a75] dark:text-[#b4b1ab] hover:text-[#2c2c2b] dark:hover:text-[#f4f3f1] transition-colors"
+            className="px-3 py-2 text-sm text-[#7d7a75] dark:text-[#b4b1ab] hover:text-[#2c2c2b] dark:hover:text-[#f4f3f1] transition-colors"
           >
             Clear
           </button>
@@ -160,7 +161,7 @@ export function FilterPanel({
           <button
             type="button"
             onClick={onToggleHideRead}
-            class={[
+            className={[
             'flex items-center gap-1.5 px-3 py-2 text-sm rounded-md border transition-colors active:scale-[0.98] focus-visible:ring-2 focus-visible:ring-[#2783de]',
             hideRead
               ? 'bg-[#e5f2fc] dark:bg-[#1c3852] border-[#9bcaf2] dark:border-[#4f8fc8] text-[#1d5f9f] dark:text-[#a6d2f8] hover:bg-[#d8ecfa] dark:hover:bg-[#244867]'
@@ -168,7 +169,7 @@ export function FilterPanel({
             ].join(' ')}
           >
             <svg
-              class="w-4 h-4"
+              className="w-4 h-4"
               fill="none"
               viewBox="0 0 24 24"
               stroke="currentColor"
@@ -203,13 +204,13 @@ export function FilterPanel({
       </div>
 
       {open && (
-        <div class="px-3 pb-3 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3">
-          <label class="flex flex-col gap-1">
-            <span class="text-xs font-semibold text-[#7d7a75] dark:text-[#b4b1ab]">
+        <div className="px-3 pb-3 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3">
+          <label className="flex flex-col gap-1">
+            <span className="text-xs font-semibold text-[#7d7a75] dark:text-[#b4b1ab]">
               Category
             </span>
             <select
-              class="rounded-md border border-[#e6e5e3] bg-white px-2.5 py-2 text-sm text-[#2c2c2b] outline-none transition-colors focus:border-[#2783de] focus:ring-2 focus:ring-[#2783de]/20 dark:border-[#3b3a37] dark:bg-[#171716] dark:text-[#f4f3f1]"
+              className="rounded-md border border-[#e6e5e3] bg-white px-2.5 py-2 text-sm text-[#2c2c2b] outline-none transition-colors focus:border-[#2783de] focus:ring-2 focus:ring-[#2783de]/20 dark:border-[#3b3a37] dark:bg-[#171716] dark:text-[#f4f3f1]"
               value={filters.category}
               onChange={(e) =>
                 set('category', (e.target as HTMLSelectElement).value)
@@ -224,12 +225,12 @@ export function FilterPanel({
             </select>
           </label>
 
-          <label class="flex flex-col gap-1">
-            <span class="text-xs font-semibold text-[#7d7a75] dark:text-[#b4b1ab]">
+          <label className="flex flex-col gap-1">
+            <span className="text-xs font-semibold text-[#7d7a75] dark:text-[#b4b1ab]">
               Source
             </span>
             <select
-              class="rounded-md border border-[#e6e5e3] bg-white px-2.5 py-2 text-sm text-[#2c2c2b] outline-none transition-colors focus:border-[#2783de] focus:ring-2 focus:ring-[#2783de]/20 dark:border-[#3b3a37] dark:bg-[#171716] dark:text-[#f4f3f1]"
+              className="rounded-md border border-[#e6e5e3] bg-white px-2.5 py-2 text-sm text-[#2c2c2b] outline-none transition-colors focus:border-[#2783de] focus:ring-2 focus:ring-[#2783de]/20 dark:border-[#3b3a37] dark:bg-[#171716] dark:text-[#f4f3f1]"
               value={filters.source}
               onChange={(e) =>
                 set('source', (e.target as HTMLSelectElement).value)
@@ -244,12 +245,12 @@ export function FilterPanel({
             </select>
           </label>
 
-          <label class="flex flex-col gap-1">
-            <span class="text-xs font-semibold text-[#7d7a75] dark:text-[#b4b1ab]">
+          <label className="flex flex-col gap-1">
+            <span className="text-xs font-semibold text-[#7d7a75] dark:text-[#b4b1ab]">
               Type
             </span>
             <select
-              class="rounded-md border border-[#e6e5e3] bg-white px-2.5 py-2 text-sm text-[#2c2c2b] outline-none transition-colors focus:border-[#2783de] focus:ring-2 focus:ring-[#2783de]/20 dark:border-[#3b3a37] dark:bg-[#171716] dark:text-[#f4f3f1]"
+              className="rounded-md border border-[#e6e5e3] bg-white px-2.5 py-2 text-sm text-[#2c2c2b] outline-none transition-colors focus:border-[#2783de] focus:ring-2 focus:ring-[#2783de]/20 dark:border-[#3b3a37] dark:bg-[#171716] dark:text-[#f4f3f1]"
               value={filters.kind}
               onChange={(e) =>
                 set('kind', (e.target as HTMLSelectElement).value)
@@ -262,13 +263,13 @@ export function FilterPanel({
             </select>
           </label>
 
-          <label class="flex flex-col gap-1">
-            <span class="text-xs font-semibold text-[#7d7a75] dark:text-[#b4b1ab]">
+          <label className="flex flex-col gap-1">
+            <span className="text-xs font-semibold text-[#7d7a75] dark:text-[#b4b1ab]">
               From
             </span>
             <input
               type="date"
-              class="rounded-md border border-[#e6e5e3] bg-white px-2.5 py-2 text-sm text-[#2c2c2b] outline-none transition-colors focus:border-[#2783de] focus:ring-2 focus:ring-[#2783de]/20 dark:border-[#3b3a37] dark:bg-[#171716] dark:text-[#f4f3f1]"
+              className="rounded-md border border-[#e6e5e3] bg-white px-2.5 py-2 text-sm text-[#2c2c2b] outline-none transition-colors focus:border-[#2783de] focus:ring-2 focus:ring-[#2783de]/20 dark:border-[#3b3a37] dark:bg-[#171716] dark:text-[#f4f3f1]"
               value={filters.dateFrom}
               onChange={(e) =>
                 set('dateFrom', (e.target as HTMLInputElement).value)
@@ -276,13 +277,13 @@ export function FilterPanel({
             />
           </label>
 
-          <label class="flex flex-col gap-1">
-            <span class="text-xs font-semibold text-[#7d7a75] dark:text-[#b4b1ab]">
+          <label className="flex flex-col gap-1">
+            <span className="text-xs font-semibold text-[#7d7a75] dark:text-[#b4b1ab]">
               To
             </span>
             <input
               type="date"
-              class="rounded-md border border-[#e6e5e3] bg-white px-2.5 py-2 text-sm text-[#2c2c2b] outline-none transition-colors focus:border-[#2783de] focus:ring-2 focus:ring-[#2783de]/20 dark:border-[#3b3a37] dark:bg-[#171716] dark:text-[#f4f3f1]"
+              className="rounded-md border border-[#e6e5e3] bg-white px-2.5 py-2 text-sm text-[#2c2c2b] outline-none transition-colors focus:border-[#2783de] focus:ring-2 focus:ring-[#2783de]/20 dark:border-[#3b3a37] dark:bg-[#171716] dark:text-[#f4f3f1]"
               value={filters.dateTo}
               onChange={(e) =>
                 set('dateTo', (e.target as HTMLInputElement).value)

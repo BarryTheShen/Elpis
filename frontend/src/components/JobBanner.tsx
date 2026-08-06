@@ -219,7 +219,7 @@ export function JobBanner() {
   const error = matchingRun?.error || job.value.error;
 
   return (
-    <div class="relative flex items-center gap-2">
+    <div className="relative flex items-center gap-2">
       <Button
         size="sm"
         variant={state === 'running' ? 'ghost' : 'primary'}
@@ -235,45 +235,45 @@ export function JobBanner() {
 
       </Button>
       {showStatus && (
-        <div class="relative">
+        <div className="relative">
           <button
             type="button"
             aria-expanded={open}
             aria-label={statusLabel(state)}
             onClick={() => setOpen((value) => !value)}
-            class={[
+            className={[
               'inline-flex h-8 items-center gap-1.5 rounded-md border px-2 text-xs font-semibold transition-colors',
               'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#2783de]',
               statusClasses(state),
             ].join(' ')}
           >
             <span
-              class={[
+              className={[
                 'h-1.5 w-1.5 rounded-full',
                 state === 'running' ? 'animate-pulse bg-current' : 'bg-current',
               ].join(' ')}
             />
-            <span class="hidden sm:inline">{statusLabel(state)}</span>
+            <span className="hidden sm:inline">{statusLabel(state)}</span>
           </button>
 
           {open && (
             <div
               role="status"
-              class="absolute right-0 top-full z-50 mt-2 w-[min(22rem,calc(100vw-2rem))] rounded-lg border border-[#e6e5e3] bg-white p-4 text-left shadow-lg dark:border-[#3b3a37] dark:bg-[#20201e]"
+              className="absolute right-0 top-full z-50 mt-2 w-[min(22rem,calc(100vw-2rem))] rounded-lg border border-[#e6e5e3] bg-white p-4 text-left shadow-lg dark:border-[#3b3a37] dark:bg-[#20201e]"
             >
-              <div class="flex items-start justify-between gap-3">
+              <div className="flex items-start justify-between gap-3">
                 <div>
-                  <p class="text-sm font-semibold text-[#2c2c2b] dark:text-[#f4f3f1]">
+                  <p className="text-sm font-semibold text-[#2c2c2b] dark:text-[#f4f3f1]">
                     {statusLabel(state)}
                   </p>
                   {runTimestamp && (
-                    <p class="mt-0.5 text-xs text-[#7d7a75] dark:text-[#b4b1ab]">
+                    <p className="mt-0.5 text-xs text-[#7d7a75] dark:text-[#b4b1ab]">
                       {formatDigestLabel(runTimestamp)}
                     </p>
                   )}
                 </div>
                 <span
-                  class={[
+                  className={[
                     'rounded-md px-2 py-0.5 text-xs font-semibold',
                     state === 'completed'
                       ? 'bg-[#e8f6ee] text-[#23683b] dark:bg-[#193a29] dark:text-[#9ad3ab]'
@@ -286,12 +286,12 @@ export function JobBanner() {
                 </span>
               </div>
 
-              <p class="mt-3 text-sm leading-6 text-[#5f5c57] dark:text-[#d0cdc6]">
+              <p className="mt-3 text-sm leading-6 text-[#5f5c57] dark:text-[#d0cdc6]">
                 {job.value.message || 'No run details available.'}
               </p>
 
               {state === 'completed' && (
-                <div class="mt-3 flex flex-wrap gap-x-4 gap-y-1 text-xs text-[#7d7a75] dark:text-[#b4b1ab]">
+                <div className="mt-3 flex flex-wrap gap-x-4 gap-y-1 text-xs text-[#7d7a75] dark:text-[#b4b1ab]">
                   {articles != null && <span>{articles} articles</span>}
                   {processingTime && <span>{processingTime}</span>}
                   {digestId != null && <span>Digest #{digestId}</span>}
@@ -299,16 +299,16 @@ export function JobBanner() {
               )}
 
               {state === 'failed' && error && (
-                <p class="mt-3 break-words rounded-md bg-[#fff1ef] px-3 py-2 text-xs leading-5 text-[#b9382f] dark:bg-[#4a2521] dark:text-[#ff9f96]">
+                <p className="mt-3 break-words rounded-md bg-[#fff1ef] px-3 py-2 text-xs leading-5 text-[#b9382f] dark:bg-[#4a2521] dark:text-[#ff9f96]">
                   {error}
                 </p>
               )}
 
-              <div class="mt-4 flex flex-wrap gap-3 text-xs font-semibold">
+              <div className="mt-4 flex flex-wrap gap-3 text-xs font-semibold">
                 {digestId != null && (
                   <Link
-                    href={`/admin/digest?id=${digestId}`}
-                    class="text-[#1d5f9f] hover:underline dark:text-[#a6d2f8]"
+                    href={`/?id=${digestId}`}
+                    className="text-[#1d5f9f] hover:underline dark:text-[#a6d2f8]"
                     onClick={() => setOpen(false)}
                   >
                     View digest
@@ -317,7 +317,7 @@ export function JobBanner() {
                 {logId != null && (
                   <Link
                     href="/admin/logs"
-                    class="text-[#1d5f9f] hover:underline dark:text-[#a6d2f8]"
+                    className="text-[#1d5f9f] hover:underline dark:text-[#a6d2f8]"
                     onClick={() => setOpen(false)}
                   >
                     View logs
@@ -325,7 +325,7 @@ export function JobBanner() {
                 )}
                 <Link
                   href="/admin/overview"
-                  class="text-[#1d5f9f] hover:underline dark:text-[#a6d2f8]"
+                  className="text-[#1d5f9f] hover:underline dark:text-[#a6d2f8]"
                   onClick={() => setOpen(false)}
                 >
                   Run dashboard
