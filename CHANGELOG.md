@@ -18,6 +18,9 @@
   Qwen release research, FPV/drone, and general technology consumers, including
   near-duplicates and body-only negatives with precision@5/10, recall, nDCG/MRR,
   false-positive, abstention, and coverage metrics.
+- Live judge: added an opt-in OpenAI-compatible vLLM experiment harness with
+  strict per-candidate JSON validation, Qwen thinking suppression, and direct
+  deterministic-gate comparisons; live labels remain evaluation-only.
 
 - Collection: RSS/Atom, Google News, GitHub Releases, and podcast sources now
   collect up to 50 entries by default (configurable to 200) before ranking;

@@ -392,13 +392,31 @@ python -m pytest -q tests/test_relevance_evaluation.py
 ```
 
 The fixture records expected precision@5/10, recall, nDCG, MRR,
-false-positive rate, abstention, and coverage. An optional live LLM judge can
-be run separately by exporting the same fixture cases to your chosen
-OpenAI-compatible/LiteLLM endpoint and comparing its labels with
-`expected_relevant`; keep that command out of the normal test run, set the
-provider API key only in the shell/environment, and treat malformed or
-missing judge output as abstention rather than relevance. The offline
-deterministic gate is the regression contract.
+false-positive rate, abstention, and coverage. A live LLM judge is available
+as an explicit manual experiment; it is never part of the normal test run:
+
+```bash
+PYTHONPATH=src .venv/bin/python scripts/run_relevance_judge.py \
+  --base-url http://192.168.110.26:8000/v1 \
+  --model qwen3.6-35b-a3b-int8 \
+  --output /tmp/elpis-relevance-judge.json
+```
+
+The script sends one batched request per profile, disables Qwen reasoning
+output, requires JSON labels for every candidate, and compares the judge with
+both `expected_relevant` and the deterministic gate. The vLLM endpoint does
+not require an API key by default; set `VLLM_API_KEY` only when the server
+requires one. Malformed, missing, or truncated judge output fails the
+experiment rather than being treated as relevance. The offline deterministic
+gate remains the production regression contract.
+
+One validation run against the supplied endpoint and
+`qwen3.6-35b-a3b-int8` classified all 60 fixture candidates with valid JSON:
+49 true positives, 10 true negatives, 0 false positives, and 1 false
+negative (98.33% accuracy, 100% precision, 98% recall). The only disagreement
+was a lead-only security candidate that the deterministic gate accepted. This
+supports using the model as an evaluation signal, not as a replacement for
+the deterministic publication gate.
 
 ## Preferences and ranking
 
