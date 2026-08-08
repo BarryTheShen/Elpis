@@ -2,6 +2,22 @@
 
 ## Unreleased
 
+- Ranking: broad candidate pools now pass through a deterministic title/lead
+  relevance gate before balancing and publication. Configured intent terms and
+  synonyms are recorded as compact evidence; body-only incidental matches
+  (the observed Wired TV `security`/`go`/`drone` false positives) are rejected,
+  while no-intent discovery stays open.
+- Digest: `max_articles_per_digest` remains the summary/publication budget while
+  the complete sanitized ranked candidate list is retained and exposed to
+  authenticated readers as metadata/snippet cards. Numeric score evidence is
+  shown without provider reasoning or raw model output.
+- Discovery and monitoring: general Google News discovery is isolated from daily
+  ranking, and persisted monitoring questions/results support scoped searches,
+  Check now, URL deduplication, and new/seen/dismissed state.
+- Evaluation: added offline profile fixtures for security, developer/infra,
+  Qwen release research, FPV/drone, and general technology consumers, including
+  near-duplicates and body-only negatives with precision@5/10, recall, nDCG/MRR,
+  false-positive, abstention, and coverage metrics.
 
 - Collection: RSS/Atom, Google News, GitHub Releases, and podcast sources now
   collect up to 50 entries by default (configurable to 200) before ranking;

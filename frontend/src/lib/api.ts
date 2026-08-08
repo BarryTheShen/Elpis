@@ -3,6 +3,8 @@ import type {
   ArticleContent,
   BudgetData,
   BudgetLimits,
+  CandidatePage,
+  DiscoveryPage,
   DigestConfig,
   DigestDetail,
   DigestEntry,
@@ -11,6 +13,11 @@ import type {
   FeedTokenInfo,
   Job,
   LlmConfig,
+  MonitorQuery,
+  MonitorCheckResponse,
+  MonitorQueryInput,
+  MonitorResult,
+  MonitorResultsPage,
   NetworkConfig,
   NetworkTestResult,
   PasswordInfo,
@@ -35,6 +42,37 @@ interface RequestOptions {
    */
   dispatchAuthExpired?: boolean;
 }
+
+type CandidateEnvelope = {
+  candidates?: CandidatePage['candidates'];
+  items?: CandidatePage['candidates'];
+  page?: number;
+  limit?: number;
+  total?: number;
+  has_more?: boolean;
+  next_page?: number | null;
+};
+
+type DiscoveryEnvelope = {
+  items: DiscoveryPage['results'];
+  query?: string;
+  page?: number;
+  limit?: number;
+  total?: number;
+  has_more?: boolean;
+  next_page?: number | null;
+};
+
+type MonitorResultsEnvelope = {
+  monitor_id?: number;
+  items: MonitorResultsPage['results'];
+  page?: number;
+  limit?: number;
+  total?: number;
+  has_more?: boolean;
+  next_page?: number | null;
+  new_count?: number;
+};
 
 /** Generic HTTP helper. Throws on non-2xx responses. */
 async function request<T>(
@@ -91,9 +129,183 @@ export const api = {
   getDigest: (id: number) =>
     request<DigestDetail>(
       'GET',
+
       `/api/digests/${id}`,
       undefined,
       { dispatchAuthExpired: false },
+    ),
+  // Ranked candidate publication (authenticated readers only)
+  listCandidates: (options: {
+    digestId?: number;
+    page?: number;
+    limit?: number;
+  } = {}) => {
+    const query = new URLSearchParams();
+    if (options.digestId != null) query.set('digest_id', String(options.digestId));
+    if (options.page != null) query.set('page', String(options.page));
+    if (options.limit != null) query.set('limit', String(options.limit));
+    const suffix = query.toString() ? `?${query.toString()}` : '';
+    return request<CandidatePage['candidates'] | CandidateEnvelope>(
+      'GET',
+      `/api/candidates${suffix}`,
+    ).then((payload): CandidatePage => {
+      const page = options.page ?? 1;
+      if (Array.isArray(payload)) {
+        const limit = options.limit ?? payload.length;
+        const start = options.limit == null ? 0 : (page - 1) * limit;
+        const candidates = payload.slice(start, start + limit);
+        return {
+          candidates,
+          page,
+          limit,
+          total: payload.length,
+          has_more: start + limit < payload.length,
+          next_page: start + limit < payload.length ? page + 1 : null,
+        };
+      }
+      const rawCandidates = payload.candidates ?? payload.items ?? [];
+      const serverPaginated =
+        'page' in payload ||
+        'limit' in payload ||
+        'has_more' in payload ||
+        'next_page' in payload ||
+        'total' in payload;
+      const limit = payload.limit ?? options.limit ?? rawCandidates.length;
+      const start = !serverPaginated && options.limit != null ? (page - 1) * limit : 0;
+      const candidates = !serverPaginated
+        ? rawCandidates.slice(start, start + limit)
+        : rawCandidates;
+      const total = payload.total ?? (!serverPaginated ? rawCandidates.length : undefined);
+      return {
+        ...payload,
+        candidates,
+        page: payload.page ?? page,
+        limit,
+        total,
+        has_more: payload.has_more ?? (!serverPaginated && start + limit < rawCandidates.length),
+        next_page: payload.next_page ?? (!serverPaginated && start + limit < rawCandidates.length ? page + 1 : null),
+      };
+    });
+  },
+
+  // General discovery is intentionally separate from digest collection/ranking.
+  discover: (options: {
+    query: string;
+    page?: number;
+    limit?: number;
+    language?: string;
+    country?: string;
+    maxItems?: number;
+  }) => {
+    const query = new URLSearchParams();
+    query.set('q', options.query);
+    if (options.page != null) query.set('page', String(options.page));
+    if (options.limit != null) query.set('limit', String(options.limit));
+    if (options.language) query.set('language', options.language);
+    if (options.country) query.set('country', options.country);
+    if (options.maxItems != null || options.limit != null) {
+      query.set('max_items', String(options.maxItems ?? options.limit));
+    }
+    return request<DiscoveryPage | DiscoveryPage['results'] | DiscoveryEnvelope>(
+      'GET',
+      `/api/discover?${query.toString()}`,
+      undefined,
+      { dispatchAuthExpired: false },
+    ).then((payload): DiscoveryPage => {
+      if (Array.isArray(payload)) {
+        const limit = options.limit ?? payload.length;
+        const page = options.page ?? 1;
+        return {
+          results: payload,
+          query: options.query,
+          page,
+          limit,
+          has_more: payload.length >= limit,
+          next_page: payload.length >= limit ? page + 1 : null,
+        };
+      }
+      const results = 'results' in payload ? payload.results : payload.items;
+      const paginated =
+        'page' in payload ||
+        'limit' in payload ||
+        'has_more' in payload ||
+        'next_page' in payload ||
+        'total' in payload;
+      return {
+        ...payload,
+        results: results ?? [],
+        query: ('query' in payload && payload.query) || options.query,
+        page: paginated && 'page' in payload && payload.page ? payload.page : options.page || 1,
+        limit: paginated && 'limit' in payload && payload.limit
+          ? payload.limit
+          : results?.length || 0,
+        has_more: paginated && 'has_more' in payload ? payload.has_more : false,
+      };
+    });
+  },
+
+  // Monitoring query management and reader-facing result history.
+  listMonitoring: () =>
+    request<MonitorQuery[] | { queries: MonitorQuery[] }>(
+      'GET',
+      '/api/monitoring',
+    ).then((payload) => (Array.isArray(payload) ? payload : payload.queries ?? [])),
+  getMonitoring: (id: number) =>
+    request<MonitorQuery>('GET', `/api/monitoring/${id}`),
+  createMonitoring: (input: MonitorQueryInput) =>
+    request<MonitorQuery>('POST', '/api/monitoring', input),
+  updateMonitoring: (id: number, input: Partial<MonitorQueryInput>) =>
+    request<MonitorQuery>('PUT', `/api/monitoring/${id}`, input),
+  deleteMonitoring: (id: number) =>
+    request<{ ok: boolean }>('DELETE', `/api/monitoring/${id}`),
+  checkMonitoring: (id: number) =>
+    request<MonitorQuery | MonitorCheckResponse>(
+      'POST',
+      `/api/monitoring/${id}/check`,
+    ).then((payload) => ('monitor' in payload ? payload.monitor : payload)),
+  listMonitoringResults: (
+    id: number,
+    options: { page?: number; limit?: number } = {},
+  ) => {
+    const query = new URLSearchParams();
+    if (options.page != null) query.set('page', String(options.page));
+    if (options.limit != null) query.set('limit', String(options.limit));
+    const suffix = query.toString() ? `?${query.toString()}` : '';
+    return request<
+      MonitorResultsPage | MonitorResultsPage['results'] | MonitorResultsEnvelope
+    >(
+      'GET',
+      `/api/monitoring/${id}/results${suffix}`,
+    ).then((payload): MonitorResultsPage => {
+      if (Array.isArray(payload)) {
+        const limit = options.limit ?? payload.length;
+        const page = options.page ?? 1;
+        return {
+          results: payload,
+          page,
+          limit,
+          has_more: payload.length >= limit,
+          next_page: payload.length >= limit ? page + 1 : null,
+        };
+      }
+      const results = 'results' in payload ? payload.results : payload.items;
+      return {
+        ...payload,
+        results: results ?? [],
+        page: ('page' in payload && payload.page) || options.page || 1,
+        limit: ('limit' in payload && payload.limit) || options.limit || results?.length || 0,
+      };
+    });
+  },
+  markMonitoringResultSeen: (monitorId: number, resultId: number) =>
+    request<MonitorResult>(
+      'POST',
+      `/api/monitoring/${monitorId}/results/${resultId}/seen`,
+    ),
+  dismissMonitoringResult: (monitorId: number, resultId: number) =>
+    request<MonitorResult>(
+      'POST',
+      `/api/monitoring/${monitorId}/results/${resultId}/dismiss`,
     ),
 
   getArticleContent: (url: string) =>

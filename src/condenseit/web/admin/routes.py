@@ -1,13 +1,14 @@
 """Admin panel routes - Jinja2 HTML pages and JSON API endpoints."""
 
 import json
+import math
 import os
 import re
 import secrets
 from typing import Any
-from urllib.parse import quote, quote_plus
+from urllib.parse import quote, quote_plus, urlsplit
 
-from fastapi import APIRouter, File, Form, Request, UploadFile
+from fastapi import APIRouter, File, Form, Query, Request, UploadFile
 from fastapi.responses import (
     HTMLResponse,
     JSONResponse,
@@ -42,6 +43,13 @@ from condenseit.services.ollama_client import (
     ollama_delete,
     ollama_list_tags,
     ollama_pull,
+)
+from condenseit.services.monitoring import (
+    MAX_MONITOR_ITEMS,
+    MONITOR_SCOPES,
+    MonitoringService,
+    GoogleNewsDiscovery,
+    validate_monitor_payload,
 )
 from condenseit.settings_overlay import apply_db_settings
 from condenseit.store.database import ContentStore
@@ -96,6 +104,78 @@ def _parse_keyword_list(value: Any) -> list[str]:
             seen.add(item)
             out.append(item)
     return out
+def _candidate_text(value: Any, limit: int) -> str:
+    text = re.sub(r"<[^>]*>", " ", str(value or ""))
+    return " ".join(text.split())[:limit]
+
+
+def _candidate_numeric(value: Any) -> int | float | None:
+    if isinstance(value, bool) or not isinstance(value, (int, float)):
+        return None
+    number = float(value)
+    if not math.isfinite(number):
+        return None
+    return int(number) if number.is_integer() else number
+
+
+def _sanitize_candidate(row: Any, fallback_rank: int) -> dict[str, Any] | None:
+    if not isinstance(row, dict):
+        return None
+    raw_url = _candidate_text(row.get("url"), 2_048)
+    try:
+        parsed = urlsplit(raw_url)
+    except ValueError:
+        return None
+    if parsed.scheme.lower() not in {"http", "https"} or not parsed.netloc:
+        return None
+    url = parsed._replace(fragment="").geturl()
+    rank_raw = _candidate_numeric(row.get("rank"))
+    rank = int(rank_raw) if rank_raw is not None else fallback_rank
+    score = _candidate_numeric(row.get("preference_score"))
+    if score is None:
+        score = 0.0
+    raw_breakdown = row.get("score_breakdown")
+    breakdown: dict[str, int | float] = {}
+    if isinstance(raw_breakdown, dict):
+        for key, value in raw_breakdown.items():
+            number = _candidate_numeric(value)
+            if number is not None:
+                breakdown[_candidate_text(key, 80)] = number
+    raw_evidence = row.get("evidence")
+    raw_evidence = raw_evidence if isinstance(raw_evidence, dict) else {}
+    evidence: dict[str, Any] = {}
+    for key in ("matched_terms", "title_matches", "context_matches"):
+        values = raw_evidence.get(key, [])
+        if isinstance(values, str):
+            values = [values]
+        if not isinstance(values, list):
+            values = []
+        evidence[key] = [
+            _candidate_text(value, 128)
+            for value in values[:20]
+            if _candidate_text(value, 128)
+        ]
+    reason = _candidate_text(raw_evidence.get("relevance_reason"), 240)
+    if re.search(r"(?:chain.?of.?thought|scratchpad|llm|model reasoning)", reason, re.I):
+        reason = ""
+    evidence["relevance_reason"] = reason
+    evidence["selected"] = bool(
+        raw_evidence.get("selected", row.get("selected", False))
+    )
+    return {
+        "rank": rank,
+        "url": url[:2_048],
+        "title": _candidate_text(row.get("title"), 500),
+        "source": _candidate_text(row.get("source"), 120),
+        "category": _candidate_text(row.get("category"), 80) or "General",
+        "kind": _candidate_text(row.get("kind"), 40) or "article",
+        "published_at": _candidate_text(row.get("published_at"), 64),
+        "excerpt": _candidate_text(row.get("excerpt"), 2_048),
+        "preference_score": score,
+        "score_breakdown": breakdown,
+        "evidence": evidence,
+    }
+
 
 
 def _build_source_extra(
@@ -315,6 +395,8 @@ def create_admin_router(
     sources = SourceRegistry(store)
     sources.seed_from_config(config)
     keys = SecureKeyStore(store)
+    discovery = GoogleNewsDiscovery()
+    monitoring = MonitoringService(store, discovery=discovery)
 
     def _digests() -> list[dict]:
         return store.list_digests(limit=12)
@@ -1347,5 +1429,299 @@ def create_admin_router(
     async def keys_delete(service: str) -> RedirectResponse:
         keys.delete_key(service.strip().lower())
         return RedirectResponse("/admin/providers", status_code=303)
+
+    @router.get("/api/discovery", response_model=None)
+    @router.get("/api/discover", response_model=None)
+    async def api_discover(
+        q: str | None = Query(None, max_length=500),
+        query: str | None = Query(None, max_length=500),
+        language: str = Query("en", max_length=8),
+        country: str = Query("US", max_length=2),
+        page: int = Query(1, ge=1),
+        limit: int = Query(20, ge=1, le=MAX_MONITOR_ITEMS),
+        max_items: int | None = Query(None, ge=1, le=MAX_MONITOR_ITEMS),
+    ) -> JSONResponse:
+        search_query = (q if q is not None else query or "").strip()
+        if not search_query:
+            return JSONResponse({"error": "q or query is required"}, status_code=422)
+        page_limit = int(max_items or limit)
+        offset = (page - 1) * page_limit
+        fetch_limit = min(MAX_MONITOR_ITEMS, offset + page_limit + 1)
+        try:
+            results = discovery.search(
+                search_query,
+                language=language,
+                country=country,
+                max_items=fetch_limit,
+            )
+        except ValueError as exc:
+            return JSONResponse({"error": str(exc)}, status_code=422)
+        except Exception:
+            # Public discovery must not expose upstream response bodies or
+            # credentials.  The generic error remains useful to clients.
+            return JSONResponse(
+                {"error": "discovery search failed"},
+                status_code=502,
+            )
+        page_results = results[offset : offset + page_limit]
+        has_more = len(results) > offset + page_limit
+        return JSONResponse(
+            {
+                "query": search_query,
+                "results": page_results,
+                "items": page_results,
+                "page": page,
+                "limit": page_limit,
+                "has_more": has_more,
+                "total": None,
+            }
+        )
+
+    def _validated_monitor_payload(
+        body: dict[str, Any],
+        *,
+        partial: bool,
+    ) -> tuple[dict[str, Any] | None, JSONResponse | None]:
+        try:
+            return validate_monitor_payload(body, partial=partial), None
+        except ValueError as exc:
+            return None, JSONResponse({"error": str(exc)}, status_code=422)
+
+    @router.get("/api/admin/monitoring", response_model=None)
+    @router.get("/api/monitoring", response_model=None)
+    async def api_list_monitoring(
+        enabled: bool | None = Query(None),
+    ) -> JSONResponse:
+        rows = monitoring.list_monitors(enabled_only=enabled is True)
+        if enabled is False:
+            rows = [row for row in rows if not row.get("enabled")]
+        return JSONResponse(rows)
+
+    @router.post("/api/admin/monitoring", response_model=None)
+    @router.post("/api/monitoring", response_model=None)
+    async def api_create_monitoring(body: dict[str, Any]) -> JSONResponse:
+        payload, error = _validated_monitor_payload(body, partial=False)
+        if error is not None:
+            return error
+        try:
+            row = monitoring.create_monitor(payload or {})
+        except ValueError as exc:
+            return JSONResponse({"error": str(exc)}, status_code=422)
+        return JSONResponse(row, status_code=201)
+
+    @router.get("/api/admin/monitoring/{monitor_id}", response_model=None)
+    @router.get("/api/monitoring/{monitor_id}", response_model=None)
+    async def api_get_monitoring(monitor_id: int) -> JSONResponse:
+        row = monitoring.get_monitor(monitor_id)
+        if row is None:
+            return JSONResponse({"error": "monitor not found"}, status_code=404)
+        return JSONResponse(row)
+
+    @router.put("/api/admin/monitoring/{monitor_id}", response_model=None)
+    @router.patch("/api/admin/monitoring/{monitor_id}", response_model=None)
+    @router.put("/api/monitoring/{monitor_id}", response_model=None)
+    @router.patch("/api/monitoring/{monitor_id}", response_model=None)
+    async def api_update_monitoring(
+        monitor_id: int,
+        body: dict[str, Any],
+    ) -> JSONResponse:
+        payload, error = _validated_monitor_payload(body, partial=True)
+        if error is not None:
+            return error
+        try:
+            row = monitoring.update_monitor(monitor_id, payload or {})
+        except ValueError as exc:
+            return JSONResponse({"error": str(exc)}, status_code=422)
+        if row is None:
+            return JSONResponse({"error": "monitor not found"}, status_code=404)
+        return JSONResponse(row)
+
+    @router.delete("/api/admin/monitoring/{monitor_id}", response_model=None)
+    @router.delete("/api/monitoring/{monitor_id}", response_model=None)
+    async def api_delete_monitoring(monitor_id: int) -> JSONResponse:
+        if not monitoring.delete_monitor(monitor_id):
+            return JSONResponse({"error": "monitor not found"}, status_code=404)
+        return JSONResponse({"ok": True})
+
+    @router.post(
+        "/api/admin/monitoring/{monitor_id}/check",
+        response_model=None,
+    )
+    @router.post("/api/monitoring/{monitor_id}/check", response_model=None)
+    async def api_check_monitoring(monitor_id: int) -> JSONResponse:
+        try:
+            payload = monitoring.check_now(monitor_id)
+        except KeyError:
+            return JSONResponse({"error": "monitor not found"}, status_code=404)
+        status_code = 502 if payload.get("error") else 200
+        return JSONResponse(payload, status_code=status_code)
+
+    @router.get(
+        "/api/admin/monitoring/{monitor_id}/results",
+        response_model=None,
+    )
+    @router.get("/api/monitoring/{monitor_id}/results", response_model=None)
+    async def api_monitoring_results(
+        monitor_id: int,
+        page: int = Query(1, ge=1),
+        limit: int = Query(50, ge=1, le=MAX_MONITOR_ITEMS),
+        state: str | None = Query(None),
+    ) -> JSONResponse:
+        if state is not None and state not in {"new", "seen", "dismissed"}:
+            return JSONResponse({"error": "invalid result state"}, status_code=422)
+        try:
+            payload = monitoring.list_results(
+                monitor_id,
+                page=page,
+                limit=limit,
+                state=state,
+            )
+        except KeyError:
+            return JSONResponse({"error": "monitor not found"}, status_code=404)
+        return JSONResponse(payload)
+
+    async def _set_monitor_result_state(
+        monitor_id: int,
+        result_id: int,
+        state: str,
+    ) -> JSONResponse:
+        try:
+            row = monitoring.set_result_state(monitor_id, result_id, state)
+        except ValueError as exc:
+            return JSONResponse({"error": str(exc)}, status_code=422)
+        if row is None:
+            return JSONResponse({"error": "result not found"}, status_code=404)
+        return JSONResponse(row)
+
+    @router.post(
+        "/api/admin/monitoring/{monitor_id}/results/{result_id}/seen",
+        response_model=None,
+    )
+    @router.post(
+        "/api/monitoring/{monitor_id}/results/{result_id}/seen",
+        response_model=None,
+    )
+    async def api_mark_monitor_result_seen(
+        monitor_id: int,
+        result_id: int,
+    ) -> JSONResponse:
+        return await _set_monitor_result_state(monitor_id, result_id, "seen")
+
+    @router.post(
+        "/api/admin/monitoring/{monitor_id}/results/{result_id}/dismiss",
+        response_model=None,
+    )
+    @router.post(
+        "/api/monitoring/{monitor_id}/results/{result_id}/dismiss",
+        response_model=None,
+    )
+    async def api_dismiss_monitor_result(
+        monitor_id: int,
+        result_id: int,
+    ) -> JSONResponse:
+        return await _set_monitor_result_state(monitor_id, result_id, "dismissed")
+
+    @router.patch(
+        "/api/admin/monitoring/{monitor_id}/results/{result_id}",
+        response_model=None,
+    )
+    @router.patch(
+        "/api/monitoring/{monitor_id}/results/{result_id}",
+        response_model=None,
+    )
+    async def api_update_monitor_result(
+        monitor_id: int,
+        result_id: int,
+        body: dict[str, Any],
+    ) -> JSONResponse:
+        state = str(body.get("state") or "").strip().lower()
+        return await _set_monitor_result_state(monitor_id, result_id, state)
+
+    @router.get("/api/admin/candidates", response_model=None)
+    @router.get("/api/candidates", response_model=None)
+    async def api_candidates(
+        digest_id: int | None = Query(None, ge=1),
+        page: int = Query(1, ge=1),
+        limit: int = Query(50, ge=1, le=200),
+        before_id: int | None = Query(None, ge=1),
+        before_rank: int | None = Query(None, ge=1),
+    ) -> JSONResponse:
+        """Return sanitized ranked candidates from a selected digest.
+
+        Candidates are metadata/snippet rows already persisted by the ranking
+        pipeline. This endpoint never fetches unpublished article content.
+        """
+        if digest_id is None:
+            digest = store.latest_digest()
+        else:
+            rows = list(
+                store.db.query("SELECT * FROM digests WHERE id = ?", [digest_id])
+            )
+            digest = dict(rows[0]) if rows else None
+        if not digest:
+            return JSONResponse(
+                {
+                    "digest_id": digest_id,
+                    "candidates": [],
+                    "items": [],
+                    "page": page,
+                    "limit": limit,
+                    "total": 0,
+                    "has_more": False,
+                    "next_page": None,
+                    "before_id": before_id,
+                    "next_before_id": None,
+                }
+            )
+        try:
+            stats = json.loads(str(digest.get("stats_json") or "{}"))
+        except (TypeError, json.JSONDecodeError):
+            stats = {}
+        raw_candidates = stats.get("candidate_items")
+        if not isinstance(raw_candidates, list):
+            raw_candidates = stats.get("candidates")
+        if not isinstance(raw_candidates, list):
+            raw_candidates = []
+        candidates: list[dict[str, Any]] = []
+        for index, raw in enumerate(raw_candidates, start=1):
+            candidate = _sanitize_candidate(raw, index)
+            if candidate is not None:
+                candidates.append(candidate)
+        candidates.sort(key=lambda item: (int(item.get("rank", 0)), item["url"]))
+
+        cursor = before_rank if before_rank is not None else before_id
+        if cursor is not None:
+            candidates = [
+                candidate
+                for candidate in candidates
+                if int(candidate.get("rank", 0)) > int(cursor)
+            ]
+            page_number = 1
+            page_items = candidates[:limit]
+        else:
+            page_number = page
+            offset = (page - 1) * limit
+            page_items = candidates[offset : offset + limit]
+
+        has_more = (
+            len(candidates) > len(page_items)
+            if cursor is not None
+            else page * limit < len(candidates)
+        )
+        next_cursor = int(page_items[-1]["rank"]) if has_more else None
+        return JSONResponse(
+            {
+                "digest_id": int(digest.get("id") or digest_id or 0),
+                "candidates": page_items,
+                "items": page_items,
+                "page": page_number,
+                "limit": limit,
+                "before_id": cursor,
+                "next_before_id": next_cursor,
+                "has_more": has_more,
+                "next_page": page_number + 1 if has_more else None,
+                "total": len(candidates),
+            }
+        )
 
     return router

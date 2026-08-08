@@ -13,6 +13,7 @@ import { PreferencesPage } from '../pages/admin/Preferences';
 import { SchedulePage } from '../pages/admin/Schedule';
 import { SecurityPage } from '../pages/admin/Security';
 import { SettingsPage } from '../pages/admin/Settings';
+import { MonitoringAdminPage } from '../pages/admin/Monitoring';
 import { SourcesPage } from '../pages/admin/Sources';
 import { checkAuth } from '../lib/auth';
 
@@ -57,6 +58,7 @@ function AdminRoutes() {
       <Route path="/admin/digest-settings"><SettingsPage /></Route>
       <Route path="/admin/profile"><PreferencesPage /></Route>
       <Route path="/admin/security"><SecurityPage /></Route>
+      <Route path="/admin/monitoring"><MonitoringAdminPage /></Route>
       <Route>
         <div className="py-20 text-center text-[#7d7a75] dark:text-[#b4b1ab]">
           Admin page not found.

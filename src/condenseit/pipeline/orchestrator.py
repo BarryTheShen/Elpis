@@ -30,6 +30,10 @@ from condenseit.learning.embeddings import (
 )
 from condenseit.learning.preference_engine import PreferenceEngine
 from condenseit.learning.reranker import build_profile_narrative, rerank
+from condenseit.learning.relevance import (
+    apply_relevance_gate,
+    serialize_candidate,
+)
 from condenseit.network import configure_network_proxy
 from condenseit.pipeline.article_balance import select_balanced_digest_articles
 from condenseit.providers.base import SummarizerProvider
@@ -372,6 +376,25 @@ class DigestPipeline:
         # story cluster is the one that survives.
         ranked = self._deduplicate_stories(ranked)
 
+        candidate_count = len(ranked)
+
+        # Keep the broad ranked pool visible, but reject incidental keyword
+        # mentions immediately after ranking/dedup and before optional LLM
+        # reranking, category balancing, or the summary budget.
+        ranked, rejected_candidates = apply_relevance_gate(
+            ranked,
+            keywords,
+            self.config.relevance.topic_synonyms,
+        )
+        eligible_candidate_count = len(ranked)
+        rejected_candidate_count = len(rejected_candidates)
+        logger.info(
+            "Relevance gate kept %d/%d ranked candidates (%d rejected)",
+            eligible_candidate_count,
+            candidate_count,
+            rejected_candidate_count,
+        )
+
         if self.config.relevance.llm_rerank_enabled and not dry_run:
             profile_narrative = build_profile_narrative(
                 self.preferences,
@@ -425,7 +448,10 @@ class DigestPipeline:
                 )
                 logger.info("LLM reranker applied (model=%s)", _rerank_model)
 
-        candidate_count = len(ranked)
+        # Reranking may return copied dictionaries with updated scores. Keep
+        # the final eligible order and evidence for candidate metadata before
+        # applying the digest summary cap.
+        eligible_ranked = list(ranked)
 
         max_n = self.config.max_articles_per_digest
         if self.config.balance_digest_categories:
@@ -544,11 +570,29 @@ class DigestPipeline:
                 changes,
             )
 
+        selected_article_ids = {id(art) for art in ranked}
+        candidate_items = [
+            serialize_candidate(
+                article,
+                index,
+                selected=id(article) in selected_article_ids,
+                kind=(
+                    "video"
+                    if str(article.get("url") or "") in video_urls
+                    else None
+                ),
+            )
+            for index, article in enumerate(eligible_ranked, start=1)
+        ]
+
         self.stats = {
             "articles_count": len(ranked),
             "collected_articles_count": collected_articles_count,
             "filtered_articles_count": len(articles),
             "candidate_count": candidate_count,
+            "ranked_candidate_count": candidate_count,
+            "eligible_candidate_count": eligible_candidate_count,
+            "rejected_candidate_count": rejected_candidate_count,
             "videos_count": len(videos),
             "changes_count": len(changes),
             "processing_time": f"{elapsed:.0f}s",
@@ -556,6 +600,7 @@ class DigestPipeline:
             "dry_run": dry_run,
             "cost_usd": 0.0,
             "digest_items": digest_items,
+            "candidate_items": candidate_items,
         }
         self._save_outputs()
         digest_id = self.store.save_digest(

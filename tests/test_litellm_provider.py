@@ -248,6 +248,20 @@ def test_parse_summary_response_preserves_ordinary_angle_bracket_text() -> None:
     assert result["summary"] == (
         "The article compares 2 < 3 and keeps <not-reasoning> text."
     )
+def test_parse_summary_response_caps_provider_takeaways() -> None:
+    result = parse_summary_response(
+        json.dumps(
+            {
+                "tldr": "Short",
+                "key_takeaways": ["One", "Two", "Three"],
+                "summary": "Long",
+            }
+        ),
+        max_key_takeaways=2,
+    )
+
+    assert result["key_takeaways"] == ["One", "Two"]
+
 
 
 
@@ -279,6 +293,7 @@ def test_litellm_summarizer_uses_shared_json_prompt(monkeypatch) -> None:
     assert calls[0]["model"] == "openrouter/qwen/model"
     assert calls[0]["reasoning_effort"] == "medium"
     assert "Title" in calls[0]["messages"][1]["content"]
+    assert calls[0]["temperature"] == 0.1
 
 def test_shared_prompt_contract_remains_provider_neutral() -> None:
     assert "JSON" in CHAT_SYSTEM_PROMPT

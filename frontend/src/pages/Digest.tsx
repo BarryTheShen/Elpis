@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'preact/hooks';
-import { useSearch } from 'wouter';
+import { Link, useSearch } from 'wouter';
 import { api } from '../lib/api';
 import type { DigestDetail, DigestItem } from '../lib/types';
 import { normalizeItem } from '../lib/normalize-item';
@@ -304,6 +304,12 @@ export function DigestPage({ onDigestLoaded, readOnly = false }: DigestPageProps
 
   const { meta, items } = detail;
   const hasItems = items.length > 0;
+  const availableCandidates = detail.candidates ?? meta.candidate_items ?? [];
+  const rankedCount =
+    meta.candidate_count ??
+    meta.ranked_candidate_count ??
+    availableCandidates.length;
+  const hasCandidateView = !readOnly && rankedCount > 0;
 
   const readCount = filtered.filter((i) => readUrls.has(i.url)).length;
 
@@ -335,14 +341,22 @@ export function DigestPage({ onDigestLoaded, readOnly = false }: DigestPageProps
         </div>
         <p className="text-sm text-[#7d7a75] dark:text-[#b4b1ab]">
           {meta.created_at && formatDigestSubtitle(meta.created_at)}
-          {meta.articles_count != null && ` · ${meta.articles_count} selected`}
-          {meta.candidate_count != null &&
-            ` · ${meta.candidate_count} ranked candidates`}
           {meta.collected_articles_count != null &&
             ` · ${meta.collected_articles_count} collected`}
+          {meta.filtered_articles_count != null &&
+            ` · ${meta.filtered_articles_count} filtered`}
+          {rankedCount > 0 && ` · ${rankedCount} ranked`}
           {meta.model && ` · ${meta.model}`}
           {meta.processing_time && ` · ${fmtProcessingTime(meta.processing_time)}`}
         </p>
+        {hasCandidateView && (
+          <Link
+            href={`/candidates?digest_id=${meta.id}`}
+            className="inline-flex text-sm font-semibold text-[#1d5f9f] underline underline-offset-4 hover:text-[#164a7c] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#2783de] dark:text-[#a6d2f8]"
+          >
+            View all ranked candidates ({rankedCount})
+          </Link>
+        )}
       </header>
       {!hasItems && (
         <div className="border-y border-[#e6e5e3] dark:border-[#3b3a37]">

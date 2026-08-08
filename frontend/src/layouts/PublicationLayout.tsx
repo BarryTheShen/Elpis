@@ -18,7 +18,7 @@ export function PublicationLayout({
   authenticated = false,
 }: PublicationLayoutProps) {
   const linkClass =
-    'rounded-md px-2 py-2 text-xs font-medium leading-tight text-[#2c2c2b] transition-colors hover:bg-[#f0efed] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#2783de] sm:px-3 sm:text-sm dark:text-[#f4f3f1] dark:hover:bg-[#2a2927]';
+    'shrink-0 whitespace-nowrap rounded-md px-2 py-2 text-xs font-medium leading-tight text-[#2c2c2b] transition-colors hover:bg-[#f0efed] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#2783de] sm:px-3 sm:text-sm dark:text-[#f4f3f1] dark:hover:bg-[#2a2927]';
 
   return (
     <div className="min-h-screen bg-white text-[#2c2c2b] dark:bg-[#171716] dark:text-[#f4f3f1]">
@@ -41,6 +41,9 @@ export function PublicationLayout({
             <Link href="/" className={linkClass}>
               Today
             </Link>
+            <Link href="/discover" className={linkClass}>
+              Discover
+            </Link>
             <Link href="/archive" className={linkClass}>
               Archive
             </Link>
@@ -51,6 +54,12 @@ export function PublicationLayout({
                 </Link>
                 <Link href="/starred" className={linkClass}>
                   Starred
+                </Link>
+                <Link href="/candidates" className={linkClass}>
+                  Candidates
+                </Link>
+                <Link href="/monitoring" className={linkClass}>
+                  Monitoring
                 </Link>
                 <Link href="/admin/overview" className={linkClass}>
                   Admin

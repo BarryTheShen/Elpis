@@ -72,6 +72,8 @@ _PUBLICATION_API_PATHS = frozenset(
         "/api/digests",
         "/api/digests/latest",
         "/api/articles/content",
+        "/api/discover",
+        "/api/discovery",
     }
 )
 _DIGEST_DETAIL_PATH = re.compile(r"^/api/digests/\d+$")
@@ -366,7 +368,12 @@ def create_app(config_path: str | None = None) -> FastAPI:
             and not path.startswith("/api/auth/")
             and not _is_publication_read_request(request)
         )
-        is_admin_route = path == "/admin" or path.startswith("/admin/")
+        is_admin_route = (
+            path == "/admin"
+            or path.startswith("/admin/")
+            or path == "/monitoring"
+            or path.startswith("/monitoring/")
+        )
         if is_protected_api or is_admin_route:
             admin_access = _has_admin_access(request)
             # Feed readers use a dedicated token only for the Atom feed, never
@@ -1378,6 +1385,12 @@ def _build_digest_detail(
     """Build a digest response without leaking personal state to public reads."""
     meta = _parse_stats(row.get("stats_json", ""))
     raw_items = meta.pop("digest_items", None)
+    # Candidate evidence includes the reader's configured terms and learned
+    # scores. Keep it on authenticated candidate reads, not public publication
+    # responses; aggregate counts remain useful to describe the issue.
+    if not include_personal_state:
+        meta.pop("candidate_items", None)
+        meta.pop("candidates", None)
     items: list[dict[str, Any]] = raw_items if isinstance(raw_items, list) else []
     meta["created_at"] = row.get("created_at", "")
     meta["id"] = row.get("id")

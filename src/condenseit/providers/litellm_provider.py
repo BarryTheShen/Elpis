@@ -70,7 +70,7 @@ class LiteLLMSummarizer(SummarizerProvider):
             messages=messages,
             api_key=self.api_key,
             base_url=self.base_url,
-            temperature=0.3,
+            temperature=0.1,
             max_tokens=max_tokens,
             reasoning_effort=self.reasoning_effort,
             thinking_enabled=self.thinking_enabled,
@@ -98,7 +98,10 @@ class LiteLLMSummarizer(SummarizerProvider):
             },
         ]
         raw = self._chat(messages, max_tokens=1400)
-        return parse_summary_response(raw)
+        return parse_summary_response(
+            raw,
+            max_key_takeaways=self.max_key_takeaways,
+        )
 
     def generate_digest(
         self,

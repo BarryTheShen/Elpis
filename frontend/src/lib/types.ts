@@ -64,9 +64,7 @@ export interface DigestEntry {
   created_at: string;
 }
 
-export interface DigestMeta {
-  id: number;
-  created_at: string;
+export interface DigestStats {
   articles_count?: number;
   /** Number of collected article candidates before filtering. */
   collected_articles_count?: number;
@@ -74,13 +72,185 @@ export interface DigestMeta {
   filtered_articles_count?: number;
   /** Number of ranked candidates considered for final selection. */
   candidate_count?: number;
+  /** Compatibility aliases retained in persisted run statistics. */
+  ranked_candidate_count?: number;
+  eligible_candidate_count?: number;
+  /** Persisted ranked candidates; public responses may omit score evidence. */
+  candidate_items?: CandidateItem[];
   model?: string;
   processing_time?: string;
+}
+
+export interface DigestMeta extends DigestStats {
+  id: number;
+  created_at: string;
+}
+
+export interface CandidateScoreBreakdown {
+  [signal: string]: number | undefined;
+  keyword_high?: number;
+  keyword_negative?: number;
+  keyword_medium?: number;
+  term_overlap?: number;
+  bigram_overlap?: number;
+  tfidf_cosine?: number;
+  category?: number;
+  source?: number;
+  implicit_content?: number;
+  implicit_category?: number;
+  implicit_source?: number;
+  synonym_boost?: number;
+  embedding_similarity?: number;
+  topic_score?: number;
+  llm_rerank?: number;
+}
+
+export interface CandidateEvidence {
+  matched_terms: string[];
+  title_matches: string[];
+  context_matches: string[];
+  relevance_reason: string;
+  selected: boolean;
+}
+
+/** A sanitized ranked candidate. It is never an unpublished article reader payload. */
+export interface CandidateItem {
+  rank: number;
+  url: string;
+  title: string;
+  source: string;
+  category: string;
+  kind: string;
+  published_at?: string;
+  excerpt: string;
+  preference_score: number;
+  score_breakdown: CandidateScoreBreakdown;
+  evidence: CandidateEvidence;
+}
+
+export interface CandidatePage {
+  candidates: CandidateItem[];
+  page: number;
+  limit: number;
+  total?: number;
+  has_more?: boolean;
+  next_page?: number | null;
+}
+
+export interface DiscoveryItem {
+  url: string;
+  title: string;
+  snippet: string;
+  source: string;
+  category: string;
+  published_at?: string;
+  provider?: string;
+}
+
+export interface DiscoveryPage {
+  results: DiscoveryItem[];
+  /** Some API versions include the same normalized rows under `items`. */
+  items?: DiscoveryItem[];
+  query: string;
+  page: number;
+  limit: number;
+  total?: number;
+  has_more?: boolean;
+  next_page?: number | null;
+}
+
+export type MonitorScope =
+  | 'general_discovery'
+  | 'configured_feeds'
+  | 'both';
+
+export type MonitorState = 'new' | 'seen' | 'dismissed';
+
+export interface MonitorQuery {
+  id: number;
+  question: string;
+  search_query: string;
+  scope: MonitorScope;
+  enabled: boolean;
+  cadence_minutes: number;
+  include_keywords: string[];
+  exclude_keywords: string[];
+  category: string;
+  language: string;
+  country: string;
+  max_items: number;
+  status?: string;
+  last_checked_at?: string | null;
+  last_success_at?: string | null;
+  next_check_at?: string | null;
+  last_error?: string | null;
+  new_count?: number;
+  created_at?: string;
+  updated_at?: string;
+}
+
+export interface MonitorEvidence {
+  matched_terms?: string[];
+  provider?: string;
+  freshness?: number;
+  [key: string]: string | number | string[] | undefined;
+}
+
+export interface MonitorResult {
+  id: number;
+  monitor_id: number;
+  url: string;
+  title: string;
+  snippet: string;
+  source: string;
+  category: string;
+  published_at?: string | null;
+  first_seen_at?: string | null;
+  last_seen_at?: string | null;
+  relevance_score: number;
+  evidence: MonitorEvidence;
+  state: MonitorState;
+}
+
+export interface MonitorResultsPage {
+  monitor_id?: number;
+  results: MonitorResult[];
+  /** The backend also returns `items` for clients that prefer that name. */
+  items?: MonitorResult[];
+  page: number;
+  limit: number;
+  total?: number;
+  has_more?: boolean;
+  next_page?: number | null;
+  new_count?: number;
+}
+
+export interface MonitorCheckResponse {
+  monitor: MonitorQuery;
+  results: MonitorResult[];
+  new_count: number;
+  error?: string | null;
+}
+
+export interface MonitorQueryInput {
+  question: string;
+  search_query: string;
+  scope: MonitorScope;
+  enabled: boolean;
+  cadence_minutes: number;
+  include_keywords: string[];
+  exclude_keywords: string[];
+  category: string;
+  language: string;
+  country: string;
+  max_items: number;
 }
 
 export interface DigestDetail {
   meta: DigestMeta;
   items: DigestItem[];
+  /** Authenticated-only full ranked candidates, when persisted by the pipeline. */
+  candidates?: CandidateItem[];
 }
 
 export interface ArticleContent {

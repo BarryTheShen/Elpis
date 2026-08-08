@@ -379,7 +379,11 @@ def _looks_like_json(text: str) -> bool:
     return stripped.startswith("{")
 
 
-def parse_summary_response(raw: str) -> ArticleSummary:
+def parse_summary_response(
+    raw: str,
+    *,
+    max_key_takeaways: int | None = None,
+) -> ArticleSummary:
     """Parse a JSON article-summary response produced by an LLM.
 
     Attempts several strategies in order:
@@ -390,11 +394,16 @@ def parse_summary_response(raw: str) -> ArticleSummary:
       5. Fall back: treat the whole response as the ``summary`` field,
          but only if it doesn't look like raw JSON (refuse to store garbage).
 
-    Always returns a fully-populated :class:`ArticleSummary` dict.
+    Always returns a fully-populated :class:`ArticleSummary` dict. When a
+    takeaways limit is supplied, extra model-provided takeaways are discarded
+    so provider differences cannot expand the publication contract.
     """
     text = sanitize_reasoning_content(raw if isinstance(raw, str) else "")
     if not text:
         return _EMPTY_SUMMARY
+    takeaway_limit = (
+        None if max_key_takeaways is None else max(0, int(max_key_takeaways))
+    )
 
     candidates: list[str] = [
         text,
@@ -428,6 +437,8 @@ def parse_summary_response(raw: str) -> ArticleSummary:
                 cleaned = _clean_summary_text(takeaway)
                 if cleaned:
                     clean_takeaways.append(cleaned)
+            if takeaway_limit is not None:
+                clean_takeaways = clean_takeaways[:takeaway_limit]
 
             # Parse enrichment fields (new; default to empty when absent).
             topics: list[str] = []
@@ -472,6 +483,8 @@ def parse_summary_response(raw: str) -> ArticleSummary:
     # Partial-field recovery for truncated responses (max_tokens hit).
     partial = _extract_partial_fields(text)
     if partial is not None:
+        if takeaway_limit is not None:
+            partial["key_takeaways"] = partial["key_takeaways"][:takeaway_limit]
         logger.debug(
             "parse_summary_response: recovered partial fields from truncated JSON"
         )
@@ -515,7 +528,8 @@ def build_chat_system_prompt(language: str = "English") -> str:
     """
     return (
         "You are a concise news analyst. Respond ONLY with a JSON object — "
-        "no markdown, no code fences, no additional text. "
+        "no markdown, no code fences, no additional text. Never include "
+        "chain-of-thought, hidden reasoning, planning, or instruction commentary. "
         f"Write all JSON field values in {language} "
         "regardless of the article's language."
     )
@@ -544,7 +558,10 @@ def build_chat_user_prompt(
 
     return (
         "Analyze this article and respond with a JSON object "
-        f"in exactly this structure. All values must be written in {language}:\n"
+        f"in exactly this structure. All values must be written in {language}. "
+        f"Use no more than {max_key_takeaways} key takeaways and no more than "
+        f"{max_summary_paragraphs} summary {para_word}; omit unused items rather "
+        "than returning placeholders. Do not add fields or explain your answer.\n"
         f"{{\n"
         f'  "tldr": "<one sentence in {language}: what happened and why it matters>",\n'
         f'  "key_takeaways": [{takeaway_placeholders}],\n'

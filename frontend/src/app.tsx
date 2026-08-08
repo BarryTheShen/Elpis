@@ -5,7 +5,10 @@ import { AdminSurface } from './components/AdminSurface';
 import { PublicationLayout } from './layouts/PublicationLayout';
 import { ArchivePage } from './pages/Archive';
 import { AuthRequiredPage } from './pages/AuthRequired';
+import { CandidatesPage } from './pages/Candidates';
+import { DiscoverPage } from './pages/Discover';
 import { DigestPage } from './pages/Digest';
+import { MonitoringPage } from './pages/Monitoring';
 import { ReadLaterPage } from './pages/ReadLater';
 import { StarredPage } from './pages/Starred';
 import { checkAuth } from './lib/auth';
@@ -52,6 +55,31 @@ function PublicationSurface() {
       <Switch>
         <Route path="/archive">
           <ArchivePage />
+        </Route>
+        <Route path="/discover">
+          <DiscoverPage />
+        </Route>
+        <Route path="/candidates">
+          {authenticated ? (
+            <CandidatesPage />
+          ) : (
+            <AuthRequiredPage
+              title="Ranked candidates are private"
+              description="Sign in to review every candidate that passed your relevance gate."
+              returnTo="/candidates"
+            />
+          )}
+        </Route>
+        <Route path="/monitoring">
+          {authenticated ? (
+            <MonitoringPage />
+          ) : (
+            <AuthRequiredPage
+              title="Monitoring is for signed-in readers"
+              description="Sign in to read your saved monitoring questions and their result history."
+              returnTo="/monitoring"
+            />
+          )}
         </Route>
         <Route path="/read-later">
           {authenticated ? (

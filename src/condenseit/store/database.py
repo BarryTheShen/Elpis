@@ -3,6 +3,7 @@
 import hashlib
 import json
 import logging
+import math
 import sqlite3
 from datetime import UTC, datetime
 from pathlib import Path
@@ -283,6 +284,117 @@ class ContentStore:
                 },
                 pk="url",
             )
+        # Monitoring is intentionally separate from digest/article storage.
+        # Migrations below are additive so an existing installation can opt in
+        # without rebuilding any publication history.
+        if "monitor_queries" not in self.db.table_names():
+            self.db["monitor_queries"].create(
+                {
+                    "id": int,
+                    "question": str,
+                    "search_query": str,
+                    "scope": str,
+                    "enabled": int,
+                    "cadence_minutes": int,
+                    "include_keywords": str,
+                    "exclude_keywords": str,
+                    "category": str,
+                    "language": str,
+                    "country": str,
+                    "max_items": int,
+                    "status": str,
+                    "last_checked_at": str,
+                    "last_success_at": str,
+                    "next_check_at": str,
+                    "last_error": str,
+                    "new_count": int,
+                    "created_at": str,
+                    "updated_at": str,
+                },
+                pk="id",
+            )
+        else:
+            monitor_query_columns = {
+                row[1]
+                for row in self.db.execute("PRAGMA table_info(monitor_queries)").fetchall()
+            }
+            monitor_query_migrations = {
+                "question": "TEXT",
+                "search_query": "TEXT",
+                "scope": "TEXT",
+                "enabled": "INTEGER",
+                "cadence_minutes": "INTEGER",
+                "include_keywords": "TEXT",
+                "exclude_keywords": "TEXT",
+                "category": "TEXT",
+                "language": "TEXT",
+                "country": "TEXT",
+                "max_items": "INTEGER",
+                "status": "TEXT",
+                "last_checked_at": "TEXT",
+                "last_success_at": "TEXT",
+                "next_check_at": "TEXT",
+                "last_error": "TEXT",
+                "new_count": "INTEGER",
+                "created_at": "TEXT",
+                "updated_at": "TEXT",
+            }
+            for column, column_type in monitor_query_migrations.items():
+                if column not in monitor_query_columns:
+                    self.db.execute(
+                        f"ALTER TABLE monitor_queries ADD COLUMN {column} {column_type}"
+                    )
+
+        if "monitor_results" not in self.db.table_names():
+            self.db["monitor_results"].create(
+                {
+                    "id": int,
+                    "monitor_id": int,
+                    "url": str,
+                    "title": str,
+                    "snippet": str,
+                    "source": str,
+                    "category": str,
+                    "published_at": str,
+                    "first_seen_at": str,
+                    "last_seen_at": str,
+                    "relevance_score": float,
+                    "evidence": str,
+                    "state": str,
+                },
+                pk="id",
+            )
+        else:
+            monitor_result_columns = {
+                row[1]
+                for row in self.db.execute("PRAGMA table_info(monitor_results)").fetchall()
+            }
+            monitor_result_migrations = {
+                "monitor_id": "INTEGER",
+                "url": "TEXT",
+                "title": "TEXT",
+                "snippet": "TEXT",
+                "source": "TEXT",
+                "category": "TEXT",
+                "published_at": "TEXT",
+                "first_seen_at": "TEXT",
+                "last_seen_at": "TEXT",
+                "relevance_score": "REAL",
+                "evidence": "TEXT",
+                "state": "TEXT",
+            }
+            for column, column_type in monitor_result_migrations.items():
+                if column not in monitor_result_columns:
+                    self.db.execute(
+                        f"ALTER TABLE monitor_results ADD COLUMN {column} {column_type}"
+                    )
+        # A URL may recur across monitors, but not within one monitor.  This
+        # constraint also makes concurrent check-now requests idempotent.
+        self.db.execute(
+            "CREATE UNIQUE INDEX IF NOT EXISTS "
+            "idx_monitor_results_monitor_url ON monitor_results(monitor_id, url)"
+        )
+        self.db.conn.commit()
 
     def get_setting(self, key: str, default: str = "") -> str:
         if "settings" not in self.db.table_names():
@@ -1015,3 +1127,454 @@ class ContentStore:
             )
         )
         return {str(r["url"]): dict(r) for r in rows}
+    @staticmethod
+    def _decode_json_list(value: Any) -> list[str]:
+        if isinstance(value, list):
+            raw = value
+        else:
+            try:
+                parsed = json.loads(str(value or "[]"))
+            except (TypeError, json.JSONDecodeError):
+                parsed = []
+            raw = parsed if isinstance(parsed, list) else []
+        return [str(item).strip() for item in raw if str(item).strip()]
+    @staticmethod
+    def _sanitize_monitor_evidence(value: Any) -> dict[str, Any]:
+        if isinstance(value, str):
+            try:
+                value = json.loads(value)
+            except (TypeError, json.JSONDecodeError):
+                value = {}
+        source = value if isinstance(value, dict) else {}
+        terms: list[str] = []
+        raw_terms = source.get("matched_terms", [])
+        if isinstance(raw_terms, str):
+            raw_terms = [raw_terms]
+        if isinstance(raw_terms, (list, tuple)):
+            for raw in raw_terms[:20]:
+                term = str(raw).strip()[:64]
+                if term and term not in terms:
+                    terms.append(term)
+        provider = str(source.get("provider") or "google_news").strip()[:80]
+        try:
+            freshness = float(source.get("freshness", 0) or 0)
+        except (TypeError, ValueError):
+            freshness = 0.0
+        if not math.isfinite(freshness):
+            freshness = 0.0
+        return {
+            "matched_terms": terms,
+            "provider": provider or "google_news",
+            "freshness": max(0.0, min(1.0, freshness)),
+        }
+    @staticmethod
+    def _decode_monitor_query(row: dict[str, Any]) -> dict[str, Any]:
+        out = dict(row)
+        out["enabled"] = bool(out.get("enabled", 1))
+        out["cadence_minutes"] = int(out.get("cadence_minutes") or 1440)
+        out["max_items"] = int(out.get("max_items") or 20)
+        out["new_count"] = int(out.get("new_count") or 0)
+        out["include_keywords"] = ContentStore._decode_json_list(
+            out.get("include_keywords")
+        )
+        out["exclude_keywords"] = ContentStore._decode_json_list(
+            out.get("exclude_keywords")
+        )
+        return out
+
+
+    @staticmethod
+    def _decode_monitor_result(row: dict[str, Any]) -> dict[str, Any]:
+        out = dict(row)
+        out["evidence"] = ContentStore._sanitize_monitor_evidence(
+            out.get("evidence")
+        )
+        try:
+            out["relevance_score"] = float(out.get("relevance_score") or 0)
+        except (TypeError, ValueError):
+            out["relevance_score"] = 0.0
+        out["state"] = str(out.get("state") or "new")
+        return out
+
+
+    def create_monitor_query(
+        self,
+        question: str | dict[str, Any] | None = None,
+        **kwargs: Any,
+    ) -> int:
+        """Create a saved monitoring question and return its integer ID.
+
+        The exact ``question`` text is kept separate from the derived
+        ``search_query`` so clients can display what the user actually saved.
+        JSON keyword lists are stored in SQLite as deterministic JSON strings.
+        """
+        if isinstance(question, dict):
+            payload = dict(question)
+            payload.update(kwargs)
+            question_text = str(payload.get("question", ""))
+        else:
+            payload = dict(kwargs)
+            question_text = str(question if question is not None else payload.get("question", ""))
+        now = datetime.now(UTC).isoformat()
+        include = payload.get("include_keywords", payload.get("include_terms", []))
+        exclude = payload.get("exclude_keywords", payload.get("exclude_terms", []))
+        row = {
+            "question": question_text,
+            "search_query": str(
+                payload.get("search_query") or question_text.strip()
+            ),
+            "scope": str(payload.get("scope") or "general_discovery"),
+            "enabled": 1 if payload.get("enabled", True) else 0,
+            "cadence_minutes": int(payload.get("cadence_minutes") or 1440),
+            "include_keywords": json.dumps(self._decode_json_list(include)),
+            "exclude_keywords": json.dumps(self._decode_json_list(exclude)),
+            "category": str(payload.get("category") or "General"),
+            "language": str(payload.get("language") or "en"),
+            "country": str(payload.get("country") or "US"),
+            "max_items": int(payload.get("max_items") or 20),
+            "status": str(payload.get("status") or "idle"),
+            "last_checked_at": payload.get("last_checked_at"),
+            "last_success_at": payload.get("last_success_at"),
+            "next_check_at": payload.get("next_check_at"),
+            "last_error": str(payload.get("last_error") or ""),
+            "new_count": int(payload.get("new_count") or 0),
+            "created_at": str(payload.get("created_at") or now),
+            "updated_at": str(payload.get("updated_at") or now),
+        }
+        self.db["monitor_queries"].insert(row)
+        self.db.conn.commit()
+        return int(self.db.execute("SELECT last_insert_rowid()").fetchone()[0])
+
+    def get_monitor_query(self, monitor_id: int) -> dict[str, Any] | None:
+        rows = list(
+            self.db.query(
+                "SELECT * FROM monitor_queries WHERE id = ?",
+                [int(monitor_id)],
+            )
+        )
+        return self._decode_monitor_query(dict(rows[0])) if rows else None
+
+    def list_monitor_queries(
+        self,
+        *,
+        enabled_only: bool = False,
+    ) -> list[dict[str, Any]]:
+        sql = "SELECT * FROM monitor_queries"
+        params: list[Any] = []
+        if enabled_only:
+            sql += " WHERE enabled = 1"
+        sql += " ORDER BY updated_at DESC, id DESC"
+        return [
+            self._decode_monitor_query(dict(row))
+            for row in self.db.query(sql, params)
+        ]
+
+    def update_monitor_query(
+        self,
+        monitor_id: int,
+        updates: dict[str, Any] | None = None,
+        **kwargs: Any,
+    ) -> dict[str, Any] | None:
+        """Update mutable monitor fields and return the decoded row."""
+        current = self.get_monitor_query(monitor_id)
+        if current is None:
+            return None
+        values = dict(updates or {})
+        values.update(kwargs)
+        row: dict[str, Any] = {}
+        allowed = {
+            "question",
+            "search_query",
+            "scope",
+            "enabled",
+            "cadence_minutes",
+            "include_keywords",
+            "exclude_keywords",
+            "category",
+            "language",
+            "country",
+            "max_items",
+            "status",
+            "last_checked_at",
+            "last_success_at",
+            "next_check_at",
+            "last_error",
+            "new_count",
+        }
+        for key, value in values.items():
+            if key not in allowed:
+                continue
+            if key in {"include_keywords", "exclude_keywords"}:
+                value = json.dumps(self._decode_json_list(value))
+            elif key == "enabled":
+                value = 1 if value else 0
+            elif key in {"cadence_minutes", "max_items", "new_count"}:
+                value = int(value)
+            elif value is not None:
+                value = str(value)
+            row[key] = value
+        if not row:
+            return current
+        row["updated_at"] = datetime.now(UTC).isoformat()
+        assignments = ", ".join(f"{key} = ?" for key in row)
+        self.db.execute(
+            f"UPDATE monitor_queries SET {assignments} WHERE id = ?",  # noqa: S608
+            [*row.values(), int(monitor_id)],
+        )
+        self.db.conn.commit()
+        return self.get_monitor_query(monitor_id)
+
+    def save_monitor_query(
+        self,
+        payload: dict[str, Any] | None = None,
+        **kwargs: Any,
+    ) -> dict[str, Any]:
+        """Upsert a monitor payload and return its decoded representation."""
+        values = dict(payload or {})
+        values.update(kwargs)
+        monitor_id = values.get("id")
+        if monitor_id is not None and self.get_monitor_query(int(monitor_id)):
+            row = self.update_monitor_query(int(monitor_id), values)
+            return row or {}
+        new_id = self.create_monitor_query(values)
+        return self.get_monitor_query(new_id) or {}
+
+    def upsert_monitor_query(
+        self,
+        payload: dict[str, Any] | None = None,
+        **kwargs: Any,
+    ) -> dict[str, Any]:
+        return self.save_monitor_query(payload, **kwargs)
+
+    def delete_monitor_query(self, monitor_id: int) -> bool:
+        """Delete a monitor and only its associated evidence."""
+        monitor_id = int(monitor_id)
+        self.db.execute("DELETE FROM monitor_results WHERE monitor_id = ?", [monitor_id])
+        cursor = self.db.execute("DELETE FROM monitor_queries WHERE id = ?", [monitor_id])
+        self.db.conn.commit()
+        return bool(cursor.rowcount)
+
+    def get_monitor_result(self, result_id: int) -> dict[str, Any] | None:
+        rows = list(
+            self.db.query(
+                "SELECT * FROM monitor_results WHERE id = ?",
+                [int(result_id)],
+            )
+        )
+        return self._decode_monitor_result(dict(rows[0])) if rows else None
+
+    def get_monitor_result_for_url(
+        self,
+        monitor_id: int,
+        url: str,
+    ) -> dict[str, Any] | None:
+        rows = list(
+            self.db.query(
+                "SELECT * FROM monitor_results WHERE monitor_id = ? AND url = ?",
+                [int(monitor_id), str(url)],
+            )
+        )
+        return self._decode_monitor_result(dict(rows[0])) if rows else None
+
+    def upsert_monitor_result(
+        self,
+        monitor_id: int | dict[str, Any],
+        result: dict[str, Any] | None = None,
+        **kwargs: Any,
+    ) -> int:
+        """Upsert one URL for a monitor while preserving state and first_seen."""
+        if isinstance(monitor_id, dict):
+            payload = dict(monitor_id)
+            if isinstance(result, dict):
+                payload.update(result)
+            payload.update(kwargs)
+            monitor_value = payload.pop("monitor_id", None)
+            if monitor_value is None:
+                raise ValueError("monitor_id is required")
+            monitor_id = int(monitor_value)
+        else:
+            payload = dict(result or {})
+            payload.update(kwargs)
+            monitor_id = int(monitor_id)
+        url = str(payload.get("url") or "").strip()
+        if not url:
+            raise ValueError("monitor result URL is required")
+        now = datetime.now(UTC).isoformat()
+        existing = self.get_monitor_result_for_url(monitor_id, url)
+        evidence = json.dumps(self._sanitize_monitor_evidence(payload.get("evidence")))
+        if existing:
+            row = {
+                "title": str(payload.get("title") or existing.get("title") or ""),
+                "snippet": str(
+                    payload.get("snippet") or existing.get("snippet") or ""
+                ),
+                "source": str(payload.get("source") or existing.get("source") or ""),
+                "category": str(
+                    payload.get("category") or existing.get("category") or "General"
+                ),
+                "published_at": str(
+                    payload.get("published_at")
+                    or existing.get("published_at")
+                    or ""
+                ),
+                "last_seen_at": str(payload.get("last_seen_at") or now),
+                "relevance_score": float(
+                    payload.get("relevance_score")
+                    if payload.get("relevance_score") is not None
+                    else existing.get("relevance_score") or 0
+                ),
+                "evidence": evidence,
+            }
+            assignments = ", ".join(f"{key} = ?" for key in row)
+            self.db.execute(
+                f"UPDATE monitor_results SET {assignments} "
+                "WHERE monitor_id = ? AND url = ?",  # noqa: S608
+                [*row.values(), monitor_id, url],
+            )
+            self.db.conn.commit()
+            return int(existing["id"])
+        state = str(payload.get("state") or "new").strip().lower()
+        if state not in {"new", "seen", "dismissed"}:
+            raise ValueError("monitor result state must be new, seen, or dismissed")
+        row = {
+            "monitor_id": monitor_id,
+            "url": url,
+            "title": str(payload.get("title") or ""),
+            "snippet": str(payload.get("snippet") or ""),
+            "source": str(payload.get("source") or ""),
+            "category": str(payload.get("category") or "General"),
+            "published_at": str(payload.get("published_at") or ""),
+            "first_seen_at": str(payload.get("first_seen_at") or now),
+            "last_seen_at": str(payload.get("last_seen_at") or now),
+            "relevance_score": float(payload.get("relevance_score") or 0),
+            "evidence": evidence,
+            "state": state,
+        }
+        self.db["monitor_results"].insert(row)
+        self.db.conn.commit()
+        return int(self.db.execute("SELECT last_insert_rowid()").fetchone()[0])
+
+    def save_monitor_result(
+        self,
+        monitor_id: int | dict[str, Any],
+        result: dict[str, Any] | None = None,
+        **kwargs: Any,
+    ) -> int:
+        return self.upsert_monitor_result(monitor_id, result, **kwargs)
+
+    def list_monitor_results(
+        self,
+        monitor_id: int,
+        *,
+        limit: int = 50,
+        offset: int = 0,
+        state: str | None = None,
+    ) -> list[dict[str, Any]]:
+        params: list[Any] = [int(monitor_id)]
+        sql = "SELECT * FROM monitor_results WHERE monitor_id = ?"
+        if state:
+            sql += " AND state = ?"
+            params.append(state)
+        sql += " ORDER BY last_seen_at DESC, id DESC LIMIT ? OFFSET ?"
+        params.extend([max(1, int(limit)), max(0, int(offset))])
+        return [
+            self._decode_monitor_result(dict(row))
+            for row in self.db.query(sql, params)
+        ]
+
+    def count_monitor_results(
+        self,
+        monitor_id: int,
+        *,
+        state: str | None = None,
+    ) -> int:
+        params: list[Any] = [int(monitor_id)]
+        sql = "SELECT COUNT(*) FROM monitor_results WHERE monitor_id = ?"
+        if state:
+            sql += " AND state = ?"
+            params.append(state)
+        row = self.db.execute(sql, params).fetchone()
+        return int(row[0] or 0) if row else 0
+
+    def update_monitor_result_state(
+        self,
+        result_id: int,
+        state: str,
+        *,
+        monitor_id: int | None = None,
+    ) -> dict[str, Any] | None:
+        state = str(state).strip().lower()
+        if state not in {"new", "seen", "dismissed"}:
+            raise ValueError("monitor result state must be new, seen, or dismissed")
+        params: list[Any] = [state, int(result_id)]
+        sql = "UPDATE monitor_results SET state = ? WHERE id = ?"
+        if monitor_id is not None:
+            sql += " AND monitor_id = ?"
+            params.append(int(monitor_id))
+        cursor = self.db.execute(sql, params)
+        self.db.conn.commit()
+        if not cursor.rowcount:
+            return None
+        return self.get_monitor_result(result_id)
+
+    def mark_monitor_result_seen(
+        self,
+        result_id: int,
+        *,
+        monitor_id: int | None = None,
+    ) -> dict[str, Any] | None:
+        return self.update_monitor_result_state(
+            result_id,
+            "seen",
+            monitor_id=monitor_id,
+        )
+
+    def dismiss_monitor_result(
+        self,
+        result_id: int,
+        *,
+        monitor_id: int | None = None,
+    ) -> dict[str, Any] | None:
+        return self.update_monitor_result_state(
+            result_id,
+            "dismissed",
+            monitor_id=monitor_id,
+        )
+
+    def monitor_new_count(self, monitor_id: int) -> int:
+        return self.count_monitor_results(int(monitor_id), state="new")
+    # Compatibility aliases keep the storage API discoverable while the
+    # persisted table remains explicitly named ``monitor_queries``.
+    def create_monitor(self, payload: dict[str, Any]) -> int:
+        return self.create_monitor_query(payload)
+
+    def get_monitor(self, monitor_id: int) -> dict[str, Any] | None:
+        return self.get_monitor_query(monitor_id)
+
+    def list_monitors(self, *, enabled_only: bool = False) -> list[dict[str, Any]]:
+        return self.list_monitor_queries(enabled_only=enabled_only)
+
+    def update_monitor(
+        self,
+        monitor_id: int,
+        updates: dict[str, Any],
+    ) -> dict[str, Any] | None:
+        return self.update_monitor_query(monitor_id, updates)
+
+    def delete_monitor(self, monitor_id: int) -> bool:
+        return self.delete_monitor_query(monitor_id)
+
+    def list_results(
+        self,
+        monitor_id: int,
+        *,
+        limit: int = 50,
+        offset: int = 0,
+        state: str | None = None,
+    ) -> list[dict[str, Any]]:
+        return self.list_monitor_results(
+            monitor_id,
+            limit=limit,
+            offset=offset,
+            state=state,
+        )

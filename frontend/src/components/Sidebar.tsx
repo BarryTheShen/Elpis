@@ -21,6 +21,7 @@ const SECTIONS: NavSection[] = [
       { href: '/admin/profile', label: 'Profile' },
       { href: '/admin/security', label: 'Security' },
       { href: '/admin/budget', label: 'Budget' },
+      { href: '/admin/monitoring', label: 'Monitoring' },
     ],
   },
   {

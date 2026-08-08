@@ -316,6 +316,90 @@ set in `config.yaml`:
 - `youtube_transcription.enabled` (default `false`): enable Whisper audio transcription
   for YouTube videos that lack captions. See [YouTube transcription](#youtube-transcription).
 
+## Ranked candidates, relevance, and publication budget
+
+`max_articles_per_digest` is the **summary/publication budget**, not a
+collection limit. Elpis collects a broad pool, evaluates and ranks the eligible
+candidates, and only sends the highest-ranked items up to that setting to the
+summariser. A run can therefore collect hundreds of candidates without asking
+the model to summarise hundreds of articles.
+
+The full **eligible** ranked pool is retained as sanitized `candidate_items`
+evidence. The authenticated digest API exposes the same list as `candidates`;
+the digest shows selected, briefed items first and the remaining ranked
+candidates as metadata/snippet cards. Candidate cards include rank, title, source,
+publication time, excerpt, and numeric score evidence. Provider reasoning,
+raw model output, and the private `llm_reason` field are not copied into new
+candidate or monitoring payloads.
+
+### Deterministic relevance gate
+
+When `relevance.initial_keywords.high` or `.medium` is configured, an article
+must match a configured term or a `relevance.topic_synonyms` term in its title
+or lead context (the first 500 characters of the body). A term that appears
+only later in the body is an incidental match and is rejected. A strong learned
+personal signal may also admit a candidate. With no configured intent keywords,
+the gate remains open so general/discovery feeds are not silently emptied.
+
+Each decision keeps compact evidence:
+
+- `matched_terms`: normalized configured terms or synonyms that matched;
+- `title_matches` and `context_matches`: where the match occurred;
+- `relevance_reason`: the deterministic reason (`title_keyword`,
+  `lead_keyword`, `learned_personal_signal`, `no_configured_keywords`, or
+  `no_title_or_lead_keyword`);
+- `selected`: whether the candidate consumed one of the summary slots.
+
+This gate fixes the observed Wired false-positive root cause: TV articles had
+terms such as `security`, `go`, or `drone` in later body/navigation sections,
+but their titles and leads did not describe the configured reader intent.
+Body-only incidental text no longer qualifies the article, while a
+Kubernetes/security or other clear topical headline does.
+
+### General discovery is separate
+
+`/discover` is a public/read-focused search page and API backed by Google News
+RSS. Discovery queries are normalized into result cards and do **not** mutate
+digest rows, enter the daily ranking, consume the summary budget, or change
+configured feeds. Use it when you want to explore a topic outside the daily
+profile.
+
+### Monitoring questions
+
+Monitoring is a persisted watch separate from both daily ranking and one-off
+discovery. Desktop users manage watches under `/admin/monitoring`; read-only
+results are available at `/monitoring` on mobile and desktop. A monitor retains
+the exact question plus its generated search query, scope
+(`general_discovery`, `configured_feeds`, or `both`), cadence, include/exclude
+terms, category, language/country, enabled state, check timestamps, status,
+next check, last error, and new-result count.
+
+Use **Check now** to run a watch. Results persist normalized URL/title/snippet
+evidence, source/category, publication and first/last-seen times, relevance
+score, and `new`/`seen`/`dismissed` state. Repeated checks deduplicate by URL and
+update the existing result rather than creating another copy. The current MVP
+provides read-only update history and no email delivery.
+
+### Offline relevance evaluation
+
+The deterministic evaluation fixtures cover security engineering,
+developer/infra, AI research/Qwen releases, FPV/drone, and general technology
+consumer profiles. They include positive headlines, near-duplicate coverage,
+and Wired-style body-only incidental negatives. Run them without credentials:
+
+```bash
+python -m pytest -q tests/test_relevance_evaluation.py
+```
+
+The fixture records expected precision@5/10, recall, nDCG, MRR,
+false-positive rate, abstention, and coverage. An optional live LLM judge can
+be run separately by exporting the same fixture cases to your chosen
+OpenAI-compatible/LiteLLM endpoint and comparing its labels with
+`expected_relevant`; keep that command out of the normal test run, set the
+provider API key only in the shell/environment, and treat malformed or
+missing judge output as abstention rather than relevance. The offline
+deterministic gate is the regression contract.
+
 ## Preferences and ranking
 
 Elpis uses a multi-layer ranking engine that blends classical signals with
@@ -326,15 +410,18 @@ restarting the server.
 
 Each digest run processes articles in this order:
 
-1. **Collect** - pull from all enabled sources
+1. **Collect** - pull from all enabled sources into the broad candidate pool
 2. **Filter** - age gate, already-read filter, language filter, excluded keywords
-3. **Classical score** - score every candidate using the preference engine
+3. **Classical score** - score every collected candidate using the preference engine
 4. **Embedding score** - add semantic similarity to your rated-article centroid (optional)
 5. **Story deduplication** - keep the highest-scoring version of near-duplicate stories
-6. **LLM rerank** - one LLM call re-orders the top-K candidates (optional)
-7. **Category balance** - reserve slots per category, then fill by score
-8. **Summarise** - per-article LLM call that also extracts topics, entities, and novelty
-9. **Persist** - save digest items and enrichment data for future ranking
+6. **Relevance gate** - require a title/lead intent match (or a strong learned
+   signal) when configured; reject body-only incidental terms
+7. **LLM rerank** - one LLM call re-orders the eligible top-K candidates (optional)
+8. **Category balance** - reserve slots per category, then fill by score
+9. **Persist candidate evidence** - retain the complete eligible ranked list before the cap
+10. **Summarise** - send only the selected `max_articles_per_digest` items to the LLM
+11. **Persist** - save digest items and enrichment data for future ranking
 
 ### Classical scoring
 
