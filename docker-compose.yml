@@ -7,11 +7,15 @@ services:
     image: ${ELPIS_IMAGE:-elpis:${ELPIS_IMAGE_TAG:-latest}}
     build: .
     ports:
-      - "8899:8899"
+      - "127.0.0.1:8899:8899"
     environment:
       CONDENSEIT_CONFIG: /app/config.yaml
       CONDENSEIT_DATA_DIR: /app/data
       CONDENSEIT_FRONTEND_DIST: /app/frontend/dist
+      CONDENSEIT_AUTH_PASSWORD: ${CONDENSEIT_AUTH_PASSWORD:?Set CONDENSEIT_AUTH_PASSWORD in .env}
+      DIGEST_PWA_AUTH_PASSWORD: ${DIGEST_PWA_AUTH_PASSWORD:-}
+      DIGEST_PWA_SESSION_SECRET: ${DIGEST_PWA_SESSION_SECRET:?Set DIGEST_PWA_SESSION_SECRET in .env}
+      CONDENSEIT_HTTPS_ONLY: ${CONDENSEIT_HTTPS_ONLY:-0}
       OLLAMA_HOST: http://host.docker.internal:11434
       TZ: UTC
     extra_hosts:

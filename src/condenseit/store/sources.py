@@ -6,8 +6,8 @@ from typing import Any
 
 from condenseit.api_urls import youtube_channel_feed_url
 from condenseit.config import (
-    AppConfig,
     DEFAULT_SOURCE_MAX_ITEMS,
+    AppConfig,
     FeedConfig,
     GitHubReleasesConfig,
     GoogleNewsSearchConfig,

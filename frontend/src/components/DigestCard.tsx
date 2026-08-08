@@ -346,8 +346,12 @@ export function DigestCard({
   const structuredSummary = item.summary
     ? tryParseStructuredSummary(item.summary)
     : null;
-  const tldr = item.tldr?.trim() || structuredSummary?.tldr;
-  const summary = cleanSummary(tldr || item.summary);
+  const directTldr = item.tldr ? cleanSummary(item.tldr) : '';
+  const fallbackTldr = structuredSummary?.tldr
+    ? cleanSummary(structuredSummary.tldr)
+    : '';
+  const tldr = directTldr || fallbackTldr;
+  const summary = tldr || cleanSummary(item.summary);
   const externalUrl = safeExternalUrl(item.url);
   const imageUrl = safeExternalUrl(item.image_url);
   const metaParts: string[] = [];
@@ -443,7 +447,9 @@ export function DigestCard({
       )}
 
       <div className="flex items-center gap-2 flex-wrap">
-        <Badge variant={kindVariant(item.kind)}>{item.kind}</Badge>
+        <Badge variant={kindVariant(item.kind || 'article')}>
+          {item.kind || 'article'}
+        </Badge>
         {item.category && (
           <span className="text-xs text-[#7d7a75] dark:text-[#b4b1ab] font-medium">
             {item.category}

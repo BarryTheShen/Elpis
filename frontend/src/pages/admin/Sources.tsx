@@ -1,7 +1,11 @@
 import { Fragment } from 'preact';
 import { useState, useEffect, useMemo } from 'preact/hooks';
 import { api } from '../../lib/api';
-import type { Source } from '../../lib/types';
+import type {
+  Source,
+  SourceDiscoveryCandidate,
+  SourceDiscoveryPage,
+} from '../../lib/types';
 import { Badge, kindVariant } from '../../components/Badge';
 import { Button } from '../../components/Button';
 import { Card, CardHeader } from '../../components/Card';
@@ -81,6 +85,14 @@ async function searchITunesPodcasts(query: string): Promise<ITunesResult[]> {
   return (data.results ?? []) as ITunesResult[];
 }
 
+function discoveryCandidateKey(candidate: SourceDiscoveryCandidate): string {
+  const value =
+    candidate.source_type === "google_news"
+      ? candidate.url
+      : (candidate.feed_url ?? candidate.url);
+  return `${candidate.source_type}:${value}`;
+}
+
 export function SourcesPage() {
   const [sources, setSources] = useState<Source[]>([]);
   const [loading, setLoading] = useState(true);
@@ -105,6 +117,15 @@ export function SourcesPage() {
   const [podcastSearching, setPodcastSearching] = useState(false);
   const [podcastFeedUrl, setPodcastFeedUrl] = useState('');
   const [podcastName, setPodcastName] = useState('');
+  const [discoverQuery, setDiscoverQuery] = useState('');
+  const [discoverLanguage, setDiscoverLanguage] = useState('en');
+  const [discoverCountry, setDiscoverCountry] = useState('US');
+  const [discoverPage, setDiscoverPage] = useState<SourceDiscoveryPage | null>(
+    null,
+  );
+  const [discoverLoading, setDiscoverLoading] = useState(false);
+  const [discoverError, setDiscoverError] = useState<string | null>(null);
+  const [discoverAddId, setDiscoverAddId] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [activeCategory, setActiveCategory] = useState<string | null>(
     null,
@@ -264,6 +285,126 @@ export function SourcesPage() {
     }
   }
 
+  async function loadDiscoveryPage(page: number, append: boolean) {
+    const query = (
+      append ? discoverPage?.query ?? '' : discoverQuery
+    ).trim();
+    if (!query || discoverLoading) {
+      return;
+    }
+    setDiscoverLoading(true);
+    setDiscoverError(null);
+    try {
+      const next = await api.discoverSources({
+        query,
+        language: discoverLanguage,
+        country: discoverCountry,
+        page,
+        limit: discoverPage?.limit ?? 20,
+      });
+      setDiscoverPage((previous) => {
+        if (!append || !previous) {
+          return next;
+        }
+        const seen = new Set(
+          previous.candidates.map(discoveryCandidateKey),
+        );
+        return {
+          ...next,
+          candidates: [
+            ...previous.candidates,
+            ...next.candidates.filter((candidate) => {
+              const key = discoveryCandidateKey(candidate);
+              if (seen.has(key)) {
+                return false;
+              }
+              seen.add(key);
+              return true;
+            }),
+          ],
+        };
+      });
+    } catch (err) {
+      if (!append) {
+        setDiscoverPage(null);
+      }
+      setDiscoverError(
+        err instanceof Error
+          ? err.message
+          : 'Source discovery failed. Try again.',
+      );
+    } finally {
+      setDiscoverLoading(false);
+    }
+  }
+
+  async function handleDiscover(e: Event) {
+    e.preventDefault();
+    const query = discoverQuery.trim();
+    if (!query) {
+      setDiscoverError('Enter a topic or publisher to search.');
+      setDiscoverPage(null);
+      return;
+    }
+    await loadDiscoveryPage(1, false);
+  }
+
+  async function handleDiscoverMore() {
+    if (!discoverPage?.has_more) {
+      return;
+    }
+    await loadDiscoveryPage(discoverPage.page + 1, true);
+  }
+
+
+  async function handleAddDiscovered(candidate: SourceDiscoveryCandidate) {
+    const verified =
+      (candidate.source_type === 'rss' && Boolean(candidate.feed_url)) ||
+      (candidate.source_type === 'google_news' &&
+        Boolean(candidate.query?.trim()) &&
+        Boolean(candidate.feed_url));
+    if (!verified || candidate.existing) {
+      return;
+    }
+    const data = new FormData();
+    data.append('source_type', candidate.source_type);
+    data.append('name', candidate.name);
+    data.append('url', candidate.feed_url ?? candidate.url);
+    data.append('category', candidate.category || 'General');
+    data.append('priority', '2');
+    data.append('max_items', '50');
+    data.append('language', discoverLanguage);
+    data.append('country', discoverCountry);
+    if (candidate.source_type === 'google_news') {
+      data.append('query', candidate.query ?? '');
+    }
+    const key = discoveryCandidateKey(candidate);
+    setDiscoverAddId(key);
+    try {
+      await api.addSource(data);
+      setDiscoverPage((previous) =>
+        previous
+          ? {
+              ...previous,
+              candidates: previous.candidates.map((row) =>
+                discoveryCandidateKey(row) === key
+                  ? { ...row, existing: true }
+                  : row,
+              ),
+            }
+          : previous,
+      );
+      load();
+      showFlash('Source added.');
+    } catch (err) {
+      showFlash(
+        err instanceof Error ? err.message : 'Failed to add source.',
+      );
+    } finally {
+      setDiscoverAddId(null);
+    }
+  }
+
   function selectPodcast(result: ITunesResult) {
     setPodcastFeedUrl(result.feedUrl ?? '');
     setPodcastName(result.collectionName ?? '');
@@ -349,6 +490,190 @@ export function SourcesPage() {
           {flash}
         </div>
       )}
+
+      <Card>
+        <CardHeader
+          title="Discover sources"
+          description="Search public Google News results for publisher feeds without changing your source list."
+        />
+        <form
+          onSubmit={handleDiscover}
+          className="grid grid-cols-1 sm:grid-cols-[minmax(0,1fr)_7rem_7rem_auto] gap-3 items-end"
+        >
+          <Field label="Topic or publisher">
+            <input
+              value={discoverQuery}
+              onInput={(e) =>
+                setDiscoverQuery((e.target as HTMLInputElement).value)
+              }
+              placeholder="quantum computing, Reuters, or climate policy"
+              className={inputCls}
+              required
+              maxLength={500}
+              aria-label="Topic or publisher to discover"
+            />
+          </Field>
+          <Field label="Language">
+            <input
+              value={discoverLanguage}
+              onInput={(e) =>
+                setDiscoverLanguage(
+                  (e.target as HTMLInputElement).value.toLowerCase(),
+                )
+              }
+              className={inputCls}
+              maxLength={8}
+              aria-label="Discovery language"
+            />
+          </Field>
+          <Field label="Country">
+            <input
+              value={discoverCountry}
+              onInput={(e) =>
+                setDiscoverCountry(
+                  (e.target as HTMLInputElement).value.toUpperCase(),
+                )
+              }
+              className={inputCls}
+              maxLength={2}
+              aria-label="Discovery country"
+            />
+          </Field>
+          <Button type="submit" loading={discoverLoading}>
+            Search
+          </Button>
+        </form>
+        {discoverError && (
+          <p
+            className="mt-3 text-sm text-red-600 dark:text-red-400"
+            role="alert"
+          >
+            {discoverError}
+          </p>
+        )}
+        {discoverPage && (
+          <div className="mt-5 space-y-3" aria-live="polite">
+            <div className="flex items-center justify-between gap-3">
+              <p className="text-sm text-slate-600 dark:text-slate-400">
+                {discoverPage.candidates.length === 0
+                  ? 'No verified or searchable publishers found.'
+                  : `${discoverPage.candidates.length} publisher candidates`}
+              </p>
+              {discoverPage.has_more && (
+                <span className="text-xs text-slate-400 dark:text-slate-500">
+                  More candidates available
+                </span>
+              )}
+            </div>
+            {discoverPage.candidates.map((candidate) => {
+              const candidateKey = discoveryCandidateKey(candidate);
+              const canAdd =
+                !candidate.existing &&
+                ((candidate.source_type === 'rss' &&
+                  candidate.health.status === 'verified' &&
+                  Boolean(candidate.feed_url)) ||
+                  (candidate.source_type === 'google_news' &&
+                    Boolean(candidate.query?.trim()) &&
+                    Boolean(candidate.feed_url)));
+              const matchedTerms =
+                candidate.evidence.matched_terms?.filter(Boolean).join(', ');
+              return (
+                <article
+                  key={candidateKey}
+                  className="rounded-lg border border-slate-200 dark:border-slate-700 p-4"
+                >
+                  <div className="flex flex-wrap items-start justify-between gap-3">
+                    <div className="min-w-0">
+                      <h3 className="font-medium text-slate-900 dark:text-slate-100">
+                        {candidate.name}
+                      </h3>
+                      <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
+                        {candidate.source_type === 'rss'
+                          ? 'Publisher RSS/Atom feed'
+                          : 'Google News search feed'}
+                        {' · '}
+                        {Math.round(candidate.score * 100)}% match
+                      </p>
+                    </div>
+                    <Badge
+                      variant={
+                        candidate.health.status === 'verified'
+                          ? 'ok'
+                          : 'default'
+                      }
+                    >
+                      {candidate.health.status === 'verified'
+                        ? 'Verified'
+                        : 'Search feed'}
+                    </Badge>
+                  </div>
+                  {candidate.description && (
+                    <p className="mt-2 text-sm text-slate-600 dark:text-slate-400">
+                      {candidate.description}
+                    </p>
+                  )}
+                  <div className="mt-3 flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-slate-500 dark:text-slate-400">
+                    <span>
+                      {candidate.evidence.article_count ?? 0} matching article
+                      {(candidate.evidence.article_count ?? 0) === 1
+                        ? ''
+                        : 's'}
+                    </span>
+                    {candidate.health.entry_count != null && (
+                      <span>{candidate.health.entry_count} feed entries</span>
+                    )}
+                    {matchedTerms && <span>Matches: {matchedTerms}</span>}
+                  </div>
+                  <div className="mt-3 flex flex-wrap items-center justify-between gap-2">
+                    <a
+                      href={candidate.feed_url ?? candidate.url}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="min-w-0 max-w-full truncate text-xs text-blue-600 hover:underline dark:text-blue-400"
+                    >
+                      {candidate.feed_url ?? candidate.url}
+                    </a>
+                    {candidate.existing ? (
+                      <span className="text-xs font-medium text-slate-500 dark:text-slate-400">
+                        Already added
+                      </span>
+                    ) : (
+                      <Button
+                        size="sm"
+                        variant="secondary"
+                        disabled={!canAdd}
+                        loading={discoverAddId === candidateKey}
+                        onClick={() => handleAddDiscovered(candidate)}
+                        title={
+                          canAdd
+                            ? 'Add this verified source'
+                            : 'Only verified feeds can be added'
+                        }
+                      >
+                        {canAdd ? 'Add source' : 'Not verified'}
+                      </Button>
+                    )}
+                  </div>
+                </article>
+              );
+            })}
+            {discoverPage.has_more && (
+              <div className="flex justify-center pt-1">
+                <Button
+                  type="button"
+                  variant="secondary"
+                  size="sm"
+                  loading={discoverLoading}
+                  onClick={handleDiscoverMore}
+                >
+                  Load more candidates
+                </Button>
+              </div>
+            )}
+          </div>
+        )}
+      </Card>
+
 
       {/* Collapsible add-source form */}
       {addFormOpen && (

@@ -86,16 +86,19 @@ function readableBlocks(
         : `${block.type}:${block.text}`;
     const key = makeContentKey(keyPrefix, identity, seen);
     if (block.type === 'heading') {
+      const HeadingTag = (
+        `h${Math.min(6, Math.max(2, block.level ?? 3))}`
+      ) as 'h2' | 'h3' | 'h4' | 'h5' | 'h6';
       return (
-        <h3
+        <HeadingTag
           key={key}
           className={[
-            'font-semibold text-[#2c2c2b] dark:text-[#f4f3f1]',
+            'break-words font-semibold text-[#2c2c2b] dark:text-[#f4f3f1]',
             compact ? 'text-base' : 'text-lg',
           ].join(' ')}
         >
           {renderInline(block.inlines, key)}
-        </h3>
+        </HeadingTag>
       );
     }
     if (block.type === 'paragraph') {
@@ -103,7 +106,7 @@ function readableBlocks(
         <p
           key={key}
           className={[
-            'whitespace-pre-line',
+            'break-words [overflow-wrap:anywhere] whitespace-pre-line',
             compact ? '' : 'text-base',
           ].join(' ')}
         >
@@ -115,7 +118,7 @@ function readableBlocks(
       return (
         <blockquote
           key={key}
-          className="border-l-2 border-[#9bcaf2] pl-4 italic whitespace-pre-line dark:border-[#4f8fc8]"
+          className="break-words [overflow-wrap:anywhere] border-l-2 border-[#9bcaf2] pl-4 italic whitespace-pre-line dark:border-[#4f8fc8]"
         >
           {renderInline(block.inlines, key)}
         </blockquote>
@@ -145,7 +148,7 @@ function readableBlocks(
         {block.items.map((item) => {
           const itemKey = makeContentKey(key, item.text, itemSeen);
           return (
-            <li key={itemKey} className="pl-1">
+            <li key={itemKey} className="break-words [overflow-wrap:anywhere] pl-1">
               {renderInline(item.inlines, itemKey)}
             </li>
           );
@@ -155,15 +158,19 @@ function readableBlocks(
   });
 }
 
-function sameProse(left: string, right: string): boolean {
-  return left
-    .toLocaleLowerCase()
-    .replace(/[\s\p{P}]+/gu, ' ')
-    .trim() ===
-    right
-      .toLocaleLowerCase()
-      .replace(/[\s\p{P}]+/gu, ' ')
-      .trim();
+
+function removeLeadingDuplicate(summary: string, tldr: string): string {
+  const summaryText = summary.trim();
+  const tldrText = tldr.trim();
+  if (!summaryText || !tldrText) return summaryText;
+
+  const normalizedSummary = summaryText.toLocaleLowerCase();
+  const normalizedTldr = tldrText.toLocaleLowerCase();
+  if (!normalizedSummary.startsWith(normalizedTldr)) return summaryText;
+
+  const remainder = summaryText.slice(tldrText.length);
+  if (remainder && !/^[\s.!?…,:;)\]}]/u.test(remainder)) return summaryText;
+  return remainder.replace(/^[\s.!?…,:;)\]}]+/u, '').trim();
 }
 
 interface ItemDetailContentProps {
@@ -196,7 +203,9 @@ function ItemDetailContent({
 
           {/* Badges */}
           <div className="flex items-center gap-2 flex-wrap">
-            <Badge variant={kindVariant(item.kind)}>{item.kind}</Badge>
+            <Badge variant={kindVariant(item.kind || 'article')}>
+              {item.kind || 'article'}
+            </Badge>
             {item.category && (
               <span className="text-xs font-medium text-[#7d7a75] dark:text-[#b4b1ab]">
                 {item.category}
@@ -205,7 +214,7 @@ function ItemDetailContent({
           </div>
 
           {/* Title */}
-          <h1 id="detail-title" className="text-3xl font-semibold tracking-tight text-[#2c2c2b] dark:text-[#f4f3f1] leading-tight">
+          <h1 id="detail-title" className="break-words [overflow-wrap:anywhere] text-3xl font-semibold tracking-tight text-[#2c2c2b] dark:text-[#f4f3f1] leading-tight">
             {item.title || 'Untitled'}
           </h1>
 
@@ -223,7 +232,7 @@ function ItemDetailContent({
               <h2 className="text-sm font-semibold text-[#7d7a75] dark:text-[#b4b1ab]">
                 TL;DR
               </h2>
-              <p className="text-base font-medium text-[#2c2c2b] dark:text-[#f4f3f1] leading-relaxed">
+              <p className="break-words [overflow-wrap:anywhere] text-base font-medium text-[#2c2c2b] dark:text-[#f4f3f1] leading-relaxed">
                 {tldr}
               </p>
             </div>
@@ -237,7 +246,7 @@ function ItemDetailContent({
               </h2>
               <ul className="space-y-2 pl-0 list-none">
                 {keyTakeaways.map((point) => (
-                  <li key={makeContentKey('takeaway', point, takeawaySeen)} className="flex gap-2.5 text-base text-[#5f5c57] dark:text-[#d0cdc6] leading-relaxed">
+                  <li key={makeContentKey('takeaway', point, takeawaySeen)} className="break-words [overflow-wrap:anywhere] flex gap-2.5 text-base text-[#5f5c57] dark:text-[#d0cdc6] leading-relaxed">
                     <span
                       className="mt-[0.45em] flex-shrink-0 w-1.5 h-1.5 rounded-full bg-[#2783de] dark:bg-[#63aaf0]"
                       aria-hidden="true"
@@ -260,7 +269,7 @@ function ItemDetailContent({
               <h2 className="text-sm font-semibold text-[#7d7a75] dark:text-[#b4b1ab]">
                 Summary
               </h2>
-              <div className="space-y-3 text-base text-[#5f5c57] dark:text-[#d0cdc6] leading-relaxed">
+              <div className="break-words [overflow-wrap:anywhere] space-y-3 text-base text-[#5f5c57] dark:text-[#d0cdc6] leading-relaxed">
                 {readableBlocks(segments, 'summary', true)}
               </div>
             </div>
@@ -295,7 +304,7 @@ function ItemDetailContent({
               </p>
             )}
             {!articleLoading && !articleError && (
-              <div className="space-y-4 text-base leading-relaxed text-[#5f5c57] dark:text-[#d0cdc6]">
+              <div className="break-words [overflow-wrap:anywhere] space-y-4 text-base leading-relaxed text-[#5f5c57] dark:text-[#d0cdc6]">
                 {articleBlocks.length > 0 ? (
                   readableBlocks(articleBlocks, 'article')
                 ) : (
@@ -531,20 +540,27 @@ export function ItemDetailPanel({
   const jsonFallback = item.summary
     ? tryParseStructuredSummary(item.summary)
     : null;
-  const tldr = cleanSummary(item.tldr?.trim() || jsonFallback?.tldr);
-  const keyTakeaways = (
-    item.key_takeaways?.length
-      ? item.key_takeaways
-      : jsonFallback?.key_takeaways
-  )?.flatMap((point) => {
+  const directTldr = item.tldr ? cleanSummary(item.tldr) : '';
+  const fallbackTldr = jsonFallback?.tldr
+    ? cleanSummary(jsonFallback.tldr)
+    : '';
+  const tldr = directTldr || fallbackTldr;
+  const directTakeaways = item.key_takeaways?.flatMap((point) => {
     const cleaned = cleanSummary(point);
     return cleaned ? [cleaned] : [];
   });
+  const fallbackTakeaways = jsonFallback?.key_takeaways?.flatMap((point) => {
+    const cleaned = cleanSummary(point);
+    return cleaned ? [cleaned] : [];
+  });
+  const keyTakeaways =
+    directTakeaways && directTakeaways.length > 0
+      ? directTakeaways
+      : fallbackTakeaways;
   const rawSummary = jsonFallback?.summary ?? (jsonFallback ? '' : item.summary);
   const summaryText = cleanSummary(rawSummary);
-  const segments = parseReadableContent(
-    tldr && sameProse(summaryText, tldr) ? '' : summaryText,
-  );
+  const dedupedSummary = removeLeadingDuplicate(summaryText, tldr);
+  const segments = parseReadableContent(dedupedSummary);
   const date = formatDateOnly(item.published_at, { year: true });
   const metaParts: string[] = [];
   if (item.source) metaParts.push(item.source);

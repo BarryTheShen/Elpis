@@ -9,15 +9,25 @@
 const PREFIX_RE =
   /^(?:here\s+is\s+(?:a\s+)?(?:\d+[-\u2013]\d+\s+sentence\s+)?(?:brief\s+)?summary[^:]*:|this\s+(?:is\s+(?:a|an)\s+)?(?:\d+[-\u2013]\d+\s+sentence\s+)?(?:brief\s+)?summary[^:]*:)\s*/i;
 const NOTE_SUFFIX_RE = /\n+\s*(?:note|notes|disclaimer)\s*:\s[\s\S]*$/i;
-const REASONING_TAG_RE =
-  /\s*<(?:think|thinking|reasoning|analysis|scratchpad|reflection)\b[^>]*>[\s\S]*?<\/(?:think|thinking|reasoning|analysis|scratchpad|reflection)\s*>\s*/gi;
-const SELF_CLOSING_REASONING_TAG_RE =
-  /<\/?(?:think|thinking|reasoning|analysis|scratchpad|reflection)\b[^>]*\/?>/gi;
-const UNCLOSED_REASONING_TAG_RE =
-  /\s*<(?:think|thinking|reasoning|analysis|scratchpad|reflection)\b[^>]*>[\s\S]*$/gi;
+const REASONING_TAG_NAMES =
+  '(?:chain-of-thought|chain_of_thought|deliberation|reasoning_content|redacted_thinking|reasoning|reflection|scratchpad|thinking|analysis|thought|think|cot|internal|private)';
+const REASONING_TAG_RE = new RegExp(
+  `\\s*<${REASONING_TAG_NAMES}\\b[^>]*>[\\s\\S]*?<\\/${REASONING_TAG_NAMES}\\s*>\\s*`,
+  'gi',
+);
+const SELF_CLOSING_REASONING_TAG_RE = new RegExp(
+  `<\\/?${REASONING_TAG_NAMES}\\b[^>]*\\/?>`,
+  'gi',
+);
+const UNCLOSED_REASONING_TAG_RE = new RegExp(
+  `\\s*<${REASONING_TAG_NAMES}\\b[^>]*>[\\s\\S]*$`,
+  'gi',
+);
 const FENCE_RE = /^\s*```(?:json|text|markdown)?\s*([\s\S]*?)\s*```\s*$/i;
 const PLAIN_REASONING_PREFIX_RE =
-  /^\s*(?:thinking\s+process|chain\s+of\s+thought|scratchpad)\s*:\s*/i;
+  /^\s*(?:thinking\s+process|chain\s+of\s+thought|scratchpad|analysis|reasoning|thinking|thought|deliberation|reflection)\s*:\s*/i;
+const FINAL_ANSWER_RE =
+  /(?:^|\n)\s*(?:final\s+answer|final|answer|response)\s*:\s*/i;
 
 function looksLikePlainReasoning(text: string): boolean {
   return PLAIN_REASONING_PREFIX_RE.test(text);
@@ -73,12 +83,23 @@ function readQuotedValue(
 }
 
 function stripReasoningArtifacts(raw: string): string {
-  return raw
+  const text = raw
     .replace(REASONING_TAG_RE, '\n')
     .replace(UNCLOSED_REASONING_TAG_RE, '')
     .replace(SELF_CLOSING_REASONING_TAG_RE, '')
-    .replace(/^\s*(?:analysis|reasoning|thinking|scratchpad)\s*:\s*/gim, '')
-    .replace(/^\s*(?:final answer|answer)\s*:\s*/gim, '')
+    .trim();
+  const prefix = text.match(PLAIN_REASONING_PREFIX_RE);
+  if (prefix) {
+    const remainder = text.slice(prefix[0].length);
+    const final = remainder.match(FINAL_ANSWER_RE);
+    if (final) return remainder.slice(final.index! + final[0].length).trim();
+
+    /* Keep a structured payload even when the provider omitted a final label. */
+    const structured = remainder.search(/```(?:json)?\s*\{|\{/i);
+    return structured >= 0 ? remainder.slice(structured).trim() : '';
+  }
+  return text
+    .replace(/^\s*(?:final answer|final|answer|response)\s*:\s*/gim, '')
     .trim();
 }
 

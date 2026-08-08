@@ -194,11 +194,12 @@ echo ""
 echo "  Configure the '$INSTANCE_NAME' VPS environment. Press Enter to accept defaults."
 echo ""
 
-read -r -p "  OpenRouter API key (sk-or-...) [leave blank for Ollama]: " VPS_OR_KEY
-VPS_OR_KEY="${VPS_OR_KEY:-}"
-
-read -r -p "  App password (empty = no auth): " VPS_AUTH_PW
+read -r -s -p "  App password (required; use at least 12 characters): " VPS_AUTH_PW
+echo
 VPS_AUTH_PW="${VPS_AUTH_PW:-}"
+if (( ${#VPS_AUTH_PW} < 12 )); then
+  die "A strong app password is required for remote deployments (minimum 12 characters)."
+fi
 
 VPS_SESSION_SECRET="${DIGEST_PWA_SESSION_SECRET:-}"
 if [[ -z "$VPS_SESSION_SECRET" ]]; then
@@ -234,7 +235,7 @@ OPENROUTER_API_KEY=$VPS_OR_KEY
 CONDENSEIT_AUTH_PASSWORD=$VPS_AUTH_PW
 DIGEST_PWA_AUTH_PASSWORD=$VPS_AUTH_PW
 DIGEST_PWA_SESSION_SECRET=$VPS_SESSION_SECRET
-
+CONDENSEIT_HTTPS_ONLY=1
 # Scheduler
 CONDENSEIT_SCHEDULER_ENABLED=$VPS_SCHEDULER_ENABLED
 

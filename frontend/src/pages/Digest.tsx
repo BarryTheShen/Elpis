@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'preact/hooks';
+import { useState, useEffect, useCallback, useRef } from 'preact/hooks';
 import { Link, useSearch } from 'wouter';
 import { api } from '../lib/api';
 import type { DigestDetail, DigestItem } from '../lib/types';
@@ -88,6 +88,9 @@ export function DigestPage({ onDigestLoaded, readOnly = false }: DigestPageProps
 
   /** Item currently open in the detail panel, or null when closed. */
   const [selectedItem, setSelectedItem] = useState<DigestItem | null>(null);
+  /** Monotonically identifies the latest digest/state request. */
+  const requestVersion = useRef(0);
+
 
   useEffect(() => {
     const handleDigestCompleted = () => setRefreshToken((value) => value + 1);
@@ -97,6 +100,8 @@ export function DigestPage({ onDigestLoaded, readOnly = false }: DigestPageProps
   }, []);
 
   useEffect(() => {
+    const version = ++requestVersion.current;
+    let active = true;
     setLoading(true);
     setError(null);
 
@@ -122,6 +127,8 @@ export function DigestPage({ onDigestLoaded, readOnly = false }: DigestPageProps
       starredUrlsRequest,
     ])
       .then(([d, { urls: fetchedReadUrls }, { urls: fetchedReadLaterUrls }, { urls: fetchedStarredUrls }]) => {
+        if (!active || requestVersion.current !== version) return;
+
         setDetail(d);
         setFiltered(d?.items ?? []);
         onDigestLoaded?.(d?.meta.id ?? null);
@@ -142,9 +149,16 @@ export function DigestPage({ onDigestLoaded, readOnly = false }: DigestPageProps
         setStarredUrls(new Set(fetchedStarredUrls));
       })
       .catch((e: unknown) => {
+        if (!active || requestVersion.current !== version) return;
         setError(e instanceof Error ? e.message : 'Failed to load digest.');
       })
-      .finally(() => setLoading(false));
+      .finally(() => {
+        if (active && requestVersion.current === version) setLoading(false);
+      });
+
+    return () => {
+      active = false;
+    };
   }, [requestedId, readOnly, onDigestLoaded, refreshToken]);
 
   /** Update ratings after a card-level save. */
@@ -196,12 +210,26 @@ export function DigestPage({ onDigestLoaded, readOnly = false }: DigestPageProps
       const next = new Set(readLaterUrls);
       if (saved) {
         next.delete(url);
-        api.removeReadLater(url).catch(() => undefined);
       } else {
         next.add(url);
-        api.saveReadLater(item).catch(() => undefined);
       }
       setReadLaterUrls(next);
+
+      const request = saved
+        ? api.removeReadLater(url)
+        : api.saveReadLater(item);
+      request.catch(() => {
+        // Restore only this URL so unrelated optimistic changes survive.
+        setReadLaterUrls((current) => {
+          const rolled = new Set(current);
+          if (saved) {
+            rolled.add(url);
+          } else {
+            rolled.delete(url);
+          }
+          return rolled;
+        });
+      });
     },
     [readLaterUrls],
   );
@@ -214,12 +242,26 @@ export function DigestPage({ onDigestLoaded, readOnly = false }: DigestPageProps
       const next = new Set(starredUrls);
       if (starred) {
         next.delete(url);
-        api.unstarItem(url).catch(() => undefined);
       } else {
         next.add(url);
-        api.starItem(item).catch(() => undefined);
       }
       setStarredUrls(next);
+
+      const request = starred
+        ? api.unstarItem(url)
+        : api.starItem(item);
+      request.catch(() => {
+        // Restore only this URL so unrelated optimistic changes survive.
+        setStarredUrls((current) => {
+          const rolled = new Set(current);
+          if (starred) {
+            rolled.add(url);
+          } else {
+            rolled.delete(url);
+          }
+          return rolled;
+        });
+      });
     },
     [starredUrls],
   );

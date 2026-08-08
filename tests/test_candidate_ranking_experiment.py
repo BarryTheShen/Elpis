@@ -34,7 +34,9 @@ def _article(
     }
 
 
-def test_large_candidate_pool_surfaces_keyword_relevant_articles(tmp_path: Path) -> None:
+def test_large_candidate_pool_surfaces_keyword_relevant_articles(
+    tmp_path: Path,
+) -> None:
     """Hundreds of distractors do not bury articles matching the reader brief."""
     store = ContentStore(db_path=tmp_path / "ranking.db")
     engine = PreferenceEngine(store, min_ratings=5)
@@ -103,7 +105,9 @@ def test_similar_story_variants_use_learned_source_preference(tmp_path: Path) ->
     ranked = engine.rank_articles(variants)
 
     assert ranked[0]["source"] == "Trusted Security Desk"
-    assert ranked[0]["score_breakdown"]["source"] > ranked[1]["score_breakdown"]["source"]
+    trusted_source_score = ranked[0]["score_breakdown"]["source"]
+    broad_source_score = ranked[1]["score_breakdown"]["source"]
+    assert trusted_source_score > broad_source_score
 
 
 def test_near_duplicate_titles_keep_the_highest_ranked_version() -> None:

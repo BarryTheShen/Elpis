@@ -1,18 +1,19 @@
 """FastAPI application: digest, ratings, admin."""
 
 import asyncio
+import hashlib
 import json
 import logging
 import os
 import re
 import secrets
+import time
 from collections.abc import AsyncIterator, Callable
-from contextlib import asynccontextmanager
+from contextlib import AsyncExitStack, asynccontextmanager
 from pathlib import Path
 from typing import Any
 from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
-import markdown
 from fastapi import FastAPI, Query, Request
 from fastapi.responses import (
     FileResponse,
@@ -23,15 +24,18 @@ from fastapi.responses import (
     Response,
 )
 from fastapi.staticfiles import StaticFiles
+from mcp.server.transport_security import TransportSecuritySettings
+from starlette.concurrency import run_in_threadpool
 from starlette.middleware.sessions import SessionMiddleware
 
 from condenseit.api_urls import (
     OPENROUTER_KEY_URL,
+    is_youtube_url,
     youtube_channel_feed_url,
     youtube_handle_page_url,
 )
 from condenseit.config import LOCAL_INSTALL_FALLBACK_CREDENTIAL, load_config
-from condenseit.digest.format import order_digest_items
+from condenseit.digest.format import order_digest_items, render_digest_html
 from condenseit.learning.preference_engine import PreferenceEngine
 from condenseit.network import (
     async_httpx_client,
@@ -41,13 +45,17 @@ from condenseit.network import (
     safe_network_error,
     sanitize_network_text,
 )
-from condenseit.providers.base import parse_summary_response
+from condenseit.providers.base import (
+    parse_summary_response,
+    sanitize_reasoning_content,
+)
 from condenseit.providers.catalog import (
     get_provider_base_url,
     get_provider_model,
     get_provider_spec,
 )
 from condenseit.providers.litellm_client import call_litellm
+from condenseit.services.mcp_server import create_mcp_server
 from condenseit.setting_parsers import parse_json_list
 from condenseit.settings_overlay import apply_db_settings
 from condenseit.store.database import ContentStore
@@ -55,6 +63,11 @@ from condenseit.store.secure_keys import SecureKeyStore
 from condenseit.web.admin.routes import create_admin_router
 from condenseit.web.digest_job import DigestJobManager
 from condenseit.web.feed import create_feed_router
+from condenseit.web.passwords import (
+    hash_password,
+    is_password_hash,
+    verify_password,
+)
 from condenseit.web.scheduler import (
     _SCHEDULER_STATE,
     get_scheduler_status,
@@ -76,8 +89,12 @@ _PUBLICATION_API_PATHS = frozenset(
         "/api/discovery",
     }
 )
+_DIGEST_SHUTDOWN_TIMEOUT_SECONDS = 10.0
 _DIGEST_DETAIL_PATH = re.compile(r"^/api/digests/\d+$")
 _MAX_READER_CONTENT_CHARS = 200_000
+_PUBLIC_DISCOVERY_PATHS = frozenset({"/api/discover", "/api/discovery"})
+_DISCOVERY_RATE_WINDOW_SECONDS = 60.0
+_DISCOVERY_RATE_LIMIT = 20
 _MAX_READER_METADATA_CHARS = 2_048
 # Learned ranking signals and actions are private to the authenticated reader.
 _PUBLIC_PERSONAL_ITEM_FIELDS = frozenset(
@@ -97,6 +114,38 @@ def _is_publication_read_request(request: Request) -> bool:
         return False
     path = request.url.path
     return path in _PUBLICATION_API_PATHS or bool(_DIGEST_DETAIL_PATH.fullmatch(path))
+
+
+def _mcp_allowed_hosts() -> list[str]:
+    """Return the explicit Host allowlist for the mounted MCP endpoint."""
+    configured = os.environ.get("CONDENSEIT_MCP_ALLOWED_HOSTS", "")
+    values = [part.strip() for part in configured.split(",") if part.strip()]
+    if not values:
+        values = [
+            "localhost",
+            "localhost:*",
+            "127.0.0.1",
+            "127.0.0.1:*",
+            "[::1]",
+            "[::1]:*",
+        ]
+    domain = os.environ.get("DIGEST_PWA_DOMAIN", "").strip()
+    if domain:
+        domain = re.sub(r"^https?://", "", domain).rstrip("/")
+        if domain:
+            values.extend([domain, f"{domain}:*"])
+    return list(dict.fromkeys(values))
+
+
+def _mcp_allowed_origins(hosts: list[str]) -> list[str]:
+    origins: list[str] = []
+    for host in hosts:
+        if host.endswith(":*"):
+            base = host[:-2]
+            origins.extend([f"http://{base}:*", f"https://{base}:*"])
+        else:
+            origins.extend([f"http://{host}", f"https://{host}"])
+    return list(dict.fromkeys(origins))
 
 
 def _frontend_dist_dir() -> Path:
@@ -120,13 +169,14 @@ _SUMMARY_PREFIX = re.compile(
     re.IGNORECASE,
 )
 _NOTE_SUFFIX = re.compile(r"\n+\s*note:\s.*$", re.IGNORECASE | re.DOTALL)
-_REASONING_BLOCK = re.compile(
-    r"<(?:think|thinking|analysis|reasoning)\b[^>]*>.*?"
-    r"(?:</(?:think|thinking|analysis|reasoning)\s*>|$)",
-    re.IGNORECASE | re.DOTALL,
-)
 _PLAIN_REASONING_PREFIX = re.compile(
-    r"^\s*(?:thinking\s+process|chain\s+of\s+thought|scratchpad)\s*:\s*",
+    r"^\s*(?:thinking\s+process|chain\s+of\s+thought|scratchpad|"
+    r"analysis|reasoning|thinking|thought|deliberation|reflection)"
+    r"\s*:\s*",
+    re.IGNORECASE,
+)
+_FINAL_ANSWER_LABEL = re.compile(
+    r"(?:^|\n)\s*(?:final\s+answer|final|answer|response)\s*:\s*",
     re.IGNORECASE,
 )
 
@@ -138,7 +188,12 @@ def _looks_like_plain_reasoning(value: str) -> bool:
 
 def _strip_reasoning(raw: str) -> str:
     """Remove provider-private reasoning before it reaches a reader."""
-    return _REASONING_BLOCK.sub("", raw or "").strip()
+    visible = sanitize_reasoning_content(raw or "").strip()
+    prefix = _PLAIN_REASONING_PREFIX.match(visible)
+    if not prefix:
+        return visible
+    final = _FINAL_ANSWER_LABEL.search(visible, prefix.end())
+    return visible[final.end() :].strip() if final else ""
 
 
 def _clean_takeaways(raw: Any) -> list[str]:
@@ -164,11 +219,16 @@ def _clean_summary(raw: str) -> str:
 
 def _normalize_item(row: dict[str, Any]) -> dict[str, Any]:
     row = dict(row)
+    row["kind"] = str(row.get("kind") or "article")
     raw_summary = str(row.get("summary") or "")
     visible_summary = _strip_reasoning(raw_summary)
     structured = visible_summary.lstrip().startswith(("{", "```"))
     plain_reasoning = _looks_like_plain_reasoning(visible_summary)
-    if structured or plain_reasoning or not (row.get("tldr") or row.get("key_takeaways")):
+    if (
+        structured
+        or plain_reasoning
+        or not (row.get("tldr") or row.get("key_takeaways"))
+    ):
         parsed = parse_summary_response(visible_summary)
 
         if structured or plain_reasoning:
@@ -209,8 +269,48 @@ def create_app(config_path: str | None = None) -> FastAPI:
             "Marked %d digest run(s) interrupted by server restart",
             interrupted_runs,
         )
-    if not store.get_setting("auth_generation"):
+    db_auth_password = store.get_setting("auth_password", "").strip()
+    env_auth_password = (
+        os.environ.get("CONDENSEIT_AUTH_PASSWORD", "").strip()
+        or os.environ.get("DIGEST_PWA_AUTH_PASSWORD", "").strip()
+    )
+    allow_insecure_default = (
+        os.environ.get("CONDENSEIT_ALLOW_INSECURE_DEFAULT", "").strip() == "1"
+    )
+    legacy_default = db_auth_password == LOCAL_INSTALL_FALLBACK_CREDENTIAL
+    auth_password = (
+        env_auth_password
+        if legacy_default and env_auth_password
+        else db_auth_password or env_auth_password
+    )
+    if not auth_password and allow_insecure_default:
+        auth_password = LOCAL_INSTALL_FALLBACK_CREDENTIAL
+    if not auth_password:
+        raise RuntimeError(
+            "Admin password is not configured. Set CONDENSEIT_AUTH_PASSWORD "
+            "or DIGEST_PWA_AUTH_PASSWORD before starting Elpis."
+        )
+    if legacy_default and not env_auth_password and not allow_insecure_default:
+        raise RuntimeError(
+            "The legacy default admin password is disabled. Set a new "
+            "password in CONDENSEIT_AUTH_PASSWORD."
+        )
+    # Migrate passwords written by older releases without retaining the
+    # plaintext credential in SQLite. The built-in fallback remains explicit
+    # until the user replaces it.
+    if db_auth_password and not legacy_default and not is_password_hash(
+        db_auth_password
+    ):
+        auth_password = hash_password(db_auth_password)
+        store.set_setting("auth_password", auth_password)
+    auth_fingerprint = hashlib.sha256(auth_password.encode("utf-8")).hexdigest()
+    stored_auth_fingerprint = store.get_setting("auth_password_fingerprint", "")
+    if (
+        not store.get_setting("auth_generation")
+        or stored_auth_fingerprint != auth_fingerprint
+    ):
         store.set_setting("auth_generation", secrets.token_hex(16))
+        store.set_setting("auth_password_fingerprint", auth_fingerprint)
     config = apply_db_settings(config, store)
     pruned_digests = store.prune_digests(config.digest_history_limit)
     if pruned_digests:
@@ -221,6 +321,18 @@ def create_app(config_path: str | None = None) -> FastAPI:
         )
     job_manager = DigestJobManager(config_path, store=store)
     spa_dist = _frontend_dist_dir()
+    mcp_token = os.environ.get("CONDENSEIT_MCP_TOKEN", "").strip()
+    mcp_server = None
+    mcp_http_app = None
+    if mcp_token:
+        allowed_hosts = _mcp_allowed_hosts()
+        mcp_server = create_mcp_server(store, config_path)
+        mcp_server.settings.transport_security = TransportSecuritySettings(
+            enable_dns_rebinding_protection=True,
+            allowed_hosts=allowed_hosts,
+            allowed_origins=_mcp_allowed_origins(allowed_hosts),
+        )
+        mcp_http_app = mcp_server.streamable_http_app()
     relevance = config.relevance
     preferences = PreferenceEngine(
         store,
@@ -259,37 +371,48 @@ def create_app(config_path: str | None = None) -> FastAPI:
 
     @asynccontextmanager
     async def lifespan(app: FastAPI) -> AsyncIterator[None]:
-        # Always start the scheduler task; the loop checks _is_scheduler_enabled()
-        # on each iteration so it can be toggled live from the admin UI.
-        _SCHEDULER_STATE["schedule_times"] = _get_schedule_times()
-        task = asyncio.create_task(
-            scheduler_loop(
-                _get_schedule_times,
-                job_manager.start,
-                is_enabled=_is_scheduler_enabled,
-                get_timezone=_get_schedule_timezone,
-            ),
-            name="condenseit-scheduler",
-        )
-        try:
-            yield
-        finally:
-            task.cancel()
+        # The mounted MCP app does not own the host application's lifespan.
+        # Enter its session manager here so streamable HTTP sessions are
+        # initialized and closed with the single Elpis process.
+        async with AsyncExitStack() as stack:
+            if mcp_server is not None:
+                await stack.enter_async_context(mcp_server.session_manager.run())
+            _SCHEDULER_STATE["schedule_times"] = _get_schedule_times()
+            task = asyncio.create_task(
+                scheduler_loop(
+                    _get_schedule_times,
+                    job_manager.start,
+                    is_enabled=_is_scheduler_enabled,
+                    get_timezone=_get_schedule_timezone,
+                ),
+                name="condenseit-scheduler",
+            )
             try:
-                await task
-            except asyncio.CancelledError:
-                pass
+                yield
+            finally:
+                task.cancel()
+                try:
+                    await task
+                except asyncio.CancelledError:
+                    pass
+                drained = await run_in_threadpool(
+                    job_manager.shutdown,
+                    timeout=10.0,
+                )
+                if not drained:
+                    logging.getLogger(__name__).error(
+                        "Digest worker is still draining after bounded shutdown wait"
+                    )
 
     app = FastAPI(title="Elpis", docs_url="/docs", lifespan=lifespan)
     app.state.job_manager = job_manager
     app.state.store = store
     templates.env.globals["digest_job"] = job_manager.snapshot
 
-    default_auth_password = LOCAL_INSTALL_FALLBACK_CREDENTIAL
-    _env_auth_password = (
-        os.environ.get("CONDENSEIT_AUTH_PASSWORD", "").strip()
-        or os.environ.get("DIGEST_PWA_AUTH_PASSWORD", "").strip()
+    default_auth_password = (
+        LOCAL_INSTALL_FALLBACK_CREDENTIAL if allow_insecure_default else ""
     )
+    _env_auth_password = env_auth_password
     _session_secret = os.environ.get("DIGEST_PWA_SESSION_SECRET", "").strip()
 
     if not _session_secret:
@@ -301,12 +424,72 @@ def create_app(config_path: str | None = None) -> FastAPI:
         )
         _session_secret = secrets.token_hex(32)
 
+    _login_failures: dict[str, tuple[int, float]] = {}
+    _login_window_seconds = 300.0
+    _login_max_failures = 5
+
+    def _login_client_key(request: Request) -> str:
+        client = request.client
+        return str(client.host) if client and client.host else "unknown"
+
+    def _login_is_limited(request: Request) -> bool:
+        key = _login_client_key(request)
+        record = _login_failures.get(key)
+        if record is None:
+            return False
+        _count, first_failed_at = record
+        if time.monotonic() - first_failed_at >= _login_window_seconds:
+            _login_failures.pop(key, None)
+            return False
+        return _count >= _login_max_failures
+
+    def _record_login_failure(request: Request) -> None:
+        key = _login_client_key(request)
+        now = time.monotonic()
+        count, first_failed_at = _login_failures.get(key, (0, now))
+        if now - first_failed_at >= _login_window_seconds:
+            count, first_failed_at = 0, now
+        _login_failures[key] = (count + 1, first_failed_at)
+
+    def _clear_login_failures(request: Request) -> None:
+        _login_failures.pop(_login_client_key(request), None)
+
+    def _login_retry_after(request: Request) -> int:
+        record = _login_failures.get(_login_client_key(request))
+        if record is None:
+            return int(_login_window_seconds)
+        remaining = _login_window_seconds - (time.monotonic() - record[1])
+        return max(1, int(remaining))
+
+    _discovery_requests: dict[str, tuple[int, float]] = {}
+
+    def _public_discovery_rate_limit(request: Request) -> int | None:
+        """Return retry seconds when a public discovery client is throttled."""
+        key = _login_client_key(request)
+        now = time.monotonic()
+        count, started = _discovery_requests.get(key, (0, now))
+        if now - started >= _DISCOVERY_RATE_WINDOW_SECONDS:
+            count, started = 0, now
+        if count >= _DISCOVERY_RATE_LIMIT:
+            return max(1, int(_DISCOVERY_RATE_WINDOW_SECONDS - (now - started)))
+        if key not in _discovery_requests and len(_discovery_requests) >= 4_096:
+            cutoff = now - _DISCOVERY_RATE_WINDOW_SECONDS
+            for old_key, (_old_count, old_started) in list(
+                _discovery_requests.items()
+            ):
+                if old_started < cutoff:
+                    _discovery_requests.pop(old_key, None)
+            if len(_discovery_requests) >= 4_096:
+                _discovery_requests.pop(next(iter(_discovery_requests)))
+        _discovery_requests[key] = (count + 1, started)
+        return None
+
     def _get_auth_password() -> str:
-        """Effective password: DB > env var > built-in default."""
-        db_pw = store.get_setting("auth_password", "")
-        if db_pw:
-            return db_pw
-        return _env_auth_password if _env_auth_password else default_auth_password
+        """Return the configured admin password or encoded password hash."""
+        db_pw = store.get_setting("auth_password", "").strip()
+        if db_pw == LOCAL_INSTALL_FALLBACK_CREDENTIAL and _env_auth_password:
+            return _env_auth_password
+        return db_pw or _env_auth_password or default_auth_password
 
     def _get_auth_generation() -> str:
         return store.get_setting("auth_generation", "")
@@ -328,7 +511,7 @@ def create_app(config_path: str | None = None) -> FastAPI:
         if _session_is_authenticated(request):
             return True
         auth_header = request.headers.get("Authorization", "")
-        return auth_header.startswith("Bearer ") and secrets.compare_digest(
+        return auth_header.startswith("Bearer ") and verify_password(
             auth_header[len("Bearer ") :].strip(),
             _get_auth_password(),
         )
@@ -344,9 +527,43 @@ def create_app(config_path: str | None = None) -> FastAPI:
         request: Request,
         body: dict[str, Any],
     ) -> JSONResponse:
+        if _login_is_limited(request):
+            return JSONResponse(
+                {"error": "Too many login attempts. Try again later."},
+                status_code=429,
+                headers={"Retry-After": str(_login_retry_after(request))},
+            )
         pw = str(body.get("password", "")).strip()
-        if not pw or not secrets.compare_digest(pw, _get_auth_password()):
+        credential = _get_auth_password()
+        if (
+            not pw
+            or len(pw) > 256
+            or not verify_password(pw, credential)
+        ):
+            _record_login_failure(request)
+            if _login_is_limited(request):
+                return JSONResponse(
+                    {"error": "Too many login attempts. Try again later."},
+                    status_code=429,
+                    headers={"Retry-After": str(_login_retry_after(request))},
+                )
             return JSONResponse({"error": "Invalid password"}, status_code=401)
+
+        _clear_login_failures(request)
+        # Upgrade a legacy database plaintext password only after successful
+        # verification. Environment credentials are never copied into SQLite.
+        db_pw = store.get_setting("auth_password", "").strip()
+        if (
+            db_pw
+            and db_pw != LOCAL_INSTALL_FALLBACK_CREDENTIAL
+            and not is_password_hash(db_pw)
+        ):
+            migrated = hash_password(pw)
+            store.set_setting("auth_password", migrated)
+            store.set_setting(
+                "auth_password_fingerprint",
+                hashlib.sha256(migrated.encode("utf-8")).hexdigest(),
+            )
         request.session["authenticated"] = True
         request.session["auth_generation"] = _get_auth_generation()
         return JSONResponse({"ok": True})
@@ -363,6 +580,36 @@ def create_app(config_path: str | None = None) -> FastAPI:
         call_next: Callable,
     ) -> Response:
         path = request.url.path
+        is_mcp_route = path == "/mcp" or path.startswith("/mcp/")
+        if is_mcp_route:
+            if mcp_server is None:
+                return JSONResponse({"detail": "MCP is disabled"}, status_code=404)
+            auth_header = request.headers.get("Authorization", "")
+            scheme, _, supplied_token = auth_header.partition(" ")
+            if (
+                scheme.casefold() != "bearer"
+                or not supplied_token.strip()
+                or not secrets.compare_digest(
+                    supplied_token.strip(),
+                    mcp_token,
+                )
+            ):
+                return JSONResponse(
+                    {"detail": "MCP bearer token required"},
+                    status_code=401,
+                    headers={"WWW-Authenticate": "Bearer"},
+                )
+            return await call_next(request)
+
+        if request.method == "GET" and path in _PUBLIC_DISCOVERY_PATHS:
+            retry_after = _public_discovery_rate_limit(request)
+            if retry_after is not None:
+                return JSONResponse(
+                    {"error": "Discovery rate limit exceeded. Try again later."},
+                    status_code=429,
+                    headers={"Retry-After": str(retry_after)},
+                )
+
         is_protected_api = (
             path.startswith("/api/")
             and not path.startswith("/api/auth/")
@@ -400,6 +647,29 @@ def create_app(config_path: str | None = None) -> FastAPI:
 
     _https_only = os.environ.get("CONDENSEIT_HTTPS_ONLY", "").strip()
     https_only = _https_only == "1" if _https_only else False
+
+    @app.middleware("http")
+    async def _security_headers(
+        request: Request,
+        call_next: Callable,
+    ) -> Response:
+        response = await call_next(request)
+        response.headers.setdefault("X-Content-Type-Options", "nosniff")
+        response.headers.setdefault("X-Frame-Options", "DENY")
+        response.headers.setdefault(
+            "Referrer-Policy",
+            "strict-origin-when-cross-origin",
+        )
+        response.headers.setdefault(
+            "Permissions-Policy",
+            "camera=(), geolocation=(), microphone=()",
+        )
+        if https_only:
+            response.headers.setdefault(
+                "Strict-Transport-Security",
+                "max-age=31536000; includeSubDomains",
+            )
+        return response
     app.add_middleware(
         SessionMiddleware,
         secret_key=_session_secret,
@@ -407,6 +677,19 @@ def create_app(config_path: str | None = None) -> FastAPI:
         https_only=https_only,
         same_site="lax",
     )
+
+    if mcp_http_app is not None:
+        # Keep MCP on the same origin and listener as the publication UI.
+        app.mount("/mcp", mcp_http_app, name="mcp")
+        app.state.mcp_server = mcp_server
+
+        @app.api_route(
+            "/mcp",
+            methods=["GET", "POST", "DELETE", "OPTIONS"],
+            include_in_schema=False,
+        )
+        async def mcp_root_redirect() -> RedirectResponse:
+            return RedirectResponse("/mcp/", status_code=307)
 
     if _STATIC.is_dir():
         app.mount("/static", StaticFiles(directory=str(_STATIC)), name="static")
@@ -513,7 +796,8 @@ def create_app(config_path: str | None = None) -> FastAPI:
         dry_run: int = Query(0),
         skip_deploy: int = Query(0),
     ) -> JSONResponse:
-        ok, message = job_manager.start(
+        ok, message = await run_in_threadpool(
+            job_manager.start,
             dry_run=bool(dry_run),
             skip_deploy=bool(skip_deploy),
         )
@@ -899,7 +1183,8 @@ def create_app(config_path: str | None = None) -> FastAPI:
                 if provider == "openrouter"
                 else None
             )
-            result = call_litellm(
+            result = await run_in_threadpool(
+                call_litellm,
                 provider=provider,
                 model=model,
                 messages=[
@@ -1139,15 +1424,32 @@ def create_app(config_path: str | None = None) -> FastAPI:
             )
 
         raw = handle.strip()
-        # Normalise to a full URL
-        if raw.startswith("http"):
+        if not raw or len(raw) > 2_048:
+            return JSONResponse(
+                {"error": "handle must be a valid YouTube handle or URL"},
+                status_code=422,
+            )
+        # Only pass YouTube-hosted URLs to yt-dlp. Arbitrary URLs here would
+        # turn this convenience endpoint into an authenticated SSRF primitive.
+        if raw.startswith(("http://", "https://")):
+            if not is_youtube_url(raw):
+                return JSONResponse(
+                    {"error": "handle must be a valid YouTube handle or URL"},
+                    status_code=422,
+                )
             url = raw.rstrip("/")
         else:
             url = youtube_handle_page_url(raw)
-
+        if not is_youtube_url(url):
+            return JSONResponse(
+                {"error": "handle must be a valid YouTube handle or URL"},
+                status_code=422,
+            )
+        url = url.rstrip("/")
         # Append /videos so yt-dlp treats it as a channel playlist
         if not url.endswith("/videos"):
-            url = url.rstrip("/") + "/videos"
+            url += "/videos"
+
 
         network_settings = load_network_proxy(store)
         try:
@@ -1160,7 +1462,8 @@ def create_app(config_path: str | None = None) -> FastAPI:
                 "1",
                 url,
             ]
-            result = subprocess.run(
+            result = await run_in_threadpool(
+                subprocess.run,
                 yt_args,
                 capture_output=True,
                 text=True,
@@ -1453,7 +1756,7 @@ def _load_digest(
         return None, "", {}, []
 
     md = row.get("markdown") or ""
-    html = markdown.markdown(md, extensions=["tables", "fenced_code"])
+    html = render_digest_html(md)
     meta = _parse_stats(row.get("stats_json", ""))
     raw_items = meta.pop("digest_items", None)
     digest_items: list[dict[str, Any]] = (

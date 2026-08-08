@@ -51,9 +51,9 @@ const COLORS: Record<BadgeVariant, string> = {
     'bg-[#f0efed] dark:bg-[#2a2927] text-[#5f5c57] dark:text-[#d0cdc6]',
 };
 
-/** Determines badge variant from a string value. */
-export function kindVariant(kind: string): BadgeVariant {
-  const k = kind.toLowerCase();
+/** Determines badge variant from a possibly legacy or incomplete item kind. */
+export function kindVariant(kind: string | null | undefined): BadgeVariant {
+  const k = (kind || 'article').toLowerCase();
   if (k === 'article') return 'article';
   if (k === 'video') return 'video';
   if (k === 'watch') return 'watch';

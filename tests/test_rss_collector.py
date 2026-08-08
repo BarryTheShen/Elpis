@@ -15,6 +15,10 @@ from condenseit.config import FeedConfig
 def test_collect_feed_falls_back_to_urllib_on_403(
     monkeypatch,
 ) -> None:
+    monkeypatch.setattr(
+        "condenseit.services.source_discovery._host_resolves_publicly",
+        lambda *_args: True,
+    )
     feed_url = "https://blocked.example/feed"
     article_url = "https://blocked.example/post"
 
@@ -162,3 +166,114 @@ def test_collect_feed_extracts_pages_concurrently_in_feed_order(
     assert [article.url for article in articles] == [
         entry["link"] for entry in entries
     ]
+
+
+
+def test_collect_feed_deduplicates_canonical_links_before_limit(
+    monkeypatch,
+) -> None:
+    entries = [
+        {
+            "link": "https://example.com/article",
+            "title": "First",
+            "summary": "Summary first",
+        },
+        {
+            "link": "https://example.com/article#duplicate",
+            "title": "Duplicate",
+            "summary": "Summary duplicate",
+        },
+        {
+            "link": "https://example.com/second/",
+            "title": "Second",
+            "summary": "Summary second",
+        },
+    ]
+    parsed = SimpleNamespace(feed={"title": "Synthetic"}, entries=entries)
+    monkeypatch.setattr(
+        "condenseit.collectors.rss.feedparser.parse",
+        lambda _text: parsed,
+    )
+    collector = RSSCollector(
+        [FeedConfig(url="https://example.com/feed", max_items=2)]
+    )
+    monkeypatch.setattr(collector, "_fetch_feed_text", lambda _url: "<rss />")
+    monkeypatch.setattr(
+        collector,
+        "_extract_content",
+        lambda _url, entry: (entry["summary"], None),
+    )
+
+    articles = collector.collect_all()
+
+    assert [article.url for article in articles] == [
+        "https://example.com/article",
+        "https://example.com/second",
+    ]
+
+
+def test_rss_article_fetch_rejects_unsafe_links_and_redirects(monkeypatch) -> None:
+    monkeypatch.setattr(
+        "condenseit.services.source_discovery._host_resolves_publicly",
+        lambda *_args: True,
+    )
+    class FakeResponse:
+        status_code = 302
+        url = "https://example.com/article"
+        text = ""
+        headers = {"location": "http://127.0.0.1/private"}
+
+        def raise_for_status(self) -> None:
+            return None
+
+    class RecordingClient:
+        def __init__(self) -> None:
+            self.calls: list[str] = []
+
+        def get(self, url: str, **_kwargs: object) -> FakeResponse:
+            self.calls.append(url)
+            return FakeResponse()
+
+    collector = RSSCollector([])
+    client = RecordingClient()
+    collector.client = client
+    entry = {"summary": "Safe fallback"}
+
+    content, _image = collector._extract_content(
+        "http://10.0.0.1/private",
+        entry,
+    )
+    assert content == "Safe fallback"
+    assert client.calls == []
+
+    content, _image = collector._extract_content(
+        "https://example.com/article",
+        entry,
+    )
+    assert content == "Safe fallback"
+    assert client.calls == ["https://example.com/article"]
+
+
+def test_rss_feed_body_is_bounded(monkeypatch) -> None:
+    monkeypatch.setattr(
+        "condenseit.services.source_discovery._host_resolves_publicly",
+        lambda *_args: True,
+    )
+    class FakeResponse:
+        status_code = 200
+        url = "https://example.com/feed"
+        text = "x" * 600_000
+
+        def raise_for_status(self) -> None:
+            return None
+
+    class FakeClient:
+        def get(self, _url: str, **_kwargs: object) -> FakeResponse:
+            return FakeResponse()
+
+    collector = RSSCollector([])
+    collector.client = FakeClient()
+
+    body = collector._fetch_feed_text("https://example.com/feed")
+
+    assert len(body) == 512_000

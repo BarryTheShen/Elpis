@@ -31,7 +31,7 @@ class RedditCollector:
         self.sources = sources
         self._client = httpx_client(
             timeout=30.0,
-            follow_redirects=True,
+            follow_redirects=False,
             headers=digest_fetch_headers(),
         )
 

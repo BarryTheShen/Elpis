@@ -1,7 +1,9 @@
 """Background digest runs triggered from the web UI."""
 
 import logging
+import math
 import threading
+import time
 from dataclasses import asdict, dataclass
 from datetime import UTC, datetime
 from typing import Any
@@ -64,6 +66,60 @@ class DigestJobManager:
         self._lock = threading.Lock()
         self._thread: threading.Thread | None = None
         self._snapshot = DigestJobSnapshot()
+        self._shutdown_requested = threading.Event()
+        self._accepting = True
+
+    def shutdown(self, *, timeout: float = 10.0) -> bool:
+        """Stop accepting runs and wait for the active worker to drain.
+
+        A digest worker performs network and SQLite writes that cannot be
+        safely interrupted from another thread.  Shutdown therefore uses a
+        bounded join instead of trying to kill the worker halfway through a
+        persistence operation.  The worker is non-daemon so a caller that
+        chooses to continue shutting down after a timeout will not silently
+        abandon those writes.
+        """
+        try:
+            wait_seconds = float(timeout)
+            if not math.isfinite(wait_seconds):
+                wait_seconds = 10.0
+            wait_seconds = max(0.0, wait_seconds)
+        except (TypeError, ValueError):
+            wait_seconds = 10.0
+
+        # Set the gate before waiting for the lock so a concurrent start that
+        # is queued behind a long SQLite initialization cannot begin another
+        # run after shutdown has been requested.
+        self._shutdown_requested.set()
+        started_wait = time.monotonic()
+        if not self._lock.acquire(timeout=wait_seconds):
+            logger.error(
+                "Digest manager lock did not drain within %.1f seconds",
+                wait_seconds,
+            )
+            return False
+        try:
+            self._accepting = False
+            thread = self._thread
+        finally:
+            self._lock.release()
+
+        if thread is None or thread is threading.current_thread():
+            return True
+
+        remaining = max(
+            0.0,
+            wait_seconds - (time.monotonic() - started_wait),
+        )
+        thread.join(timeout=remaining)
+        drained = not thread.is_alive()
+        if not drained:
+            logger.error(
+                "Digest worker did not drain within %.1f seconds; "
+                "leaving it alive to finish safely",
+                wait_seconds,
+            )
+        return drained
 
     def _open_persistence_store(self) -> Any | None:
         """Open a connection dedicated to this manager's persistence work."""
@@ -93,9 +149,13 @@ class DigestJobManager:
         dry_run: bool = False,
         skip_deploy: bool = False,
     ) -> tuple[bool, str]:
+        if self._shutdown_requested.is_set():
+            return False, "Digest manager is shutting down."
         with self._lock:
             if self._snapshot.state == "running":
                 return False, "A digest is already running."
+            if self._shutdown_requested.is_set() or not self._accepting:
+                return False, "Digest manager is shutting down."
 
             started_at = _now_iso()
             run_id: int | None = None
@@ -135,7 +195,7 @@ class DigestJobManager:
                     "started_at": started_at,
                 },
                 name="condenseit-digest",
-                daemon=True,
+                daemon=False,
             )
             self._thread.start()
         return True, "Digest started."
@@ -164,17 +224,36 @@ class DigestJobManager:
             stats = result["stats"]
             articles = stats.get("articles_count", 0)
             slim_stats = {k: v for k, v in stats.items() if k != "digest_items"}
+            post = result.get("post")
+            deploy_error: str | None = None
+            if isinstance(post, dict):
+                deploy = post.get("deploy")
+                if (
+                    isinstance(deploy, dict)
+                    and str(deploy.get("status") or "").strip().lower() == "error"
+                ):
+                    cleaned_error = sanitize_network_text(
+                        str(deploy.get("error") or "unknown error"),
+                        load_network_proxy(),
+                    ).strip()[:500]
+                    deploy_error = cleaned_error or "unknown error"
+            message = (
+                f"Done: {articles} articles in {stats.get('processing_time', '?')}"
+            )
+            error = None
+            if deploy_error is not None:
+                message += " (publication deploy failed)"
+                error = f"Publication deploy failed: {deploy_error}"
             terminal = DigestJobSnapshot(
                 state="completed",
                 run_id=run_id,
-                message=(
-                    f"Done: {articles} articles in {stats.get('processing_time', '?')}"
-                ),
+                message=message,
                 started_at=started_at,
                 finished_at=_now_iso(),
                 stats=slim_stats,
-                post=result.get("post"),
+                post=post,
                 digest_id=digest_id,
+                error=error,
             )
         except Exception as exc:
             error = sanitize_network_text(str(exc), load_network_proxy())

@@ -4,6 +4,8 @@ import html
 import logging
 import re
 from datetime import UTC, datetime
+from typing import Any
+from urllib.parse import urljoin
 
 import feedparser
 
@@ -12,10 +14,12 @@ from condenseit.collectors.health import collect_with_health
 from condenseit.config import PodcastConfig
 from condenseit.fetch_headers import digest_fetch_headers
 from condenseit.network import httpx_client
+from condenseit.services.source_discovery import validate_public_url
 from condenseit.store.database import ContentStore
 
 logger = logging.getLogger(__name__)
 
+_MAX_REDIRECTS = 3
 
 
 def _strip_html(raw: str) -> str:
@@ -25,6 +29,7 @@ def _strip_html(raw: str) -> str:
     return re.sub(r"\s+", " ", plain).strip()
 
 
+
 class PodcastCollector:
     """Collect podcast episodes from RSS/Atom feeds with iTunes extensions."""
 
@@ -32,7 +37,7 @@ class PodcastCollector:
         self.sources = sources
         self._client = httpx_client(
             timeout=30.0,
-            follow_redirects=True,
+            follow_redirects=False,
             headers=digest_fetch_headers(),
         )
 
@@ -52,9 +57,28 @@ class PodcastCollector:
             health.append(entry)
         return articles, health
 
+    def _fetch_feed(self, feed_url: str) -> Any:
+        current = validate_public_url(feed_url)
+        if current is None:
+            raise ValueError("unsafe podcast feed URL")
+        for _ in range(_MAX_REDIRECTS + 1):
+            response = self._client.get(current)
+            final_url = getattr(response, "url", None)
+            if final_url and validate_public_url(str(final_url)) is None:
+                raise ValueError("unsafe podcast response URL")
+            if 300 <= response.status_code < 400:
+                location = str(response.headers.get("location", ""))
+                redirected = validate_public_url(urljoin(current, location))
+                if redirected is None:
+                    raise ValueError("unsafe podcast redirect URL")
+                current = redirected
+                continue
+            response.raise_for_status()
+            return response
+        raise ValueError("too many podcast feed redirects")
+
     def _collect_feed(self, cfg: PodcastConfig) -> list[dict[str, str]]:
-        resp = self._client.get(cfg.feed_url)
-        resp.raise_for_status()
+        resp = self._fetch_feed(cfg.feed_url)
         feed = feedparser.parse(resp.text)
 
         show_name = cfg.name or feed.feed.get("title", cfg.feed_url)

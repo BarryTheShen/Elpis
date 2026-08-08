@@ -296,19 +296,39 @@ def network_subprocess_env(
     *,
     youtube: bool = False,
 ) -> dict[str, str]:
-    """Return an environment for yt-dlp or another outbound subprocess."""
+    """Return a minimal yt-dlp environment with proxy policy applied.
+
+    Do not inherit the application's complete environment: it contains LLM
+    API keys and other credentials that an outbound helper must never receive.
+    """
     resolved = settings or load_network_proxy()
     proxy = (
         resolved.youtube_proxy_override
         if youtube and resolved.youtube_proxy_override
         else resolved.proxy_url
     )
-    env = os.environ.copy()
+    allowed = (
+        "PATH",
+        "HOME",
+        "TMPDIR",
+        "TEMP",
+        "TMP",
+        "LANG",
+        "LC_ALL",
+        "SSL_CERT_FILE",
+        "SSL_CERT_DIR",
+        "REQUESTS_CA_BUNDLE",
+        "CURL_CA_BUNDLE",
+        "XDG_CACHE_HOME",
+    )
+    env = {
+        name: value
+        for name in allowed
+        if (value := os.environ.get(name))
+    }
     for name in _PROXY_ENV_NAMES:
         if proxy:
             env[name] = proxy
-        else:
-            env.pop(name, None)
     if youtube and resolved.youtube_proxy_override:
         for name in _NO_PROXY_ENV_NAMES:
             env[name] = ""
@@ -442,7 +462,7 @@ def test_network_connection(
     started = monotonic()
     with httpx_client(
         settings=settings,
-        follow_redirects=True,
+        follow_redirects=False,
         timeout=10.0,
     ) as client:
         response = client.get(target_url)

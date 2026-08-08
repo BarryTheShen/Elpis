@@ -10,7 +10,7 @@ authors = [{ name = "Elpis contributors" }]
 dependencies = [
   "click>=8.1",
   "cryptography>=43.0",
-  "fastapi>=0.115",
+  "mcp[cli]>=1.12,<2",
   "feedparser>=6.0",
   "httpx[socks]>=0.27",
   "litellm>=1.84.2,<1.85",

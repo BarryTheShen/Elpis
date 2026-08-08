@@ -40,8 +40,23 @@ function unique(items: DigestItem[], key: keyof DigestItem): string[] {
 function passes(it: DigestItem, f: Filters): boolean {
   if (f.search) {
     const q = f.search.toLowerCase();
-    const hay = [it.title, it.summary, it.source, it.category, it.url]
-      .filter(Boolean)
+    // Search the fields that are actually shown in the card/detail views,
+    // including structured LLM metadata that is not part of `summary`.
+    const hay = [
+      it.title,
+      it.summary,
+      it.tldr,
+      ...(it.key_takeaways ?? []),
+      it.source,
+      it.category,
+      it.kind,
+      it.url,
+      ...(it.topics ?? []),
+      ...(it.entities ?? []),
+      it.relevance_to_you,
+      it.score_breakdown?.llm_reason,
+    ]
+      .filter((value): value is string => Boolean(value))
       .join(' ')
       .toLowerCase();
     if (!hay.includes(q)) return false;

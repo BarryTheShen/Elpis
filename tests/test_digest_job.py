@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import threading
 import time
 from unittest.mock import patch
 
@@ -125,4 +126,69 @@ def test_job_manager_completion_is_visible_while_polling(tmp_path) -> None:
     assert "running" in observed_states
     assert manager.snapshot()["state"] == "completed"
     assert store.latest_digest_run()["state"] == "completed"
+    store.close()
+
+
+def test_job_manager_shutdown_drains_active_worker(tmp_path) -> None:
+    store = ContentStore(db_path=tmp_path / "runs.db")
+    manager = DigestJobManager(store=store)
+    entered = threading.Event()
+    release = threading.Event()
+    with patch("condenseit.web.digest_job.execute_digest") as mock_run:
+
+        def slow_run(*_args: object, **_kwargs: object) -> dict[str, object]:
+            entered.set()
+            release.wait(timeout=2)
+            return {
+                "stats": {"articles_count": 1, "processing_time": "1s"},
+                "post": {},
+                "digest_id": 8,
+            }
+
+        mock_run.side_effect = slow_run
+        ok, _ = manager.start()
+        assert ok is True
+        assert entered.wait(timeout=1)
+        assert manager._thread is not None
+        assert manager._thread.daemon is False
+
+        assert manager.shutdown(timeout=0.01) is False
+        assert manager.snapshot()["state"] == "running"
+
+        release.set()
+        assert manager.shutdown(timeout=2) is True
+
+    assert manager.snapshot()["state"] == "completed"
+    assert store.latest_digest_run()["state"] == "completed"
+    ok, message = manager.start()
+    assert ok is False
+    assert "shutting down" in message.lower()
+    store.close()
+
+
+def test_job_manager_keeps_digest_id_on_deploy_failure(tmp_path) -> None:
+    store = ContentStore(db_path=tmp_path / "runs.db")
+    manager = DigestJobManager(store=store)
+    with patch("condenseit.web.digest_job.execute_digest") as mock_run:
+        mock_run.return_value = {
+            "stats": {"articles_count": 2, "processing_time": "1s"},
+            "post": {"deploy": {"status": "error", "error": "ssh failed"}},
+            "digest_id": 12,
+        }
+        ok, _ = manager.start()
+        assert ok is True
+        assert manager._thread is not None
+        manager._thread.join(timeout=2)
+
+    snapshot = manager.snapshot()
+    assert snapshot["state"] == "completed"
+    assert snapshot["digest_id"] == 12
+    assert snapshot["post"]["deploy"]["status"] == "error"
+    assert snapshot["error"] == "Publication deploy failed: ssh failed"
+    assert "publication deploy failed" in snapshot["message"].lower()
+    run = store.latest_digest_run()
+    assert run is not None
+    assert run["state"] == "completed"
+    assert run["digest_id"] == 12
+    assert run["error"] == "Publication deploy failed: ssh failed"
     store.close()

@@ -196,6 +196,15 @@ def test_parse_summary_response_discards_plain_thinking_transcript() -> None:
     assert "thinking process" not in json.dumps(result).lower()
 
 
+def test_parse_summary_response_extracts_delimited_final_answer() -> None:
+    result = parse_summary_response(
+        "Analysis:\nprivate chain.\nFinal answer: Visible summary.",
+    )
+
+    assert result["summary"] == "Visible summary."
+    assert "private chain" not in json.dumps(result)
+
+
 
 def test_parse_summary_response_recovers_visible_fields_from_malformed_json() -> None:
     raw = (

@@ -6,7 +6,13 @@ from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass, field
 from datetime import UTC, datetime
 from urllib.error import URLError
-from urllib.request import Request, urlopen
+from urllib.parse import urljoin
+from urllib.request import (
+    HTTPRedirectHandler,
+    Request,
+    build_opener,
+    urlopen,
+)
 
 import feedparser
 import httpx
@@ -22,10 +28,41 @@ from condenseit.network import (
     requests_session,
     safe_network_error,
 )
+from condenseit.services.source_discovery import canonical_url, validate_public_url
 from condenseit.store.database import ContentStore
 
 logger = logging.getLogger(__name__)
 _ARTICLE_EXTRACTION_WORKERS = 8
+_MAX_FEED_BODY_CHARS = 512_000
+_MAX_FEED_BODY_BYTES = _MAX_FEED_BODY_CHARS
+_MAX_REDIRECTS = 3
+_DEFAULT_URLOPEN = urlopen
+
+
+class _SafeRedirectHandler(HTTPRedirectHandler):
+    def redirect_request(
+        self,
+        req,
+        fp,
+        code,
+        msg,
+        headers,
+        newurl,
+    ):
+        resolved = validate_public_url(urljoin(req.full_url, newurl))
+        if resolved is None:
+            raise ValueError("unsafe redirect URL")
+        return super().redirect_request(
+            req,
+            fp,
+            code,
+            msg,
+            headers,
+            resolved,
+        )
+
+
+_SAFE_URLOPEN = build_opener(_SafeRedirectHandler)
 
 # Matches og:image or twitter:image meta tags in any attribute order.
 # Group 1 captures the content value.
@@ -80,7 +117,7 @@ class RSSCollector:
         self.fetch_headers = digest_fetch_headers()
         self.client = httpx_client(
             timeout=30.0,
-            follow_redirects=True,
+            follow_redirects=False,
             headers=self.fetch_headers,
         )
 
@@ -107,11 +144,17 @@ class RSSCollector:
     def _collect_feed(self, feed: FeedConfig) -> list[CollectedArticle]:
         parsed = feedparser.parse(self._fetch_feed_text(feed.url))
         source_title = parsed.feed.get("title", feed.url)
-        candidates = [
-            (entry, entry.get("link"))
-            for entry in parsed.entries[: feed.max_items]
-            if entry.get("link")
-        ]
+        candidates: list[tuple[feedparser.FeedParserDict, str]] = []
+        seen_links: set[str] = set()
+        for entry in getattr(parsed, "entries", []) or ():
+            if len(candidates) >= feed.max_items:
+                break
+            raw_link = entry.get("link") if hasattr(entry, "get") else None
+            link = canonical_url(raw_link)
+            if link is None or link in seen_links:
+                continue
+            seen_links.add(link)
+            candidates.append((entry, link))
         if not candidates:
             return []
 
@@ -147,43 +190,133 @@ class RSSCollector:
                 )
         return items
 
+    @staticmethod
+    def _redirect_url(current: str, response: object) -> str:
+        headers = getattr(response, "headers", {}) or {}
+        try:
+            location = str(headers.get("location", ""))
+        except Exception as exc:
+            raise ValueError("unsafe redirect URL") from exc
+        redirected = validate_public_url(urljoin(current, location))
+        if redirected is None:
+            raise ValueError("unsafe redirect URL")
+        return redirected
+
+    def _call_get(self, url: str) -> object:
+        get = getattr(self.client, "get", None)
+        if not callable(get):
+            raise TypeError("http client must expose get()")
+        try:
+            return get(url, follow_redirects=False)
+        except TypeError as first:
+            try:
+                return get(url)
+            except TypeError:
+                raise first
+
+    def _safe_get(self, url: str) -> object:
+        current = validate_public_url(url)
+        if current is None:
+            raise ValueError("unsafe URL")
+        for _ in range(_MAX_REDIRECTS + 1):
+            response = self._call_get(current)
+            final_url = getattr(response, "url", None)
+            if final_url and validate_public_url(str(final_url)) is None:
+                raise ValueError("unsafe response URL")
+            status = getattr(response, "status_code", None)
+            if not isinstance(status, int) or not 300 <= status < 400:
+                return response
+            redirected = self._redirect_url(current, response)
+            if redirected == current:
+                return response
+            current = redirected
+        raise ValueError("too many redirects")
+
+    @staticmethod
+    def _response_text(response: object) -> str:
+        text = getattr(response, "text", "")
+        if isinstance(text, bytes):
+            text = text.decode("utf-8", errors="replace")
+        return str(text or "")[:_MAX_FEED_BODY_CHARS]
+
     def _fetch_feed_text(self, url: str) -> str:
-        response = self.client.get(url)
+        safe_url = validate_public_url(url)
+        if safe_url is None:
+            raise ValueError("unsafe URL")
+        response = self._safe_get(safe_url)
         try:
             response.raise_for_status()
         except httpx.HTTPStatusError as exc:
             if exc.response.status_code != 403:
                 raise
-            return self._fetch_feed_text_with_urllib(url, exc)
-        return response.text
+            return self._fetch_feed_text_with_urllib(safe_url, exc)
+        return self._response_text(response)
 
     def _fetch_feed_text_with_urllib(
         self,
         url: str,
         original_exc: httpx.HTTPStatusError,
     ) -> str:
+        safe_url = validate_public_url(url)
+        if safe_url is None:
+            raise ValueError("unsafe URL")
         settings = load_network_proxy()
         if settings.proxy_url.lower().startswith(("socks5://", "socks5h://")):
             try:
+                current = safe_url
                 with requests_session(settings) as session:
-                    response = session.get(
-                        url,
-                        headers=self.fetch_headers,
-                        timeout=30.0,
-                    )
-                    response.raise_for_status()
-                    return response.text
+                    for _ in range(_MAX_REDIRECTS + 1):
+                        response = session.get(
+                            current,
+                            headers=self.fetch_headers,
+                            timeout=30.0,
+                            allow_redirects=False,
+                        )
+                        status = getattr(response, "status_code", None)
+                        if isinstance(status, int) and 300 <= status < 400:
+                            current = self._redirect_url(current, response)
+                            continue
+                        response.raise_for_status()
+                        return str(response.text or "")[:_MAX_FEED_BODY_CHARS]
+                raise ValueError("too many redirects")
+            except ValueError:
+                raise
             except Exception as exc:
                 raise original_exc from exc
-        logger.info("RSS feed %s returned 403 via httpx; retrying with urllib", url)
-        request = Request(url, headers=self.fetch_headers)
+        logger.info(
+            "RSS feed %s returned 403 via httpx; retrying with urllib",
+            safe_url,
+        )
+        request = Request(safe_url, headers=self.fetch_headers)
         try:
-            with urlopen(request, timeout=30.0) as response:
-                body = response.read()
-                encoding = response.headers.get_content_charset() or "utf-8"
+            opener = (
+                _SAFE_URLOPEN if urlopen is _DEFAULT_URLOPEN else None
+            )
+            opened = (
+                opener.open(request, timeout=30.0)
+                if opener is not None
+                else urlopen(request, timeout=30.0)
+            )
+            with opened as response:
+                final_url = getattr(response, "geturl", lambda: safe_url)()
+                if final_url and validate_public_url(str(final_url)) is None:
+                    raise ValueError("unsafe response URL")
+                try:
+                    body = response.read(_MAX_FEED_BODY_BYTES)
+                except TypeError:
+                    body = response.read()
+                headers = getattr(response, "headers", None)
+                get_charset = getattr(headers, "get_content_charset", None)
+                encoding = get_charset() if callable(get_charset) else None
+        except ValueError:
+            raise
         except (OSError, URLError) as exc:
             raise original_exc from exc
-        return body.decode(encoding, errors="replace")
+        if isinstance(body, bytes):
+            return body.decode(encoding or "utf-8", errors="replace")[
+                :_MAX_FEED_BODY_CHARS
+            ]
+        return str(body or "")[:_MAX_FEED_BODY_CHARS]
 
     def _extract_content(
         self,
@@ -197,11 +330,12 @@ class RSSCollector:
         """
         image_url: str | None = None
         try:
-            page = self.client.get(url)
+            page = self._safe_get(url)
             page.raise_for_status()
-            image_url = _extract_og_image(page.text)
+            page_text = self._response_text(page)
+            image_url = _extract_og_image(page_text)
             extracted = trafilatura.extract(
-                page.text,
+                page_text,
                 include_comments=False,
             )
             if extracted:
@@ -209,7 +343,7 @@ class RSSCollector:
         except Exception as exc:
             logger.debug(
                 "article fetch failed for %s: %s",
-                url,
+                canonical_url(url) or "<unsafe-url>",
                 safe_network_error(exc, load_network_proxy()),
             )
         summary = entry.get("summary", "")

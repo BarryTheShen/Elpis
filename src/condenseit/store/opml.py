@@ -5,9 +5,16 @@ import re
 import xml.etree.ElementTree as ET
 from typing import Any
 
+MAX_OPML_BYTES = 1_000_000
+_UNSAFE_XML_DECLARATION = re.compile(r"<!\s*(?:doctype|entity)\b", re.IGNORECASE)
+
 
 def parse_opml_outlines(body: str) -> list[dict[str, str]]:
     """Return outline dicts with ``title``, ``xmlUrl`` (RSS), optional ``text``."""
+    if len(body.encode("utf-8")) > MAX_OPML_BYTES:
+        raise ValueError("OPML file is too large")
+    if _UNSAFE_XML_DECLARATION.search(body):
+        raise ValueError("OPML declarations are not supported")
     root = ET.fromstring(body)
     ns = _detect_ns(root)
     out: list[dict[str, str]] = []

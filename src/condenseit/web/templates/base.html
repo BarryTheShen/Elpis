@@ -39,6 +39,7 @@
 
   <div class="layout">
     <aside class="sidebar">
+    {% if active not in ('sources', 'llm', 'providers', 'advisor', 'admin') %}
       <nav class="nav-section">
         <div class="nav-label">Read</div>
         <a href="/" class="nav-link{% if active == 'digest' %} is-active{% endif %}">
@@ -57,7 +58,8 @@
         </ul>
         {% endif %}
       </nav>
-
+    {% endif %}
+    {% if active in ('sources', 'llm', 'providers', 'advisor', 'admin') %}
       <nav class="nav-section">
         <div class="nav-label">Configure</div>
         <a href="/admin/" class="nav-link{% if active == 'admin' %} is-active{% endif %}">
@@ -80,6 +82,7 @@
           Model advisor
         </a>
       </nav>
+    {% endif %}
     </aside>
 
     <main class="content">

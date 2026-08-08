@@ -31,6 +31,7 @@ import type {
   ScheduleConfig,
   SchedulerStatus,
   Source,
+  SourceDiscoveryPage,
   StarredItem,
 } from './types';
 
@@ -365,6 +366,28 @@ export const api = {
 
   // Sources
   listSources: () => request<Source[]>('GET', '/api/sources'),
+  discoverSources: (options: {
+    query: string;
+    page?: number;
+    limit?: number;
+    language?: string;
+    country?: string;
+    maxItems?: number;
+  }) => {
+    const params = new URLSearchParams();
+    params.set('q', options.query);
+    if (options.page != null) params.set('page', String(options.page));
+    if (options.limit != null) params.set('limit', String(options.limit));
+    if (options.language) params.set('language', options.language);
+    if (options.country) params.set('country', options.country);
+    if (options.maxItems != null) {
+      params.set('max_items', String(options.maxItems));
+    }
+    return request<SourceDiscoveryPage>(
+      'GET',
+      `/api/sources/discover?${params.toString()}`,
+    );
+  },
   addSource: (data: FormData) =>
     request<{ ok: boolean }>('POST', '/api/sources', data),
   updateSource: (id: number, data: FormData) =>

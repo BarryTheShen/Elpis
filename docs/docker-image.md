@@ -11,10 +11,17 @@ git clone git@github.com:BarryTheShen/Elpis.git
 cd Elpis
 cp config.example.yaml config.yaml
 cp .env.example .env
+# Set CONDENSEIT_AUTH_PASSWORD and DIGEST_PWA_SESSION_SECRET in .env.
+# Compose rejects blank values; use `openssl rand -hex 32` for the secret.
 docker compose up -d --build
 ```
 
-Open [http://localhost:8899](http://localhost:8899). Stop the stack with:
+The default Compose binding is `127.0.0.1:8899`; it is intentionally not a
+public HTTP listener. Put an HTTPS reverse proxy in front of it and set
+`CONDENSEIT_HTTPS_ONLY=1` before making the publication reachable remotely.
+
+Open [http://localhost:8899](http://localhost:8899) for local development.
+Stop the stack with:
 
 ```bash
 docker compose down

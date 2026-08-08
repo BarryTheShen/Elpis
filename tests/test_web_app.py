@@ -12,6 +12,19 @@ from condenseit.web.app import _digest_cost_usd, create_app
 _AUTH = {"Authorization": "Bearer elpis"}
 
 
+def test_create_app_fails_closed_without_admin_password(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path,
+) -> None:
+    monkeypatch.setenv("CONDENSEIT_DATA_DIR", str(tmp_path / "data"))
+    monkeypatch.delenv("CONDENSEIT_AUTH_PASSWORD", raising=False)
+    monkeypatch.delenv("DIGEST_PWA_AUTH_PASSWORD", raising=False)
+    monkeypatch.delenv("CONDENSEIT_ALLOW_INSECURE_DEFAULT", raising=False)
+
+    with pytest.raises(RuntimeError, match="Admin password is not configured"):
+        create_app()
+
+
 def test_health_and_api_endpoints(
     monkeypatch: pytest.MonkeyPatch,
     tmp_path,
@@ -226,6 +239,64 @@ def test_sources_api_rejects_out_of_range_candidate_limit(
     assert "max_items" in response.json()["error"]
 
 
+
+@pytest.mark.parametrize(
+    ("field", "value"),
+    (
+        ("max_items", None),
+        ("max_items", ""),
+        ("max_items", "not-an-integer"),
+        ("url", ""),
+        ("url", "file:///etc/passwd"),
+    ),
+)
+def test_sources_api_rejects_malformed_payload_values(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path,
+    field: str,
+    value: object,
+) -> None:
+    monkeypatch.setenv("CONDENSEIT_DATA_DIR", str(tmp_path / "data"))
+    client = TestClient(create_app())
+    payload: dict[str, object] = {
+        "source_type": "rss",
+        "name": "Invalid Feed",
+        "url": "https://example.com/feed.xml",
+        "max_items": 20,
+    }
+    payload[field] = value
+
+    response = client.post("/api/sources", headers=_AUTH, json=payload)
+
+    assert response.status_code == 422
+
+
+@pytest.mark.parametrize(
+    ("field", "value"),
+    (
+        ("max_articles_per_digest", 0),
+        ("max_articles_per_digest", 201),
+        ("max_articles_per_category", 0),
+        ("max_articles_per_category", 51),
+    ),
+)
+def test_digest_config_rejects_out_of_range_article_limits(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path,
+    field: str,
+    value: int,
+) -> None:
+    monkeypatch.setenv("CONDENSEIT_DATA_DIR", str(tmp_path / "data"))
+    client = TestClient(create_app())
+
+    response = client.put(
+        "/api/config/digest",
+        headers=_AUTH,
+        json={field: value},
+    )
+
+    assert response.status_code == 422
+
 def test_digest_api_returns_items(
     monkeypatch: pytest.MonkeyPatch,
     tmp_path,
@@ -411,12 +482,15 @@ def test_summary_normalization_hides_reasoning_in_digest_and_saved_items(
     store.save_digest(
         "# Reasoning",
         "<p>Reasoning</p>",
-        json.dumps({"digest_items": [{"url": url, "title": "Visible", "summary": raw}]}),
+        json.dumps(
+            {"digest_items": [{"url": url, "title": "Visible", "summary": raw}]}
+        ),
     )
     client = TestClient(create_app())
 
     digest_item = client.get("/api/digests/latest").json()["items"][0]
     assert digest_item["tldr"] == "Visible take"
+    assert digest_item["kind"] == "article"
     assert digest_item["summary"] == "Visible summary."
     assert digest_item["key_takeaways"] == ["Visible point"]
     assert "private" not in json.dumps(digest_item).lower()
@@ -468,6 +542,38 @@ def test_summary_normalization_discards_plain_thinking_transcript(
     assert item["summary"] == ""
     assert "thinking process" not in json.dumps(item).lower()
 
+
+
+def test_summary_normalization_sanitizes_dedicated_reasoning_fields(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path,
+) -> None:
+    monkeypatch.setenv("CONDENSEIT_DATA_DIR", str(tmp_path / "data"))
+    store = ContentStore()
+    store.save_digest(
+        "# Dedicated reasoning",
+        "<p>Dedicated reasoning</p>",
+        json.dumps(
+            {
+                "digest_items": [
+                    {
+                        "url": "https://example.com/dedicated-reasoning",
+                        "title": "Visible title",
+                        "summary": '{"tldr":"Fallback TLDR","summary":"Visible"}',
+                        "tldr": "<private>secret</private>Visible TLDR",
+                        "key_takeaways": ["<internal>secret</internal>Visible point"],
+                    }
+                ]
+            }
+        ),
+    )
+    client = TestClient(create_app())
+
+    item = client.get("/api/digests/latest").json()["items"][0]
+
+    assert item["tldr"] == "Visible TLDR"
+    assert item["key_takeaways"] == ["Visible point"]
+    assert "secret" not in json.dumps(item).lower()
 
 
 

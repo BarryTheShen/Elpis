@@ -14,7 +14,6 @@ from typing import TYPE_CHECKING, Any
 from condenseit.providers.base import sanitize_reasoning_content
 from condenseit.providers.catalog import get_litellm_model
 
-
 _REASONING_FIELD_NAMES = frozenset(
     {"reasoning", "reasoning_content", "thinking"}
 )

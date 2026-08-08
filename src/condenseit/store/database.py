@@ -316,7 +316,9 @@ class ContentStore:
         else:
             monitor_query_columns = {
                 row[1]
-                for row in self.db.execute("PRAGMA table_info(monitor_queries)").fetchall()
+                for row in self.db.execute(
+                    "PRAGMA table_info(monitor_queries)"
+                ).fetchall()
             }
             monitor_query_migrations = {
                 "question": "TEXT",
@@ -367,7 +369,9 @@ class ContentStore:
         else:
             monitor_result_columns = {
                 row[1]
-                for row in self.db.execute("PRAGMA table_info(monitor_results)").fetchall()
+                for row in self.db.execute(
+                    "PRAGMA table_info(monitor_results)"
+                ).fetchall()
             }
             monitor_result_migrations = {
                 "monitor_id": "INTEGER",
@@ -1214,7 +1218,9 @@ class ContentStore:
             question_text = str(payload.get("question", ""))
         else:
             payload = dict(kwargs)
-            question_text = str(question if question is not None else payload.get("question", ""))
+            question_text = str(
+                question if question is not None else payload.get("question", "")
+            )
         now = datetime.now(UTC).isoformat()
         include = payload.get("include_keywords", payload.get("include_terms", []))
         exclude = payload.get("exclude_keywords", payload.get("exclude_terms", []))
@@ -1349,8 +1355,12 @@ class ContentStore:
     def delete_monitor_query(self, monitor_id: int) -> bool:
         """Delete a monitor and only its associated evidence."""
         monitor_id = int(monitor_id)
-        self.db.execute("DELETE FROM monitor_results WHERE monitor_id = ?", [monitor_id])
-        cursor = self.db.execute("DELETE FROM monitor_queries WHERE id = ?", [monitor_id])
+        self.db.execute(
+            "DELETE FROM monitor_results WHERE monitor_id = ?", [monitor_id]
+        )
+        cursor = self.db.execute(
+            "DELETE FROM monitor_queries WHERE id = ?", [monitor_id]
+        )
         self.db.conn.commit()
         return bool(cursor.rowcount)
 

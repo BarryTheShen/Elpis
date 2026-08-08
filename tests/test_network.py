@@ -260,6 +260,10 @@ def test_socks_transport_and_rss_fallback(
     socks_proxy: _SocksProxy,
     monkeypatch,
 ) -> None:
+    monkeypatch.setattr(
+        "condenseit.services.source_discovery._host_resolves_publicly",
+        lambda *_args: True,
+    )
     proxy = f"socks5h://127.0.0.1:{socks_proxy.port}"
     settings = NetworkProxySettings(proxy_url=proxy, bypass_hosts=())
 

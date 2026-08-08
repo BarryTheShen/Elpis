@@ -1,5 +1,6 @@
 """Admin panel routes - Jinja2 HTML pages and JSON API endpoints."""
 
+import asyncio
 import json
 import math
 import os
@@ -15,6 +16,7 @@ from fastapi.responses import (
     PlainTextResponse,
     RedirectResponse,
 )
+from starlette.concurrency import run_in_threadpool
 
 from condenseit.api_urls import youtube_channel_feed_url
 from condenseit.config import (
@@ -39,23 +41,28 @@ from condenseit.providers.catalog import (
     get_provider_spec,
 )
 from condenseit.providers.openrouter_models import pick_cheapest_text_model
+from condenseit.services.monitoring import (
+    MAX_MONITOR_ITEMS,
+    GoogleNewsDiscovery,
+    MonitoringService,
+    validate_monitor_payload,
+)
 from condenseit.services.ollama_client import (
     ollama_delete,
     ollama_list_tags,
     ollama_pull,
 )
-from condenseit.services.monitoring import (
-    MAX_MONITOR_ITEMS,
-    MONITOR_SCOPES,
-    MonitoringService,
-    GoogleNewsDiscovery,
-    validate_monitor_payload,
+from condenseit.services.source_discovery import (
+    SourceDiscoveryError,
+    SourceDiscoveryService,
+    canonical_url,
 )
 from condenseit.settings_overlay import apply_db_settings
 from condenseit.store.database import ContentStore
-from condenseit.store.opml import build_opml, parse_opml_outlines
+from condenseit.store.opml import MAX_OPML_BYTES, build_opml, parse_opml_outlines
 from condenseit.store.secure_keys import SecureKeyStore
 from condenseit.store.sources import SourceRegistry
+from condenseit.web.passwords import hash_password, verify_password
 from condenseit.web.templating import page_context, templates
 
 _TIME_RE = re.compile(r"^([01]\d|2[0-3]):([0-5]\d)$")
@@ -67,6 +74,7 @@ _LEMMY_INSTANCE = "https://lemmy.world"
 _REDDIT_HOST_RE = re.compile(
     r"(?:https?://)?(?:www\.|old\.)?reddit\.com/r/([^/?#\s]+)", re.IGNORECASE
 )
+_PUBLIC_DISCOVERY_MAX_CONCURRENT = 8
 
 
 def _reddit_subreddit_to_lemmy_url(subreddit: str) -> str:
@@ -156,7 +164,11 @@ def _sanitize_candidate(row: Any, fallback_rank: int) -> dict[str, Any] | None:
             if _candidate_text(value, 128)
         ]
     reason = _candidate_text(raw_evidence.get("relevance_reason"), 240)
-    if re.search(r"(?:chain.?of.?thought|scratchpad|llm|model reasoning)", reason, re.I):
+    if re.search(
+        r"(?:chain.?of.?thought|scratchpad|llm|model reasoning)",
+        reason,
+        re.I,
+    ):
         reason = ""
     evidence["relevance_reason"] = reason
     evidence["selected"] = bool(
@@ -301,7 +313,6 @@ def _build_source_extra(
 
     return extra, feed_url, effective_type, conversion_note
 
-
 async def _read_source_payload(request: Request) -> dict[str, Any]:
     """Read source form or JSON payloads into one normalized shape."""
     ct = request.headers.get("content-type", "")
@@ -309,13 +320,19 @@ async def _read_source_payload(request: Request) -> dict[str, Any]:
         form = await request.form()
 
         def _fstr(key: str, default: str = "") -> str:
-            return str(form.get(key, default)).strip()
+            value = form.get(key, default)
+            return default if value is None else str(value).strip()
 
-        def _fint(key: str, default: int = 0) -> int:
+        def _fint(key: str, default: int = 0) -> Any:
+            value = form.get(key, default)
+            if key == "max_items":
+                # Preserve malformed values so the API can return 422 instead
+                # of silently replacing them with a valid default.
+                return value
             try:
-                return int(form.get(key, default))  # type: ignore[arg-type]
+                return int(value)
             except (TypeError, ValueError):
-                return default
+                return value
 
         return {
             "source_type": _fstr("source_type", "rss"),
@@ -343,27 +360,33 @@ async def _read_source_payload(request: Request) -> dict[str, Any]:
         }
 
     body = await request.json()
+    if not isinstance(body, dict):
+        raise ValueError("source payload must be an object")
+
+    def _jstr(key: str, default: str = "") -> str:
+        value = body.get(key, default)
+        return default if value is None else str(value).strip()
+
     return {
-        "source_type": str(body.get("source_type", "rss")).strip(),
-        "name": str(body.get("name", "")).strip(),
-        "url": str(body.get("url", "")).strip(),
-        "category": str(body.get("category", "General")).strip() or "General",
-        "priority": int(body.get("priority", 2)),
-        "channel_id": str(body.get("channel_id", "")).strip(),
-        "query": str(body.get("query", "")).strip(),
-        "language": str(body.get("language", "en")).strip() or "en",
-        "country": str(body.get("country", "US")).strip() or "US",
-        "max_items": int(body.get("max_items", DEFAULT_SOURCE_MAX_ITEMS)),
-        "hn_feed": str(body.get("hn_feed", "top")).strip() or "top",
-        "hn_max_items": int(body.get("hn_max_items", 20)),
-        "hn_min_score": int(body.get("hn_min_score", 50)),
-        "subreddit": str(body.get("subreddit", "")).strip(),
-        "reddit_sort": str(body.get("reddit_sort", "hot")).strip() or "hot",
-        "reddit_time_filter": str(body.get("reddit_time_filter", "day")).strip()
-        or "day",
-        "reddit_max_items": int(body.get("reddit_max_items", 20)),
-        "reddit_min_score": int(body.get("reddit_min_score", 10)),
-        "github_repo": str(body.get("github_repo", "")).strip(),
+        "source_type": _jstr("source_type", "rss"),
+        "name": _jstr("name"),
+        "url": _jstr("url"),
+        "category": _jstr("category", "General") or "General",
+        "priority": body.get("priority", 2),
+        "channel_id": _jstr("channel_id"),
+        "query": _jstr("query"),
+        "language": _jstr("language", "en") or "en",
+        "country": _jstr("country", "US") or "US",
+        "max_items": body.get("max_items", DEFAULT_SOURCE_MAX_ITEMS),
+        "hn_feed": _jstr("hn_feed", "top") or "top",
+        "hn_max_items": body.get("hn_max_items", 20),
+        "hn_min_score": body.get("hn_min_score", 50),
+        "subreddit": _jstr("subreddit"),
+        "reddit_sort": _jstr("reddit_sort", "hot") or "hot",
+        "reddit_time_filter": _jstr("reddit_time_filter", "day") or "day",
+        "reddit_max_items": body.get("reddit_max_items", 20),
+        "reddit_min_score": body.get("reddit_min_score", 10),
+        "github_repo": _jstr("github_repo"),
         "hide_keywords": _parse_keyword_list(body.get("hide_keywords", [])),
         "highlight_keywords": _parse_keyword_list(body.get("highlight_keywords", [])),
         "require_keywords": _parse_keyword_list(body.get("require_keywords", [])),
@@ -372,22 +395,44 @@ async def _read_source_payload(request: Request) -> dict[str, Any]:
 
 def _source_payload_error(payload: dict[str, Any]) -> str | None:
     """Return an API-facing validation message for invalid source payloads."""
-    if not payload["name"]:
+    if not payload.get("name"):
         return "name field is required"
-    if not 1 <= int(payload["priority"]) <= 5:
+    raw_priority = payload.get("priority")
+    if isinstance(raw_priority, bool):
         return "priority must be between 1 and 5"
     try:
-        max_items = int(payload["max_items"])
+        priority = int(raw_priority)
+    except (TypeError, ValueError):
+        return "priority must be between 1 and 5"
+    if not 1 <= priority <= 5:
+        return "priority must be between 1 and 5"
+
+    raw_max_items = payload.get("max_items")
+    if raw_max_items is None or isinstance(raw_max_items, bool):
+        return "max_items must be an integer"
+    if isinstance(raw_max_items, float) and not raw_max_items.is_integer():
+        return "max_items must be an integer"
+    try:
+        max_items = int(raw_max_items)
     except (TypeError, ValueError):
         return "max_items must be an integer"
     if not 1 <= max_items <= MAX_SOURCE_ITEMS:
         return f"max_items must be between 1 and {MAX_SOURCE_ITEMS}"
+
+    source_type = str(payload.get("source_type") or "").strip().lower()
+    raw_url = payload.get("url")
+    if raw_url is not None and raw_url != "":
+        if canonical_url(raw_url) is None:
+            return "url must be a public http(s) URL"
+    elif source_type in {"rss", "podcast"}:
+        return "url must be a public http(s) URL"
     return None
 
 
 def create_admin_router(
     config_path: str | None,
     store: ContentStore | None = None,
+    source_discovery: SourceDiscoveryService | Any | None = None,
 ) -> APIRouter:
     router = APIRouter()
     config = load_config(config_path)
@@ -396,7 +441,9 @@ def create_admin_router(
     sources.seed_from_config(config)
     keys = SecureKeyStore(store)
     discovery = GoogleNewsDiscovery()
+    public_discovery_slots = asyncio.Semaphore(_PUBLIC_DISCOVERY_MAX_CONCURRENT)
     monitoring = MonitoringService(store, discovery=discovery)
+    source_discovery = source_discovery or SourceDiscoveryService()
 
     def _digests() -> list[dict]:
         return store.list_digests(limit=12)
@@ -505,10 +552,70 @@ def create_admin_router(
     @router.get("/api/sources", response_model=None)
     async def api_list_sources() -> JSONResponse:
         return JSONResponse([dict(s) for s in sources.list_all()])
+    @router.get("/api/sources/discover", response_model=None)
+    async def api_discover_sources(
+        q: str | None = Query(None, min_length=1, max_length=500),
+        query: str | None = Query(None, min_length=1, max_length=500),
+        language: str = Query("en", max_length=8),
+        country: str = Query("US", min_length=2, max_length=2),
+        page: int = Query(1, ge=1, le=1_000),
+        limit: int | None = Query(None, ge=1, le=100),
+        max_items: int | None = Query(None, ge=1, le=200),
+    ) -> JSONResponse:
+        """Preview publisher feeds without creating or changing any rows."""
+        search_term = (q or query or "").strip()
+        if not search_term:
+            return JSONResponse(
+                {"error": "q or query is required"},
+                status_code=422,
+            )
+        requested_limit = max_items if max_items is not None else (limit or 20)
+        try:
+            discover = getattr(source_discovery, "search", None)
+            if not callable(discover):
+                discover = getattr(source_discovery, "discover", None)
+            if not callable(discover):
+                raise SourceDiscoveryError("discovery service unavailable")
+            result = await run_in_threadpool(
+                discover,
+                search_term,
+                language=language,
+                country=country,
+                page=page,
+                limit=requested_limit,
+                existing_sources=sources.list_all(),
+            )
+        except ValueError as exc:
+            # Validation messages are bounded and contain no upstream data.
+            message = str(exc).strip()[:200] or "Invalid discovery request."
+            return JSONResponse({"error": message}, status_code=422)
+        except SourceDiscoveryError:
+            return JSONResponse(
+                {"error": "Source discovery is temporarily unavailable."},
+                status_code=502,
+            )
+        except Exception:
+            return JSONResponse(
+                {"error": "Source discovery is temporarily unavailable."},
+                status_code=502,
+            )
+        if not isinstance(result, dict):
+            return JSONResponse(
+                {"error": "Source discovery returned an invalid response."},
+                status_code=502,
+            )
+        return JSONResponse(result)
+
 
     @router.post("/api/sources", response_model=None)
     async def api_add_source(request: Request) -> JSONResponse:
-        payload = await _read_source_payload(request)
+        try:
+            payload = await _read_source_payload(request)
+        except (TypeError, ValueError):
+            return JSONResponse(
+                {"error": "invalid source payload"},
+                status_code=422,
+            )
         error = _source_payload_error(payload)
         if error is not None:
             return JSONResponse({"error": error}, status_code=422)
@@ -562,7 +669,13 @@ def create_admin_router(
 
     @router.put("/api/sources/{source_id}", response_model=None)
     async def api_update_source(source_id: int, request: Request) -> JSONResponse:
-        payload = await _read_source_payload(request)
+        try:
+            payload = await _read_source_payload(request)
+        except (TypeError, ValueError):
+            return JSONResponse(
+                {"error": "invalid source payload"},
+                status_code=422,
+            )
         error = _source_payload_error(payload)
         if error is not None:
             return JSONResponse({"error": error}, status_code=422)
@@ -618,7 +731,9 @@ def create_admin_router(
 
     @router.post("/api/sources/import-opml", response_model=None)
     async def api_import_opml(file: UploadFile = File(...)) -> JSONResponse:
-        raw = await file.read()
+        raw = await file.read(MAX_OPML_BYTES + 1)
+        if len(raw) > MAX_OPML_BYTES:
+            return JSONResponse({"error": "OPML file is too large."}, status_code=413)
         text = raw.decode("utf-8", errors="replace")
         try:
             outline_rows = parse_opml_outlines(text)
@@ -627,8 +742,8 @@ def create_admin_router(
         existing = {r["url"] for r in sources.list_all()}
         added = 0
         for row in outline_rows:
-            xml_url = row["xmlUrl"]
-            if xml_url in existing:
+            xml_url = canonical_url(row.get("xmlUrl"))
+            if xml_url is None or xml_url in existing:
                 continue
             title = row.get("title") or xml_url
             sources.add("rss", title[:240], "Imported", 2, xml_url)
@@ -701,7 +816,8 @@ def create_admin_router(
 
     @router.get("/api/config/providers", response_model=None)
     async def api_get_providers() -> JSONResponse:
-        return JSONResponse(_provider_payload(_merged()))
+        payload = await run_in_threadpool(_provider_payload, _merged())
+        return JSONResponse(payload)
 
     @router.put("/api/config/providers", response_model=None)
     async def api_save_providers(body: dict[str, Any]) -> JSONResponse:
@@ -806,7 +922,11 @@ def create_admin_router(
         if not model:
             return JSONResponse({"error": "model required"}, status_code=422)
         try:
-            ollama_pull(get_provider_base_url(merged, "ollama"), model)
+            await run_in_threadpool(
+                ollama_pull,
+                get_provider_base_url(merged, "ollama"),
+                model,
+            )
             return JSONResponse({"message": f"Pulled {model}."})
         except Exception as exc:
             return JSONResponse({"message": f"Pull failed: {exc}"}, status_code=500)
@@ -818,7 +938,11 @@ def create_admin_router(
         if not model:
             return JSONResponse({"error": "model required"}, status_code=422)
         try:
-            ollama_delete(get_provider_base_url(merged, "ollama"), model)
+            await run_in_threadpool(
+                ollama_delete,
+                get_provider_base_url(merged, "ollama"),
+                model,
+            )
             return JSONResponse({"message": f"Deleted {model}."})
         except Exception as exc:
             return JSONResponse({"message": f"Delete failed: {exc}"}, status_code=500)
@@ -898,6 +1022,11 @@ def create_admin_router(
                 val = int(body["max_articles_per_digest"])
                 if 1 <= val <= 200:
                     store.set_setting("max_articles_per_digest", str(val))
+                else:
+                    return JSONResponse(
+                        {"error": "max_articles_per_digest must be 1-200"},
+                        status_code=422,
+                    )
             except (ValueError, TypeError):
                 return JSONResponse(
                     {"error": "max_articles_per_digest must be 1-200"},
@@ -929,6 +1058,11 @@ def create_admin_router(
                 val = int(body["max_articles_per_category"])
                 if 1 <= val <= 50:
                     store.set_setting("max_articles_per_category", str(val))
+                else:
+                    return JSONResponse(
+                        {"error": "max_articles_per_category must be 1-50"},
+                        status_code=422,
+                    )
             except (ValueError, TypeError):
                 return JSONResponse(
                     {"error": "max_articles_per_category must be 1-50"},
@@ -1088,7 +1222,7 @@ def create_admin_router(
         request: Request,
         body: dict[str, Any],
     ) -> JSONResponse:
-        """Change the admin password. Stores the new password in the DB."""
+        """Change the admin password and store only a password hash."""
         current = str(body.get("current_password", "")).strip()
         new_pw = str(body.get("new_password", "")).strip()
 
@@ -1097,9 +1231,9 @@ def create_admin_router(
                 {"error": "current_password and new_password are required"},
                 status_code=422,
             )
-        if len(new_pw) < 8:
+        if len(new_pw) < 8 or len(new_pw) > 256:
             return JSONResponse(
-                {"error": "New password must be at least 8 characters."},
+                {"error": "New password must be between 8 and 256 characters."},
                 status_code=422,
             )
 
@@ -1110,13 +1244,13 @@ def create_admin_router(
         )
         effective = db_pw or env_pw or LOCAL_INSTALL_FALLBACK_CREDENTIAL
 
-        if not secrets.compare_digest(current, effective):
+        if not verify_password(current, effective):
             return JSONResponse(
                 {"error": "Current password is incorrect."},
                 status_code=401,
             )
 
-        store.set_setting("auth_password", new_pw)
+        store.set_setting("auth_password", hash_password(new_pw))
         generation = secrets.token_hex(16)
         store.set_setting("auth_generation", generation)
         request.session["authenticated"] = True
@@ -1215,6 +1349,17 @@ def create_admin_router(
         reddit_min_score: int = Form(10),
         github_repo: str = Form(""),
     ) -> HTMLResponse | RedirectResponse:
+        payload_error = _source_payload_error(
+            {
+                "name": name.strip(),
+                "priority": priority,
+                "max_items": max_items,
+                "source_type": source_type,
+                "url": url.strip(),
+            }
+        )
+        if payload_error is not None:
+            return JSONResponse({"error": payload_error}, status_code=422)
         extra, feed_url, effective_type, _note = _build_source_extra(
             source_type,
             url,
@@ -1254,7 +1399,14 @@ def create_admin_router(
         request: Request,
         file: UploadFile = File(...),
     ) -> HTMLResponse | RedirectResponse:
-        raw = await file.read()
+        raw = await file.read(MAX_OPML_BYTES + 1)
+        if len(raw) > MAX_OPML_BYTES:
+            if _is_htmx(request):
+                return HTMLResponse(
+                    '<p class="flash flash-warn">OPML file is too large.</p>',
+                    status_code=413,
+                )
+            return RedirectResponse("/admin/sources?imported=0&err=1", status_code=303)
         text = raw.decode("utf-8", errors="replace")
         try:
             outline_rows = parse_opml_outlines(text)
@@ -1268,8 +1420,8 @@ def create_admin_router(
         existing = {r["url"] for r in sources.list_all()}
         added = 0
         for row in outline_rows:
-            xml_url = row["xmlUrl"]
-            if xml_url in existing:
+            xml_url = canonical_url(row.get("xmlUrl"))
+            if xml_url is None or xml_url in existing:
                 continue
             title = row.get("title") or xml_url
             sources.add("rss", title[:240], "Imported", 2, xml_url)
@@ -1365,7 +1517,7 @@ def create_admin_router(
 
     @router.get("/admin/providers", response_class=HTMLResponse)
     async def providers_page(request: Request) -> HTMLResponse:
-        payload = _provider_payload(_merged())
+        payload = await run_in_threadpool(_provider_payload, _merged())
         return templates.TemplateResponse(
             request,
             "providers.html",
@@ -1448,12 +1600,14 @@ def create_admin_router(
         offset = (page - 1) * page_limit
         fetch_limit = min(MAX_MONITOR_ITEMS, offset + page_limit + 1)
         try:
-            results = discovery.search(
-                search_query,
-                language=language,
-                country=country,
-                max_items=fetch_limit,
-            )
+            async with public_discovery_slots:
+                results = await run_in_threadpool(
+                    discovery.search,
+                    search_query,
+                    language=language,
+                    country=country,
+                    max_items=fetch_limit,
+                )
         except ValueError as exc:
             return JSONResponse({"error": str(exc)}, status_code=422)
         except Exception:
@@ -1550,7 +1704,7 @@ def create_admin_router(
     @router.post("/api/monitoring/{monitor_id}/check", response_model=None)
     async def api_check_monitoring(monitor_id: int) -> JSONResponse:
         try:
-            payload = monitoring.check_now(monitor_id)
+            payload = await run_in_threadpool(monitoring.check_now, monitor_id)
         except KeyError:
             return JSONResponse({"error": "monitor not found"}, status_code=404)
         status_code = 502 if payload.get("error") else 200

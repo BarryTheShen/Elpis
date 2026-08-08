@@ -44,9 +44,17 @@ def execute_digest(
                 "deploy": {"status": "skipped", "reason": "dry run"},
             }
         else:
-            post = pipeline.post_run(skip_deploy=skip_deploy)
+            try:
+                post = pipeline.post_run(skip_deploy=skip_deploy)
+            except Exception as exc:
+                logger.error("Digest publication deploy failed: %s", exc)
+                post = {
+                    "deploy": {
+                        "status": "error",
+                        "error": str(exc),
+                    },
+                }
 
-        latest = pipeline.store.latest_digest()
-        digest_id = latest["id"] if latest else None
+        digest_id = pipeline.digest_id
         logger.info("Digest run finished (id=%s)", digest_id)
         return {"stats": stats, "post": post, "digest_id": digest_id}

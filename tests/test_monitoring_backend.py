@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 from datetime import UTC, datetime
+from pathlib import Path
 from types import SimpleNamespace
 
 from fastapi.testclient import TestClient
@@ -103,7 +104,10 @@ def test_monitor_check_deduplicates_and_preserves_evidence_on_error(
     store.close()
 
 
-def test_discovery_normalizes_fake_feed_without_digest_mutation(monkeypatch, tmp_path: Path) -> None:
+def test_discovery_normalizes_fake_feed_without_digest_mutation(
+    monkeypatch,
+    tmp_path: Path,
+) -> None:
     entries = [
         {
             "link": "https://example.com/story#tracking",
@@ -138,7 +142,10 @@ def test_discovery_normalizes_fake_feed_without_digest_mutation(monkeypatch, tmp
     store.close()
 
 
-def test_monitoring_api_requires_auth_and_validates_payload(tmp_path: Path, monkeypatch) -> None:
+def test_monitoring_api_requires_auth_and_validates_payload(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
     monkeypatch.setenv("CONDENSEIT_DATA_DIR", str(tmp_path / "api-data"))
     client = TestClient(create_app())
     assert client.get("/api/monitoring").status_code == 401
@@ -163,7 +170,10 @@ def test_monitoring_api_requires_auth_and_validates_payload(tmp_path: Path, monk
     assert results.json()["results"] == []
 
 
-def test_candidates_api_is_authenticated_and_bounded(tmp_path: Path, monkeypatch) -> None:
+def test_candidates_api_is_authenticated_and_bounded(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
     data_root = tmp_path / "candidate-data"
     data_root.mkdir()
     monkeypatch.setenv("CONDENSEIT_DATA_DIR", str(data_root))

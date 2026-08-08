@@ -16,6 +16,7 @@ from condenseit.config import (
 
 class _FakeResponse:
     text = "<feed />"
+    status_code = 200
 
     def raise_for_status(self) -> None:
         return None
@@ -27,6 +28,10 @@ class _FakeClient:
 
 
 def test_rss_like_collectors_honor_configured_limits(monkeypatch) -> None:
+    monkeypatch.setattr(
+        "condenseit.services.source_discovery._host_resolves_publicly",
+        lambda *_args: True,
+    )
     entries = [
         {
             "link": f"https://example.com/episode-{index}",

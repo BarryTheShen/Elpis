@@ -73,7 +73,9 @@ def _normalise_terms(value: Any, field: str = "keywords") -> list[str]:
         if not term:
             continue
         if len(term) > MAX_KEYWORD_CHARS:
-            raise ValueError(f"{field} entries must be at most {MAX_KEYWORD_CHARS} characters")
+            raise ValueError(
+                f"{field} entries must be at most {MAX_KEYWORD_CHARS} characters"
+            )
         key = term.casefold()
         if key in seen:
             continue
@@ -119,7 +121,9 @@ def validate_monitor_payload(
         if not isinstance(question, str) or not question.strip():
             raise ValueError("question is required")
         if len(question) > MAX_QUESTION_CHARS:
-            raise ValueError(f"question must be at most {MAX_QUESTION_CHARS} characters")
+            raise ValueError(
+                f"question must be at most {MAX_QUESTION_CHARS} characters"
+            )
         # Keep the exact submitted string, including intentional surrounding
         # whitespace.  Only the derived query is normalized.
         out["question"] = question
@@ -127,7 +131,9 @@ def validate_monitor_payload(
     if not partial or "scope" in payload:
         scope = str(payload.get("scope") or "general_discovery").strip().lower()
         if scope not in MONITOR_SCOPES:
-            raise ValueError("scope must be general_discovery, configured_feeds, or both")
+            raise ValueError(
+                "scope must be general_discovery, configured_feeds, or both"
+            )
         out["scope"] = scope
 
     if not partial or "cadence_minutes" in payload:
@@ -159,7 +165,9 @@ def validate_monitor_payload(
     if not partial or "category" in payload:
         category = str(payload.get("category") or "General").strip()
         if len(category) > MAX_CATEGORY_CHARS:
-            raise ValueError(f"category must be at most {MAX_CATEGORY_CHARS} characters")
+            raise ValueError(
+                f"category must be at most {MAX_CATEGORY_CHARS} characters"
+            )
         out["category"] = category or "General"
 
     if not partial or "language" in payload:
@@ -269,7 +277,10 @@ def _freshness(published_at: str) -> float:
         value = datetime.fromisoformat(published_at.replace("Z", "+00:00"))
         if value.tzinfo is None:
             value = value.replace(tzinfo=UTC)
-        age_hours = max(0.0, (datetime.now(UTC) - value.astimezone(UTC)).total_seconds() / 3600)
+        age_hours = max(
+            0.0,
+            (datetime.now(UTC) - value.astimezone(UTC)).total_seconds() / 3600,
+        )
     except (TypeError, ValueError, OverflowError):
         return 0.0
     return round(max(0.0, min(1.0, 1.0 - age_hours / (24 * 30))), 4)
@@ -349,11 +360,17 @@ def _sanitize_result(result: dict[str, Any], *, category: str) -> dict[str, Any]
     matched = _normalise_terms(evidence_raw.get("matched_terms", []), "matched_terms")
     provider = _text(evidence_raw.get("provider"), 80) or "google_news"
     try:
-        freshness = round(max(0.0, min(1.0, float(evidence_raw.get("freshness", 0)))), 4)
+        freshness = round(
+            max(0.0, min(1.0, float(evidence_raw.get("freshness", 0)))),
+            4,
+        )
     except (TypeError, ValueError):
         freshness = 0.0
     try:
-        relevance_score = round(max(0.0, min(1.0, float(result.get("relevance_score", 0)))), 4)
+        relevance_score = round(
+            max(0.0, min(1.0, float(result.get("relevance_score", 0)))),
+            4,
+        )
     except (TypeError, ValueError):
         relevance_score = 0.0
     published_at = _text(result.get("published_at"), 64)
@@ -380,7 +397,7 @@ class GoogleNewsDiscovery:
     def __init__(self, client: Any | None = None) -> None:
         self._client = client or httpx_client(
             timeout=30.0,
-            follow_redirects=True,
+            follow_redirects=False,
             headers=digest_fetch_headers(),
         )
 
@@ -535,7 +552,9 @@ class MonitoringService:
             },
         )
         try:
-            raw_results = self._search(self.store.get_monitor_query(monitor_id) or monitor)
+            raw_results = self._search(
+                self.store.get_monitor_query(monitor_id) or monitor
+            )
             seen_urls: set[str] = set()
             for raw in raw_results:
                 if not isinstance(raw, dict):

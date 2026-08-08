@@ -69,17 +69,34 @@ function decodeHtmlEntities(value: string): string {
   return value.replace(/&(?:#x([\da-f]+)|#(\d+)|([a-z][\da-z]+));/gi, (full, hex, decimal, name) => {
     if (hex) {
       const codePoint = Number.parseInt(hex, 16);
-      return Number.isFinite(codePoint) ? String.fromCodePoint(codePoint) : full;
+      if (
+        Number.isInteger(codePoint) &&
+        codePoint >= 0 &&
+        codePoint <= 0x10ffff &&
+        (codePoint < 0xd800 || codePoint > 0xdfff)
+      ) {
+        return String.fromCodePoint(codePoint);
+      }
+      return full;
     }
     if (decimal) {
       const codePoint = Number.parseInt(decimal, 10);
-      return Number.isFinite(codePoint) ? String.fromCodePoint(codePoint) : full;
+      if (
+        Number.isInteger(codePoint) &&
+        codePoint >= 0 &&
+        codePoint <= 0x10ffff &&
+        (codePoint < 0xd800 || codePoint > 0xdfff)
+      ) {
+        return String.fromCodePoint(codePoint);
+      }
+      return full;
     }
 
     const entities: Record<string, string> = {
       amp: '&',
       apos: "'",
       gt: '>',
+      lt: '<',
       nbsp: ' ',
       quot: '"',
       hellip: '\u2026',
@@ -112,7 +129,10 @@ function getCodeLanguage(attrs: string, inner: string): string | undefined {
 function normalizeHtml(value: string): { text: string; code: HtmlCodeBlock[] } {
   let source = value
     .replace(/<!--[\s\S]*?-->/g, '')
-    .replace(/<(script|style)\b[^>]*>[\s\S]*?<\/\1\s*>/gi, '');
+    .replace(/<(script|style)\b[^>]*>[\s\S]*?<\/\1\s*>/gi, '')
+    /* An unclosed executable/style fragment is source noise, not prose. */
+    .replace(/<(script|style)\b[^>]*>[\s\S]*$/gi, '');
+
   const code: HtmlCodeBlock[] = [];
 
   /* Extract preformatted fragments before stripping anchors/tags. */
@@ -153,6 +173,8 @@ function normalizeHtml(value: string): { text: string; code: HtmlCodeBlock[] } {
     .replace(/<\/blockquote\s*>/gi, `\n${QUOTE_END}\n`)
     .replace(/<\/tr\s*>/gi, '\n')
     .replace(/<\/(?:td|th)\s*>/gi, ' ')
+    /* Preserve Markdown autolinks before removing ordinary HTML tags. */
+    .replace(/<((?:https?:\/\/)[^>\s]+)>/gi, '$1')
     .replace(HTML_TAG_RE, '');
 
   return { text: decodeHtmlEntities(source), code };
@@ -185,10 +207,14 @@ function appendSafeBareUrl(target: ReadableInline[], rawUrl: string): void {
 }
 
 function parseInline(value: string): ReadableInline[] {
-  let text = decodeHtmlEntities(value)
+  /*
+   * normalizeHtml decodes entities once after removing source HTML. Do not
+   * decode or strip tags again here: escaped literal markup such as
+   * `&lt;strong&gt;tag&lt;/strong&gt;` must remain visible as text.
+   */
+  let text = value
     .replace(/<((?:https?:\/\/)[^>\s]+)>/gi, '$1')
     .replace(/<br\s*\/?\s*>/gi, '\n')
-    .replace(HTML_TAG_RE, '')
     .replace(/!\[([^\]]*)\]\([^)]*\)/g, '$1')
     .replace(/`([^`\n]+)`/g, '$1');
 
@@ -205,7 +231,7 @@ function parseInline(value: string): ReadableInline[] {
     const markdownLink = remaining.match(MARKDOWN_LINK_RE);
     if (markdownLink) {
       const [whole, label, href] = markdownLink;
-      const safeHref = safeExternalUrl(decodeHtmlEntities(href));
+      const safeHref = safeExternalUrl(href);
       if (safeHref) {
         tokens.push({ type: 'link', text: label, href: safeHref });
       } else {
@@ -429,10 +455,15 @@ export function parseReadableContent(value: string | null | undefined): Readable
     }
     if (quote) {
       if (quoteHtml) {
+        /*
+         * HTML block markers describe nested structure, not visible prose.
+         * Ignore them while retaining the text inside the quote.
+         */
+        if (isMarkerLine(trimmed)) continue;
         if (trimmed) quote.push(trimmed);
         continue;
       }
-      if (trimmed === '') {
+      if (!trimmed) {
         flushQuote();
         continue;
       }

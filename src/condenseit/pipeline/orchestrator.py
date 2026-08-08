@@ -10,7 +10,6 @@ from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from typing import Any, Self
 
-import markdown
 import numpy as np
 
 from condenseit.collectors.github_releases import GitHubReleasesCollector
@@ -22,18 +21,18 @@ from condenseit.collectors.rss import RSSCollector
 from condenseit.collectors.website import check_website_changes_with_health
 from condenseit.collectors.youtube import YouTubeCollector
 from condenseit.config import AppConfig, load_config, resolve_output_path
-from condenseit.digest.format import order_digest_items
+from condenseit.digest.format import order_digest_items, render_digest_html
 from condenseit.learning.embeddings import (
     build_embedding_provider,
     cosine_similarity,
     get_or_compute_embedding,
 )
 from condenseit.learning.preference_engine import PreferenceEngine
-from condenseit.learning.reranker import build_profile_narrative, rerank
 from condenseit.learning.relevance import (
     apply_relevance_gate,
     serialize_candidate,
 )
+from condenseit.learning.reranker import build_profile_narrative, rerank
 from condenseit.network import configure_network_proxy
 from condenseit.pipeline.article_balance import select_balanced_digest_articles
 from condenseit.providers.base import SummarizerProvider
@@ -175,6 +174,7 @@ class DigestPipeline:
         self.digest_md = ""
         self.digest_html = ""
         self.stats: dict[str, Any] = {}
+        self.digest_id: int | None = None
 
     def __enter__(self) -> Self:
         return self
@@ -556,10 +556,7 @@ class DigestPipeline:
         else:
             self.digest_md = self._dry_run_markdown(ranked, changes, len(videos))
 
-        self.digest_html = markdown.markdown(
-            self.digest_md,
-            extensions=["tables", "fenced_code"],
-        )
+        self.digest_html = render_digest_html(self.digest_md)
         elapsed = time.time() - start
         if dry_run:
             digest_items = self._digest_items_dry_run(ranked, video_urls, changes)
@@ -602,17 +599,21 @@ class DigestPipeline:
             "digest_items": digest_items,
             "candidate_items": candidate_items,
         }
-        self._save_outputs()
-        digest_id = self.store.save_digest(
-            self.digest_md,
-            self.digest_html,
-            json.dumps(self.stats),
-            history_limit=self.config.digest_history_limit,
-        )
         if not dry_run:
-            self.store.attach_spending_to_digest(self.digest_run_id, digest_id)
-            self.stats["cost_usd"] = self.store.sum_spending_for_digest(digest_id)
-            self.store.update_digest_stats(digest_id, json.dumps(self.stats))
+            self._save_outputs()
+        self.digest_id = None
+        if not dry_run:
+            self.digest_id = self.store.save_digest(
+                self.digest_md,
+                self.digest_html,
+                json.dumps(self.stats),
+                history_limit=self.config.digest_history_limit,
+            )
+            self.store.attach_spending_to_digest(self.digest_run_id, self.digest_id)
+            self.stats["cost_usd"] = self.store.sum_spending_for_digest(
+                self.digest_id,
+            )
+            self.store.update_digest_stats(self.digest_id, json.dumps(self.stats))
         logger.info("Digest complete in %s", self.stats["processing_time"])
         return self.stats
 

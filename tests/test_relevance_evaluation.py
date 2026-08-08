@@ -204,7 +204,9 @@ EVALUATION_CASES = (
             CandidateCase(
                 "https://fixture.test/infra/wired",
                 "Wired's TV round-up for the weekend",
-                _body_only("Terraform and observability show up in unrelated article links."),
+                _body_only(
+                    "Terraform and observability show up in unrelated article links."
+                ),
                 False,
             ),
             CandidateCase(
@@ -235,7 +237,10 @@ EVALUATION_CASES = (
             CandidateCase(
                 "https://fixture.test/infra/noise",
                 "A critic ranks this season's television shows",
-                _body_only("The page mentions platform engineering and Kubernetes in its footer."),
+                _body_only(
+                    "The page mentions platform engineering and "
+                    "Kubernetes in its footer."
+                ),
                 False,
             ),
             CandidateCase(
@@ -290,7 +295,9 @@ EVALUATION_CASES = (
             CandidateCase(
                 "https://fixture.test/qwen/wired",
                 "Wired's review of a new television season",
-                _body_only("Qwen benchmarks and model inference are mentioned in references."),
+                _body_only(
+                    "Qwen benchmarks and model inference are mentioned in references."
+                ),
                 False,
             ),
             CandidateCase(
@@ -376,7 +383,9 @@ EVALUATION_CASES = (
             CandidateCase(
                 "https://fixture.test/fpv/wired",
                 "Wired's list of the year's television shows",
-                _body_only("Drone video and FPV tuning appear only in the article's tags."),
+                _body_only(
+                    "Drone video and FPV tuning appear only in the article's tags."
+                ),
                 False,
             ),
             CandidateCase(
@@ -462,7 +471,9 @@ EVALUATION_CASES = (
             CandidateCase(
                 "https://fixture.test/consumer/wired",
                 "Wired picks ten television shows worth streaming",
-                _body_only("Phone battery and laptop privacy tips are linked at the bottom."),
+                _body_only(
+                    "Phone battery and laptop privacy tips are linked at the bottom."
+                ),
                 False,
             ),
             CandidateCase(
@@ -493,7 +504,9 @@ EVALUATION_CASES = (
             CandidateCase(
                 "https://fixture.test/consumer/noise",
                 "Streaming television recommendations for a rainy day",
-                _body_only("Smartphone privacy and battery are mentioned in the credits."),
+                _body_only(
+                    "Smartphone privacy and battery are mentioned in the credits."
+                ),
                 False,
             ),
             CandidateCase(

@@ -278,6 +278,42 @@ export interface Source {
   last_checked_at?: string;
   last_error?: string;
 }
+export interface SourceDiscoveryHealth {
+  status: string;
+  entry_count?: number;
+  error?: string;
+}
+
+export interface SourceDiscoveryEvidence {
+  feed_verified?: boolean;
+  verification?: string;
+  matched_terms?: string[];
+  article_count?: number;
+  score_basis?: Record<string, number>;
+  [key: string]: unknown;
+}
+
+export interface SourceDiscoveryCandidate {
+  name: string;
+  source_type: 'rss' | 'google_news';
+  url: string;
+  feed_url: string | null;
+  query: string | null;
+  category: string;
+  description: string;
+  score: number;
+  evidence: SourceDiscoveryEvidence;
+  health: SourceDiscoveryHealth;
+  existing: boolean;
+}
+
+export interface SourceDiscoveryPage {
+  query: string;
+  candidates: SourceDiscoveryCandidate[];
+  page: number;
+  limit: number;
+  has_more: boolean;
+}
 
 export interface RatingArticle {
   url: string;

@@ -142,9 +142,16 @@ git clone git@github.com:BarryTheShen/Elpis.git
 cd Elpis
 cp config.example.yaml config.yaml
 cp .env.example .env
+# Edit .env before starting; Compose refuses blank auth/session secrets.
+# Use a password of at least 12 characters and:
+#   openssl rand -hex 32
 docker compose up -d --build
-# Open http://localhost:8899
+# Open http://localhost:8899 (Compose binds to localhost only).
 ```
+
+For a public deployment, terminate TLS in a reverse proxy, set
+`CONDENSEIT_HTTPS_ONLY=1`, and proxy to the localhost-bound container. Do not
+publish port `8899` directly to the network.
 
 Set `ELPIS_IMAGE` and `ELPIS_IMAGE_TAG` only when publishing Elpis to an
 operator-controlled registry. See [docs/docker-image.md](docs/docker-image.md)
