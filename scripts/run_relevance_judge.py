@@ -8,7 +8,7 @@ or unreachable endpoints fail loudly instead of being treated as relevance.
 Usage:
     PYTHONPATH=src .venv/bin/python scripts/run_relevance_judge.py
     PYTHONPATH=src .venv/bin/python scripts/run_relevance_judge.py \
-        --base-url http://192.168.110.26:8000/v1 \
+        --base-url http://localhost:8000/v1 \
         --model qwen3.6-35b-a3b-int8 \
         --output /tmp/elpis-relevance-judge.json
 
@@ -34,7 +34,7 @@ import httpx
 from condenseit.learning.relevance import evaluate_relevance
 
 ROOT = Path(__file__).resolve().parents[1]
-DEFAULT_BASE_URL = "http://192.168.110.26:8000/v1"
+DEFAULT_BASE_URL = "http://localhost:8000/v1"
 DEFAULT_TIMEOUT = 180.0
 _LABELS = frozenset({"relevant", "not_relevant"})
 _FENCED_JSON_RE = re.compile(r"```(?:json)?\s*(.*?)\s*```", re.IGNORECASE | re.DOTALL)

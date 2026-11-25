@@ -397,7 +397,7 @@ as an explicit manual experiment; it is never part of the normal test run:
 
 ```bash
 PYTHONPATH=src .venv/bin/python scripts/run_relevance_judge.py \
-  --base-url http://192.168.110.26:8000/v1 \
+  --base-url http://localhost:8000/v1 \
   --model qwen3.6-35b-a3b-int8 \
   --output /tmp/elpis-relevance-judge.json
 ```
